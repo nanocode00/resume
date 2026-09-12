@@ -11,12 +11,12 @@
 
 ## Summary
 
-- **HummingBlocks 제품화**: 시각장애인 대상 AI 코딩교육 앱의 Android 개발과 CV 후처리, 출시·운영을 담당. Galaxy S9+에서 TFLite 전환 시 처리 시간을 **9.1s → 5.4s(-40.7%)**로 줄였지만 인식 정확도가 **90% → 57%(-33%p)**로 하락해 제품 특성상 더 느린 기존 Chaquopy/Python 경로를 유지했습니다. 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**를 기록하고 있습니다.
+- **HummingBlocks 제품화**: 시각장애인 대상 AI 코딩교육 앱의 Android 개발과 CV 후처리, 출시·운영을 담당. Galaxy S9+에서 TFLite 전환 시 처리 시간을 **9.1s → 5.4s(-40.7%)**로 줄였지만 인식 정확도가 **90% → 57%(-33%p)**로 하락해 제품 특성상 더 느린 기존 Chaquopy/Python 경로를 유지했습니다. 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**, 2026년 5월 사업계획서 기준 제품 후속 누적 **키트 1,830개 판매·교육기관 200곳**을 기록했습니다.
 - **CNN Accelerator HW/SW 검증**: 3인 팀에서 기존 공개 CNN RTL을 PyTorch Quantization 결과와 정합하고 synthesis-friendly RTL로 수정. ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인하고 OpenROAD ASAP7 synthesis와 physical design final stage까지 진행했습니다. Netlist 정상 파형 확보와 timing closure는 완료하지 못했습니다.
-- **Mallo Voice AI 통합**: 3인 팀 Team Lead / Product & Integration으로 PRD/TRD, Order Engine, Senior-first UI, TTS 파인튜닝과 STT/NLU 추가 학습·검증, runtime/deployment를 연결했습니다. Production MeloTTS는 **mean 0.38s / p95 0.53s / RTF 0.0894**, real STT+NLU와 MockTTS 기반 50-turn isolated E2E는 **p95 312.2ms**를 기록했습니다.
+- **Mallo Voice AI 통합**: 3인 팀 Team Lead / Product & Integration으로 PRD/TRD, Order Engine, Senior-first UI, TTS 파인튜닝과 STT/NLU 추가 학습·검증, runtime/deployment를 연결했습니다. 동일 20문장 GPU 비교에서 **Melo Base 198.5ms, Melo Friendly 204.1ms, Qwen Base 6.91s, Qwen Friendly 28.20s**를 측정해 MeloTTS Friendly를 선택했고, 최종 production TTS는 **mean 0.38s / p95 0.53s / RTF 0.0894**를 기록했습니다.
 - **수상**: 2019 과학기술정보통신부장관상·산업통상자원부장관상, 2021 부총리 겸 교육부장관상, 2022 전국 장애·비장애 대학생 창업경진대회 대상, 2024 임베디드 SW 경진대회 webOS 부문 입선.
 
-> HummingBlocks의 9.1s/5.4s 및 90%/57%는 당시 측정값을 이후 경험기술서에 기록한 수치입니다. Git에는 전환 구현과 timing 계측 코드는 남아 있지만 원본 benchmark spreadsheet는 현재 재탐색 중입니다.
+> HummingBlocks의 9.1s/5.4s 및 90%/57%는 당시 측정값을 이후 경험기술서에 기록한 수치입니다. Git에는 TFLite 전환 구현과 timing 계측 코드는 남아 있으나 원본 benchmark spreadsheet는 현재 저장소/Drive 검색에서 아직 확인하지 못했습니다. 1,830개 판매와 200개 교육기관은 제품의 2026년 후속 누적 실적이며, 개인 개발 기간의 직접 판매 실적으로 표현하지 않습니다.
 
 ## Experience
 
@@ -40,7 +40,7 @@
 - **상황**: 실물 코딩 블록을 촬영하면 AI가 블록 종류와 배치를 인식하고 음악 실행 규칙으로 변환하는 교육 제품을 개발했습니다.
 - **문제**: Android에서 Python 기반 CV runtime의 평균 처리 시간이 Galaxy S9+ 기준 **9.1초**로 길었습니다.
 - **판단**: Python bridge를 제거하고 TFLite를 Java에서 직접 실행하면 지연을 줄일 수 있다고 보고 별도 branch에서 실제 전환을 구현했습니다.
-- **조치**: Chaquopy/Python 경로를 제거하고 TFLite Interpreter, NNAPI/GPU/CPU fallback, Java confidence filtering·NMS·좌표 정렬/그룹화 후처리까지 이식했습니다.
+- **조치**: Chaquopy/Python 경로를 제거하고 TFLite Interpreter, NNAPI/GPU/CPU fallback, Java confidence filtering·NMS·좌표 정렬/그룹화 후처리까지 이식했습니다. 이후 416×416 입력의 crop/scale/border 계산도 다시 조정하며 전처리를 보정했습니다.
 - **결과**: 평균 처리 시간은 **5.4초로 약 40.7% 단축**됐지만 정확도가 **90% → 57%, 33%p 하락**했습니다. 블록을 잘못 읽으면 음악 실행 자체가 달라지는 제품 특성을 고려해 TFLite 전환을 철회하고 기존 runtime을 유지했습니다.
 
 추가 결과:
@@ -48,7 +48,8 @@
 - 검출 결과를 블록 순서·반복·방향·BPM 등 음악 실행 규칙으로 변환하고 정상 실행이 어려운 **22가지 예외 상황** 처리
 - Google Play 출시 후 2.x 버전까지 데이터 migration, MP3/MP4 export, TalkBack·촬영 접근성 기능 등을 지속 개선
 - 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**
-- 무료 Android 앱 + 유료 블록 키트 형태로 제품 운영. **키트 누적 판매 수량은 증빙 확인 후 추가 예정**
+- 무료 Android 앱 + 유료 블록 키트 형태로 제품 운영
+- 2026년 5월 회사 사업계획서 기준 제품 후속 누적 **키트 1,830개 판매, 교육기관 200곳**
 - 전국 장애·비장애 대학생 창업경진대회 대상
 
 Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblocks  
@@ -75,10 +76,10 @@ Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblock
 **Whisper / Qwen / MeloTTS / QLoRA / FastAPI / Vercel / Cloudflare**
 
 - **상황**: 화면 탐색과 옵션 선택에 익숙하지 않은 사용자가 음성과 화면을 함께 사용해 주문을 끝까지 완료할 수 있는 voice-first kiosk를 개발했습니다.
-- **문제**: STT/NLU/TTS를 각각 개선해도 model latency, dependency 충돌, 주문 상태의 안정성, 복잡한 UI가 동시에 제품 경험을 제한했습니다.
-- **판단**: AI 출력과 주문 상태 변경을 분리해 deterministic Order Engine을 두고, 모델은 독립 resident sidecar로 운영하며 정확도뿐 아니라 실제 latency와 사용 흐름을 함께 기준으로 선택했습니다.
-- **조치**: PRD/TRD와 공통 command contract, Order Engine, Senior-first UI를 구성하고 AI Hub 친절 발화로 MeloTTS를 fine-tuning했습니다. 프로젝트 후반에는 Whisper Medium QLoRA 후보 sweep과 Qwen3-1.7B QLoRA 3-epoch 학습도 직접 수행했으며, Gateway/STT/NLU/TTS를 `8000/8001/8002/8003` sidecar 구조로 통합했습니다.
-- **결과**: MeloTTS production benchmark **mean 0.38s / p95 0.53s / RTF 0.0894**를 기록했고, Vercel frontend + Cloudflare Tunnel + local FastAPI runtime으로 배포했습니다. Real STT+NLU와 MockTTS 기반 50-turn isolated E2E는 **p95 312.2ms**였고 latency breakdown에서 STT를 주 bottleneck으로 확인했습니다. 2026년 8월 기능 동결과 repository cleanup까지 마치고 프로젝트를 종료했습니다.
+- **문제**: STT/NLU/TTS를 각각 개선해도 model latency, dependency 충돌, 주문 상태의 안정성, 복잡한 UI가 동시에 제품 경험을 제한했습니다. TTS 후보도 품질과 생성 시간이 크게 달랐습니다.
+- **판단**: AI 출력과 주문 상태 변경을 분리해 deterministic Order Engine을 두고, 모델은 독립 resident sidecar로 운영하며 정확도뿐 아니라 실제 latency와 사용 흐름을 함께 기준으로 선택했습니다. TTS는 고령 사용자 친화적 억양을 확보하면서 interactive latency를 만족하는 모델을 우선했습니다.
+- **조치**: PRD/TRD와 공통 command contract, Order Engine, Senior-first UI를 구성하고 AI Hub 친절 발화로 MeloTTS를 fine-tuning했습니다. 동일 20문장 GPU benchmark에서 **Melo Base 0.1985s / Melo Friendly 0.2041s / Qwen Base 6.9075s / Qwen Friendly 28.1953s**를 비교해 MeloTTS Friendly를 선택했습니다. 프로젝트 후반에는 Whisper Medium QLoRA 후보 sweep과 Qwen3-1.7B QLoRA 3-epoch 학습도 직접 수행했으며, Gateway/STT/NLU/TTS를 `8000/8001/8002/8003` sidecar 구조로 통합했습니다.
+- **결과**: Fine-tuned MeloTTS는 baseline보다 평균 생성 시간이 약 **5.6ms(+2.8%)** 늘었지만 친절체 억양을 얻으면서 0.2초 수준의 interactive latency를 유지했습니다. 이후 `G_2800` production checkpoint 기준 benchmark는 **mean 0.38s / p95 0.53s / RTF 0.0894**였습니다. Vercel frontend + Cloudflare Tunnel + local FastAPI runtime으로 배포했고, real STT+NLU와 MockTTS 기반 50-turn isolated E2E는 **p95 312.2ms**로 STT를 주 bottleneck으로 확인했습니다. 2026년 8월 기능 동결과 repository cleanup까지 마치고 프로젝트를 종료했습니다.
 
 상세: [experiences/mallo.md](experiences/mallo.md)
 
@@ -127,7 +128,7 @@ Binance BTCUSDT tick 데이터를 50-trade sequence로 구성해 4-layer Mamba�
 - **2022.02.10** 제1회 전국 장애·비장애 대학생 창업경진대회 대상
 - **2021.11.13** 제6회 글로벌 이노베이터 페스타 메이커톤 KT 트랙 대상 — 부총리 겸 교육부장관
 - **2019.12.13** 국제로봇콘테스트 WCRC micro:bit 창작 대학일반 부문 금상 — 산업통상자원부장관
-- **2019.11.14** 대한민국 마이스터대전 WCRC micro:bit 창작 대학일반 부문 1위(금상) — 과학기술정보통신부장관
+- **2019.11.14** 대한민국 마이스터대전 WCRC 2차본선 micro:bit 창작 대학일반 부문 1위(금상) — 과학기술정보통신부장관
 
 ## Training
 
