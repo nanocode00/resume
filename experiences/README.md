@@ -17,6 +17,7 @@
 
 | 경험 | 핵심 키워드 | 활용하기 좋은 문항 |
 |---|---|---|
+| [Mallo](mallo.md) | Voice AI, TTS, 팀장, 접근성, 서비스 통합 | 최근 프로젝트, 리딩, AI 직무, 사용자 경험 |
 | [HummingBlocks](hummingblocks.md) | Android, CV, 제품 출시, 사용자 경험, 문제 해결 | 대표 프로젝트, 어려움 극복, 직무 역량, 협업 |
 | [CNN Accelerator](cnn-accelerator.md) | PyTorch, Verilog, 검증, OpenROAD | 기술 역량, 디버깅, HW/SW 융합 |
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
@@ -25,6 +26,8 @@
 | [Paperware](paperware.md) | micro:bit, PCB, 메이커, 사용성 | 창의성, 개선, HW 제작 |
 | [Crypto LOB Prediction](crypto-lob-prediction.md) | CNN, Mamba, 시계열, 백테스트 | AI, 데이터, 실패/검증 경험 |
 | [HCI Stock Service](hci-stock-service.md) | HCI, SQLite, 정보 구조 | 사용자 관점, DB 설계, 서비스 기획 |
+| [Computer Vision](computer-vision.md) | 영상처리, Canny, Hough, RANSAC | CV 기본기, 이미징 직무, 학습 경험 |
+| [Career Timeline](career-timeline.md) | 학습/활동 연대기 | 성장 과정, 경험 발굴, 면접 준비 |
 
 ## 작성 원칙
 
