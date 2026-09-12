@@ -12,6 +12,7 @@
 ## Core Strengths
 
 - **제품까지 완성하는 개발 경험**: HummingBlocks를 프로토타입에서 Google Play 출시와 실제 판매까지 연결
+- **AI 기능을 서비스로 연결하는 경험**: Mallo에서 STT/NLU/TTS 파이프라인과 접근성 중심 UI를 함께 검증
 - **원인을 좁혀가는 디버깅**: 앱, AI 추론, Verilog CPU, RTL/Netlist 검증 과정에서 실행 흐름과 중간 결과를 비교하며 문제 해결
 - **HW/SW 연결 경험**: Raspberry Pi, Arduino, micro:bit, Verilog, OpenROAD 등 소프트웨어와 하드웨어 경계를 넘나드는 프로젝트 수행
 - **사용 목적 중심의 기술 선택**: 최신 기술 자체보다 정확도, 지연, 사용성, 구현 비용을 비교해 제품 목적에 맞는 방식을 선택
@@ -31,6 +32,21 @@
 > 의료 AI 기업에서 수행한 현장실습이지만 담당 업무는 의료영상이 아닌 사내 업무관리 플랫폼입니다.
 
 ## Projects
+
+### Mallo — Voice-first Kiosk
+
+**Voice AI / Whisper / Local LLM / MeloTTS / Qwen3-TTS / FastAPI**
+
+고령 사용자를 주요 대상으로 음성으로 주문을 보조하는 키오스크 프로젝트입니다. 팀장으로 참여해 TTS 파인튜닝, AI 모델 비교, 경쟁사 분석, UI 개선 방향 수립을 담당했습니다.
+
+- Mic → VAD → STT → NLU → Validator → Order Engine → Adaptive TTS → TTS 파이프라인 구성
+- AI Hub 친절체 데이터를 활용한 MeloTTS, Qwen3-TTS 파인튜닝
+- 모델별 생성 시간과 표현력을 비교하고 서비스 적용 관점에서 검토
+- Voice Overlay, 다시 듣기, 천천히 듣기, 직원 호출 등 접근성 UI 개선
+- STT/NLU/TTS sidecar 분리와 health check 기반 런타임 구성
+- 직접 녹음한 발화와 TTS checkpoint 비교를 통해 모델 결과 검증
+
+상세: [experiences/mallo.md](experiences/mallo.md)
 
 ### HummingBlocks — 시각장애인 코딩교육 앱
 
@@ -124,6 +140,8 @@ PyTorch 양자화부터 Verilog 구현과 검증, 합성 이후 정확도와 PPA
 - Gaussian filter, Canny, separable filter, Manhattan distance transform, Chamfer Matching, Hough Transform, RANSAC 직접 실습
 - 같은 알고리즘도 촬영 조건과 파라미터에 따라 결과가 달라짐을 확인하고 원본, 중간 처리 결과, 최종 결과를 함께 비교하는 습관을 형성
 
+상세: [experiences/computer-vision.md](experiences/computer-vision.md)
+
 ## Additional Making Experience
 
 - Arduino 센서와 액추에이터 제어
@@ -132,6 +150,8 @@ PyTorch 양자화부터 Verilog 구현과 검증, 합성 이후 정확도와 PPA
 - Arduino 드론 제작 및 코딩
 - micro:bit 기반 드론 제작 시도
 - Arduino 기반 스마트 쓰레기통 프로젝트
+
+전체 흐름: [experiences/career-timeline.md](experiences/career-timeline.md)
 
 ## Awards
 
