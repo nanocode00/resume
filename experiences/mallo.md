@@ -2,7 +2,7 @@
 
 ## 한 줄 요약
 
-고령 사용자의 키오스크 주문 부담을 줄이기 위해 만든 3인 팀 음성 주문 서비스입니다. 팀장으로서 PRD/TRD와 공통 인터페이스를 정리하고 Order Engine, Senior-first UI, TTS 파인튜닝, 실제 STT/NLU/TTS 통합, 런타임·배포, 최종 E2E 검증까지 제품 전체 흐름을 연결했습니다.
+고령 사용자의 키오스크 주문 부담을 줄이기 위해 만든 3인 팀 음성 주문 서비스입니다. 팀장으로서 PRD/TRD와 공통 인터페이스를 정리하고 Order Engine, Senior-first UI, TTS 파인튜닝, STT/NLU 추가 튜닝 실험, 실제 STT/NLU/TTS 통합, 런타임·배포, 최종 E2E 검증까지 제품 전체 흐름을 연결했습니다.
 
 ## 기간 및 프로젝트 상태
 
@@ -12,13 +12,22 @@
 - 현재 상태: **프로젝트 종료 및 동결**
 - 3인 팀 프로젝트
 
-최종 README 기준 역할은 다음과 같습니다.
+최종 README 기준 공식 역할은 다음과 같습니다.
 
 - 김재훈: **Team Lead / Product & Integration**
 - 이규헌: STT Lead
 - 이승훈: NLU Lead
 
-따라서 STT·NLU 모델 학습 전체를 개인 기여로 주장하지 않습니다. 직접 기여의 중심은 **제품 기획과 인터페이스 설계, Order Engine, TTS 실험·파인튜닝, Senior-first UI, 모델 선택과 통합, runtime/deployment, 최종 검증**입니다.
+공식 분담상 STT와 NLU의 주 담당자는 별도로 있었으므로 두 모델의 전체 학습 파이프라인을 개인 기여로 주장하지 않습니다. 다만 프로젝트 후반 통합과 성능 개선 과정에서 팀장으로서 두 영역의 실험에도 직접 참여했습니다.
+
+대화 및 실험 기록으로 확인되는 직접 수행 범위는 다음과 같습니다.
+
+- Whisper Medium QLoRA continuation smoke 및 adapter 변화 검증
+- STT 후보 sweep과 benchmark 실행, Train65 계열 후보 선정과 merged BF16 production 전환
+- Qwen3-1.7B QLoRA NLU fine-tuning 3 epochs / 450 steps 실행과 validation checkpoint 선정
+- 최종 STT/NLU artifact를 runtime에 연결하고 latency 관점에서 비교
+
+따라서 직접 기여의 중심은 **제품 기획과 인터페이스 설계, Order Engine, TTS 실험·파인튜닝, STT/NLU 보조 파인튜닝과 모델 검증, Senior-first UI, 모델 선택과 통합, runtime/deployment, 최종 검증**입니다.
 
 ## 문제 정의
 
@@ -101,26 +110,56 @@ TTS는 직접 담당한 핵심 AI 영역입니다.
 
 Fine-tuning 결과가 모든 문장에서 baseline보다 좋아졌다고 과장하지 않습니다. 실제 listening 과정에서는 자연스러움, 억양, 음색 변화와 일부 발음 안정성 trade-off를 함께 확인했고, baseline과 checkpoint를 직접 비교할 수 있는 showcase를 남겼습니다.
 
-## 4. STT/NLU/TTS를 accuracy가 아니라 제품 latency로 비교
+## 4. STT/NLU 튜닝에도 직접 참여
 
-팀 전체 모델을 통합하면서 모델 선택 기준을 정확도 하나로 두지 않았습니다.
+공식 역할표에서는 STT Lead와 NLU Lead가 따로 있었지만, 프로젝트 후반에는 통합 병목을 해결하기 위해 두 모델의 학습·평가 일부도 직접 수행했습니다.
 
-### STT
+### STT — Whisper Medium QLoRA 실험과 Train65 production 전환
 
-최종 정량 문서에서 `openai/whisper-medium` baseline은 다음 결과를 기록했습니다.
+저장소에는 Whisper Medium을 대상으로 4-bit NF4 QLoRA, speaker-level split, BF16 비교, merged model 생성, 도메인 추가 학습까지 이어지는 실험 파이프라인이 남아 있습니다.
+
+개인 작업 기록에서는 다음 작업을 직접 수행했습니다.
+
+- **Whisper Medium QLoRA Train65 continuation smoke**
+  - clean 16건 + cafe 16건, 총 32건
+  - cafe SNR 15 / 10 / 5 dB 조건 검증
+  - 1 step, batch 8 학습
+  - adapter tensor **288 / 288 변경 확인**으로 실제 update 검증
+- cafe mixing SNR 15 / 10 / 5 dB 계약 직접 검증
+- Train65, cafe-adapt, golden500 HPF, kiosk-test, speaker-split, fast-exp 등 누적 STT artifact를 정리하고 후보 sweep 수행
+- 전체 STT benchmark 실행 후 Train65 계열과 cafe-adapt 후보 비교
+- 최종적으로 **Train65 merged BF16을 production 기본 runtime으로 전환**
+- baseline / QLoRA rollback 경로는 유지하고 production inference에서 PEFT runtime 의존성을 제거
+- unit test와 CUDA BF16 merged model load를 확인한 뒤 runtime에 연결
+
+후반 후보 sweep 기록에서 Train65 `lr=2e-5, ep=2`는 clean CER **0.135667**, cafe5 CER **0.205689**로 가장 안정적인 우선 후보였고, cafe-adapt는 cafe15 CER **0.150802**로 특정 노이즈 조건에서 근소하게 우세했습니다.
+
+이 실험은 프로젝트의 STT 전체 개발을 혼자 담당했다는 의미가 아니라, **STT Lead가 구축한 학습 자산을 인수해 추가 학습, 후보 정리, 재평가, production artifact 선정까지 직접 수행한 경험**으로 정리합니다.
+
+최종 정량 문서에서 별도로 기록된 `openai/whisper-medium` baseline 결과는 다음과 같습니다.
 
 - CER: **0.0546**
 - WER: **0.1626**
 - median latency: **385.57 ms**
 - p95 latency: **424.15 ms**
 
-QLoRA fine-tuned candidate는 CER/WER가 소폭 개선되거나 비슷했지만 inference가 baseline보다 약 **35~115배 느린 결과**가 나왔습니다. 따라서 정확도 개선보다 kiosk 응답성을 우선해 baseline 계열을 유지하는 판단을 했습니다.
+후속 fine-tuned candidate 중에는 정확도 개선에 비해 inference가 baseline보다 약 **35~115배 느린 경우**도 있었습니다. 따라서 최종 제품에서는 accuracy만으로 모델을 결정하지 않고 kiosk 응답성과 deployment cost를 함께 고려했습니다.
 
-STT fine-tuning 자체는 STT Lead의 담당 영역이며, 여기서의 직접 역할은 **후보 결과를 제품 latency 관점에서 비교하고 최종 runtime에 연결하는 통합 의사결정**입니다.
+### NLU — Qwen3-1.7B QLoRA 직접 학습
 
-### NLU
+NLU 역시 전체 데이터셋 구축과 모델 개발의 주 담당자는 NLU Lead였지만, 통합 직전 모델 성능을 직접 확인하기 위해 별도 fine-tuning run을 수행했습니다.
 
-최종 NLU benchmark에는 다음 결과가 남아 있습니다.
+직접 실행한 Qwen3-1.7B QLoRA 학습 기록은 다음과 같습니다.
+
+- **3 epochs / 450 steps** 학습 완료
+- validation 기준 best checkpoint: **step 350**
+- Exact Match: **91.67%**
+- Intent Accuracy: **96.54%**
+- Slot Accuracy: **96.10%**
+- Schema Valid: **98.33%**
+- final adapter, training manifest, validation 결과 artifact 생성
+
+이후 production runtime에서는 더 작은 Qwen3-0.6B 계열이 사용됐으며, 최종 NLU benchmark에는 다음 결과가 남아 있습니다.
 
 - source benchmark: **198 / 198 exact match**
 - legacy batch: **1000 / 1000**
@@ -128,7 +167,7 @@ STT fine-tuning 자체는 STT Lead의 담당 영역이며, 여기서의 직접 �
 - source benchmark mean latency: **0.153 s**
 - median latency: **0.035 s**
 
-NLU 모델 학습은 NLU Lead가 중심이었지만, 프로젝트 후반에는 Qwen3-0.6B candidate의 service integration, artifact contract 검증, latency 최적화와 전체 voice pipeline 연결에도 참여했습니다.
+따라서 NLU 경험은 **전체 NLU 파트의 소유권**이 아니라, Qwen3 QLoRA를 직접 학습하고 checkpoint 성능을 검증한 뒤 최종 service integration과 latency 최적화까지 참여한 경험으로 표현합니다.
 
 ## 5. Senior-first UI/UX로 방향 전환
 
@@ -240,9 +279,9 @@ cleanup audit에서 당시 WSL workspace 약 **213.83 GB**, checkpoint/output �
 
 raw dataset, intermediate checkpoints, cache, 실험 산출물은 runtime repository와 분리해 프로젝트를 동결했습니다.
 
-## Git으로 확인되는 직접 작업 흐름
+## Git과 작업 기록으로 확인되는 직접 작업 흐름
 
-주요 PR 흐름을 보면 역할이 다음처럼 확장되었습니다.
+주요 PR과 실험 기록을 보면 역할이 다음처럼 확장되었습니다.
 
 ### 초기: 제품/아키텍처
 
@@ -262,11 +301,14 @@ raw dataset, intermediate checkpoints, cache, 실험 산출물은 runtime reposi
 - mic input / audio input 통합
 - one-shot voice payment
 
-### 후반: 실제 모델과 배포
+### 후반: STT/NLU 추가 실험과 실제 모델 통합
 
+- Whisper Medium QLoRA continuation smoke
+- STT artifact sweep / benchmark / Train65 merged BF16 선정
+- Qwen3-1.7B QLoRA 3-epoch NLU 학습과 checkpoint 검증
 - real STT service integration
 - real TTS playback
-- NLU model/service integration 지원
+- Qwen NLU service integration
 - voice pipeline E2E
 - runtime launcher
 - Vercel static deployment
@@ -282,6 +324,8 @@ raw dataset, intermediate checkpoints, cache, 실험 산출물은 runtime reposi
 - 3인 팀의 음성 주문 제품을 기획 단계부터 실제 모델 통합·배포까지 연결
 - deterministic Order Engine과 AI adapter를 분리해 모델 교체 가능한 구조 구성
 - MeloTTS fine-tuning `G_2800` checkpoint 생성 및 production sidecar 적용
+- Whisper Medium QLoRA smoke/sweep를 직접 수행하고 Train65 merged BF16 production artifact 선정·전환
+- Qwen3-1.7B QLoRA를 3 epochs / 450 steps 직접 학습하고 best checkpoint step 350 검증
 - production TTS mean **0.38 s**, p95 **0.53 s**, RTF **0.0894** 측정
 - STT/NLU/TTS resident sidecar와 통합 launcher 구성
 - Vercel + Cloudflare Tunnel + local FastAPI hybrid deployment
@@ -292,25 +336,29 @@ raw dataset, intermediate checkpoints, cache, 실험 산출물은 runtime reposi
 ## 이력서용 핵심 bullet
 
 - 3인 팀 팀장으로 **PRD/TRD와 STT·NLU·TTS 공통 contract를 정의하고 Order Engine, Senior-first UI, 실제 AI adapter를 연결해 음성 주문 E2E 제품 구현**
-- AI Hub 친절 발화 데이터를 전처리해 **MeloTTS 2,800-step fine-tuning(`G_2800`)**을 수행하고 baseline/fine-tuned listening showcase와 Adaptive TTS 속도 단계를 구축
-- STT·NLU·TTS 후보를 정확도와 latency 기준으로 비교하고 **Gateway 8000 + STT 8001 + NLU 8002 + TTS 8003 sidecar 구조와 health/warm-up launcher**로 production runtime 통합
+- AI Hub 친절 발화 데이터로 **MeloTTS 2,800-step fine-tuning(`G_2800`)**을 수행하고, 추가로 **Whisper Medium QLoRA 후보 sweep과 Qwen3-1.7B QLoRA 3-epoch 학습**을 직접 수행해 모델별 accuracy/latency 특성을 비교
+- STT 후보를 재평가해 **Train65 merged BF16 production artifact**로 전환하고, **Gateway 8000 + STT 8001 + NLU 8002 + TTS 8003 sidecar 구조와 health/warm-up launcher**로 runtime 통합
 - **Vercel frontend + Cloudflare Tunnel + local FastAPI** hybrid deployment를 구성하고, real STT/NLU 기반 50-turn isolated E2E에서 **p95 312.2 ms**를 측정해 bottleneck을 STT 단계로 분해
 
 ## 면접/자소서에서 강조할 문제 해결 경험
 
-### 1. 정확도가 좋아도 느리면 제품에 쓰지 않은 선택
+### 1. 담당 경계를 넘어서 병목 모델을 직접 재검증
 
-STT fine-tuned candidate가 일부 accuracy 지표에서 개선됐지만 inference가 35~115배 느려지는 결과를 확인했습니다. 모델 성능 하나보다 kiosk의 응답 시간을 우선해 더 빠른 baseline을 선택했습니다.
+통합 막바지에는 팀원별 공식 담당만 기다리지 않고 STT와 NLU 학습 자산을 직접 가져와 smoke, sweep, 추가 fine-tuning과 benchmark를 수행했습니다. 기존 담당자의 작업을 대체하기보다 제품 통합에 필요한 후보를 직접 검증하고 production artifact로 연결한 경험입니다.
 
-### 2. NLU만 고치려다 UI 문제를 함께 발견한 pivot
+### 2. 정확도가 좋아도 느리면 제품에 쓰지 않은 선택
+
+STT fine-tuned candidate가 일부 accuracy 지표에서 개선됐지만 inference가 35~115배 느려지는 결과도 확인했습니다. 모델 성능 하나보다 kiosk의 응답 시간을 우선해 빠른 후보를 선택했습니다.
+
+### 3. NLU만 고치려다 UI 문제를 함께 발견한 pivot
 
 초기에는 음성 명령 인식 성능과 latency를 주로 개선했지만, 통합 과정에서 화면 자체가 복잡하면 senior 사용성이 해결되지 않는다는 문제를 확인했습니다. 모델 최적화와 동시에 Senior-first UI를 다시 설계했습니다.
 
-### 3. 모델마다 dependency가 달라 발생한 runtime 문제
+### 4. 모델마다 dependency가 달라 발생한 runtime 문제
 
 STT/TTS와 NLU의 dependency가 충돌하고 모델을 매 요청마다 로드하면 latency가 커지는 문제를 sidecar와 별도 venv로 분리했습니다. 각 모델을 resident process로 유지하고 launcher에서 readiness와 warm-up을 검사하도록 구성했습니다.
 
-### 4. 실험 결과를 제품 지표로 다시 측정
+### 5. 실험 결과를 제품 지표로 다시 측정
 
 개별 모델 benchmark만 보는 대신 voice pipeline을 실제 조합으로 측정했습니다. 50-turn latency breakdown으로 STT가 주 bottleneck임을 확인하고 이후 최적화 우선순위를 조정했습니다.
 
@@ -321,6 +369,8 @@ STT/TTS와 NLU의 dependency가 충돌하고 모델을 매 요청마다 로드�
 - 3인 팀 Team Lead / Product & Integration 역할
 - PRD/TRD, Order Engine, common contract, UI/UX, integration/deployment 직접 기여
 - TTS dataset/preprocessing/fine-tuning과 `G_2800`
+- Whisper Medium QLoRA continuation smoke, 후보 sweep, Train65 production 전환 직접 수행
+- Qwen3-1.7B QLoRA 3 epochs / 450 steps 직접 학습과 checkpoint 평가
 - production TTS latency 수치
 - sidecar/launcher/Vercel/Cloudflare runtime 구조
 - final E2E latency 측정과 bottleneck 분석
@@ -328,8 +378,9 @@ STT/TTS와 NLU의 dependency가 충돌하고 모델을 매 요청마다 로드�
 
 개인 기여로 과장하지 않을 내용:
 
-- STT fine-tuning 전체를 직접 수행했다고 주장
-- NLU training 전체를 직접 수행했다고 주장
+- STT 데이터 파이프라인과 모든 fine-tuning 실험을 처음부터 끝까지 혼자 담당했다고 주장
+- NLU 데이터셋 구축과 전체 training pipeline을 혼자 담당했다고 주장
+- 최종 production Qwen3-0.6B 모델 전체 학습을 개인 성과로 주장
 - 50-turn p95 312.2 ms에 실제 TTS synthesis까지 포함됐다고 주장
 - 사용자 평가 13명이 모두 고령자였다고 주장
 - fine-tuned TTS가 모든 발화에서 baseline보다 우수했다고 주장
@@ -340,6 +391,7 @@ STT/TTS와 NLU의 dependency가 충돌하고 모델을 매 요청마다 로드�
 - AI product architecture
 - Voice AI(STT/NLU/TTS) integration
 - TTS fine-tuning 및 inference benchmark
+- Whisper QLoRA / Qwen QLoRA 실험 및 checkpoint 검증
 - deterministic domain logic / Order Engine
 - 접근성 중심 UI/UX
 - FastAPI / sidecar / process orchestration
@@ -350,6 +402,7 @@ STT/TTS와 NLU의 dependency가 충돌하고 모델을 매 요청마다 로드�
 ## 자소서 활용 포인트
 
 - 팀장으로 여러 AI 모델 파트를 하나의 제품으로 연결한 경험
+- 담당 영역 밖의 STT/NLU 모델까지 직접 재학습·검증해 통합 병목을 해소한 경험
 - 모델 accuracy와 실제 latency 사이에서 기술 선택을 한 경험
 - 초기 방향을 고집하지 않고 사용자 문제를 보고 UI까지 pivot한 경험
 - AI model과 deterministic business logic을 분리한 설계 경험
