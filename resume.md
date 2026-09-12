@@ -1,6 +1,6 @@
 # 김재훈 — Resume
 
-> 모바일 앱과 컴퓨터비전 기반 제품에서 시작해 임베디드/IoT, HW/EDA, AI/데이터까지 연결해 온 메이커형 SW/HW 융합 개발자
+> Android/CV 제품 출시와 운영, Verilog/OpenROAD HW 검증, STT/NLU/TTS 모델 실험과 배포까지 경험한 SW/HW 융합 개발자
 
 ## Profile
 
@@ -9,149 +9,117 @@
 - 관심 분야: Software, Computer Vision, Embedded/IoT, AI, HW/SW Co-design
 - GitHub: https://github.com/nanocode00
 
-## Core Strengths
+## Summary
 
-- **제품까지 완성하는 개발 경험**: HummingBlocks를 프로토타입에서 Google Play 출시와 실제 판매까지 연결
-- **AI 기능을 서비스로 연결하는 경험**: Mallo에서 STT/NLU/TTS 파이프라인과 접근성 중심 UI를 함께 검증
-- **원인을 좁혀가는 디버깅**: 앱, AI 추론, Verilog CPU, RTL/Netlist 검증 과정에서 실행 흐름과 중간 결과를 비교하며 문제 해결
-- **HW/SW 연결 경험**: Raspberry Pi, Arduino, micro:bit, Verilog, OpenROAD 등 소프트웨어와 하드웨어 경계를 넘나드는 프로젝트 수행
-- **사용 목적 중심의 기술 선택**: 최신 기술 자체보다 정확도, 지연, 사용성, 구현 비용을 비교해 제품 목적에 맞는 방식을 선택
+- **HummingBlocks 제품화**: 시각장애인 대상 AI 코딩교육 앱의 Android 개발과 CV 후처리, 출시·운영을 담당. Galaxy S9+에서 TFLite 전환 시 처리 시간을 **9.1s → 5.4s(-40.7%)**로 줄였지만 인식 정확도가 **90% → 57%(-33%p)**로 하락해 제품 특성상 더 느린 기존 Chaquopy/Python 경로를 유지했습니다. 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**를 기록하고 있습니다.
+- **CNN Accelerator HW/SW 검증**: 3인 팀에서 기존 공개 CNN RTL을 PyTorch Quantization 결과와 정합하고 synthesis-friendly RTL로 수정. ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인하고 OpenROAD ASAP7 synthesis와 physical design final stage까지 진행했습니다. Netlist 정상 파형 확보와 timing closure는 완료하지 못했습니다.
+- **Mallo Voice AI 통합**: 3인 팀 Team Lead / Product & Integration으로 PRD/TRD, Order Engine, Senior-first UI, TTS 파인튜닝과 STT/NLU 추가 학습·검증, runtime/deployment를 연결했습니다. Production MeloTTS는 **mean 0.38s / p95 0.53s / RTF 0.0894**, real STT+NLU와 MockTTS 기반 50-turn isolated E2E는 **p95 312.2ms**를 기록했습니다.
+- **수상**: 2019 과학기술정보통신부장관상·산업통상자원부장관상, 2021 부총리 겸 교육부장관상, 2022 전국 장애·비장애 대학생 창업경진대회 대상, 2024 임베디드 SW 경진대회 webOS 부문 입선.
+
+> HummingBlocks의 9.1s/5.4s 및 90%/57%는 당시 측정값을 이후 경험기술서에 기록한 수치입니다. Git에는 전환 구현과 timing 계측 코드는 남아 있지만 원본 benchmark spreadsheet는 현재 재탐색 중입니다.
 
 ## Experience
 
 ### Beamworks — 현장실습
 
-사내 업무관리 플랫폼의 요구사항 분석과 데이터 설계에 참여했습니다.
+**2026.01 · 4주 · 사내 업무관리 플랫폼 요구사항/데이터 설계**
 
-- Figma 화면을 바탕으로 입력값, 조회값, 저장값을 구분해 기능 요구사항 분석
-- Jira의 Epic, Story, Task 단위로 업무 구조화
-- ERD와 DB 테이블 설계
-- SQL과 DTO 작성
-- 화면 요구사항을 데이터 구조와 실제 개발 단위로 변환하는 과정을 경험
+- Figma 화면에서 입력·조회·저장 값을 분리해 요구사항을 분석하고 Jira Epic/Story/Task로 개발 단위를 구조화
+- ERD와 DB 테이블, SQL, DTO를 작성하며 화면 요구사항을 데이터 구조와 구현 단위로 변환
+- 의료 AI 기업에서 수행한 인턴십이지만 담당 업무는 의료영상이 아닌 사내 업무관리 플랫폼
 
-> 의료 AI 기업에서 수행한 현장실습이지만 담당 업무는 의료영상이 아닌 사내 업무관리 플랫폼입니다.
+상세: [experiences/beamworks.md](experiences/beamworks.md)
 
-## Projects
+## Main Projects
 
-### Mallo — Voice-first Kiosk
+### HummingBlocks — 시각장애인 코딩교육 앱/키트
 
-**Voice AI / Whisper / Local LLM / MeloTTS / Qwen3-TTS / FastAPI**
+**2022.03 ~ 2023.10 주요 제품 개발, 출시 후 유지보수 지속 · 네모감성 창업팀 · Android/CV Integration 담당**  
+**Android / Java / Python / YOLO / Chaquopy / TensorFlow Lite / OpenCV / FFmpeg**
 
-고령 사용자를 주요 대상으로 음성으로 주문을 보조하는 키오스크 프로젝트입니다. 팀장으로 참여해 TTS 파인튜닝, AI 모델 비교, 경쟁사 분석, UI 개선 방향 수립을 담당했습니다.
+- **상황**: 실물 코딩 블록을 촬영하면 AI가 블록 종류와 배치를 인식하고 음악 실행 규칙으로 변환하는 교육 제품을 개발했습니다.
+- **문제**: Android에서 Python 기반 CV runtime의 평균 처리 시간이 Galaxy S9+ 기준 **9.1초**로 길었습니다.
+- **판단**: Python bridge를 제거하고 TFLite를 Java에서 직접 실행하면 지연을 줄일 수 있다고 보고 별도 branch에서 실제 전환을 구현했습니다.
+- **조치**: Chaquopy/Python 경로를 제거하고 TFLite Interpreter, NNAPI/GPU/CPU fallback, Java confidence filtering·NMS·좌표 정렬/그룹화 후처리까지 이식했습니다.
+- **결과**: 평균 처리 시간은 **5.4초로 약 40.7% 단축**됐지만 정확도가 **90% → 57%, 33%p 하락**했습니다. 블록을 잘못 읽으면 음악 실행 자체가 달라지는 제품 특성을 고려해 TFLite 전환을 철회하고 기존 runtime을 유지했습니다.
 
-- Mic → VAD → STT → NLU → Validator → Order Engine → Adaptive TTS → TTS 파이프라인 구성
-- AI Hub 친절체 데이터를 활용한 MeloTTS, Qwen3-TTS 파인튜닝
-- 모델별 생성 시간과 표현력을 비교하고 서비스 적용 관점에서 검토
-- Voice Overlay, 다시 듣기, 천천히 듣기, 직원 호출 등 접근성 UI 개선
-- STT/NLU/TTS sidecar 분리와 health check 기반 런타임 구성
-- 직접 녹음한 발화와 TTS checkpoint 비교를 통해 모델 결과 검증
+추가 결과:
 
-상세: [experiences/mallo.md](experiences/mallo.md)
-
-### HummingBlocks — 시각장애인 코딩교육 앱
-
-**Android / Java / Python / PyTorch / YOLO / Chaquopy / TFLite**
-
-실물 코딩 블록을 촬영하면 AI가 블록의 종류와 배치를 인식하고 음악으로 실행하는 접근성 기반 코딩교육 제품입니다.
-
-- 약 1년 7개월 동안 Android 앱 학습, 프로토타입, 기능 개선, 출시와 운영까지 수행
-- YOLO 검출 결과의 좌표를 분석해 블록 순서, 반복, 방향, 템포 등 음악 실행 규칙으로 변환
-- 정상 실행이 어려운 예외 상황 22가지를 정리하고 사용자 안내 메시지 구현
-- 모바일 추론 지연 개선을 위해 TFLite + Java 방식을 시험했으나 정확도 저하를 확인
-- 제품 특성상 속도보다 정확한 블록 인식이 중요하다고 판단해 PyTorch + Chaquopy 방식을 유지
-- 실제 사용 환경의 조명 문제와 기기별 화면 비율 문제를 발견하고 데이터 및 UI 개선에 반영
-- Google Play 출시, 무료 앱과 유료 블록 키트 형태로 운영 및 판매
+- 검출 결과를 블록 순서·반복·방향·BPM 등 음악 실행 규칙으로 변환하고 정상 실행이 어려운 **22가지 예외 상황** 처리
+- Google Play 출시 후 2.x 버전까지 데이터 migration, MP3/MP4 export, TalkBack·촬영 접근성 기능 등을 지속 개선
+- 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**
+- 무료 Android 앱 + 유료 블록 키트 형태로 제품 운영. **키트 누적 판매 수량은 증빙 확인 후 추가 예정**
 - 전국 장애·비장애 대학생 창업경진대회 대상
 
+Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblocks  
 상세: [experiences/hummingblocks.md](experiences/hummingblocks.md)
 
-### CNN Accelerator — AI 모델의 HW 이식 및 검증
+### CNN Accelerator — PyTorch Quantization에서 OpenROAD까지
 
+**2025.06 · 3인 팀 · Quantization/HW reference, synthesis-oriented RTL 수정, ModelSim/OpenROAD 검증**  
 **PyTorch / Verilog / ModelSim / OpenROAD / ASAP7**
 
-PyTorch 양자화부터 Verilog 구현과 검증, 합성 이후 정확도와 PPA 평가까지 하나의 파이프라인으로 수행했습니다.
+- **상황**: 기존 공개 2-layer MNIST CNN RTL을 기준으로 SW 모델의 정수 표현부터 ASIC flow까지 연결하는 논리회로설계 기말 프로젝트를 진행했습니다.
+- **문제**: PyTorch quantized tensor와 RTL의 fixed-point 표현을 맞춰야 했고, simulation용 RTL 일부는 그대로는 synthesis하기 어려웠습니다.
+- **판단**: 최종 class만 비교하지 않고 layer 출력과 channel별 MAC 결과를 SW reference로 저장해 불일치 시작 지점을 좁히고, fixed parameter wiring은 synthesis-friendly 정적 연결로 바꾸기로 했습니다.
+- **조치**: `int_repr()`와 scale을 이용해 weight/bias와 중간 출력을 HW용 정수/hex 데이터로 변환하고, Conv/FC의 procedural unpacking을 `generate` + continuous `assign` 구조로 리팩터링했습니다. RTL 저장소를 Git submodule로 OpenROAD Flow Scripts의 ASAP7 design source에 연결했습니다.
+- **결과**: ModelSim에서 **MNIST 1,000장 RTL accuracy 96%**를 확인했고 synthesized Verilog와 physical design final output까지 생성했습니다. 다만 gate-level simulation에서는 올바른 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, final timing도 **VIOLATED** 상태로 timing closure는 달성하지 못했습니다.
 
-- 5×5 커널 기반 2단 CNN의 weight, bias, 레이어별 출력을 정수화해 HW 입력 형식으로 변환
-- SW와 HW의 레이어 출력 및 MAC 단위 연산을 비교해 오차 원인 추적
-- RTL 합성 후 `tb_compare`에서 RTL과 Netlist 결과 비교
-- MNIST 1,000장 단위로 기능 및 정확도 유지 여부 검증
+> 최종 PPA/TOPS/W 값과 post-synthesis accuracy는 확보하지 못했으므로 성과 수치로 사용하지 않습니다.
 
 상세: [experiences/cnn-accelerator.md](experiences/cnn-accelerator.md)
 
-### Single-cycle CPU — CP0 예외 처리를 포함한 Verilog CPU
+### Mallo — Senior-Friendly Voice Ordering Kiosk
 
-**Verilog / Digital Logic / Computer Architecture**
+**2026.06 ~ 2026.08 · 3인 팀 · Team Lead / Product & Integration**  
+**Whisper / Qwen / MeloTTS / QLoRA / FastAPI / Vercel / Cloudflare**
 
-- MIPS 형태의 단일 사이클 CPU 구현
-- Control, ALU, Register File, Memory, Immediate Extender, CP0 구성
-- syscall 발생 시 EPC 저장 → 예외 루틴 분기 → ERET 복귀 흐름 구현
-- ALU 입력, Decoder 제어값, RegDst, ZeroExtend, EPC 저장 시점과 PC 흐름을 파형 기반으로 디버깅
+- **상황**: 화면 탐색과 옵션 선택에 익숙하지 않은 사용자가 음성과 화면을 함께 사용해 주문을 끝까지 완료할 수 있는 voice-first kiosk를 개발했습니다.
+- **문제**: STT/NLU/TTS를 각각 개선해도 model latency, dependency 충돌, 주문 상태의 안정성, 복잡한 UI가 동시에 제품 경험을 제한했습니다.
+- **판단**: AI 출력과 주문 상태 변경을 분리해 deterministic Order Engine을 두고, 모델은 독립 resident sidecar로 운영하며 정확도뿐 아니라 실제 latency와 사용 흐름을 함께 기준으로 선택했습니다.
+- **조치**: PRD/TRD와 공통 command contract, Order Engine, Senior-first UI를 구성하고 AI Hub 친절 발화로 MeloTTS를 fine-tuning했습니다. 프로젝트 후반에는 Whisper Medium QLoRA 후보 sweep과 Qwen3-1.7B QLoRA 3-epoch 학습도 직접 수행했으며, Gateway/STT/NLU/TTS를 `8000/8001/8002/8003` sidecar 구조로 통합했습니다.
+- **결과**: MeloTTS production benchmark **mean 0.38s / p95 0.53s / RTF 0.0894**를 기록했고, Vercel frontend + Cloudflare Tunnel + local FastAPI runtime으로 배포했습니다. Real STT+NLU와 MockTTS 기반 50-turn isolated E2E는 **p95 312.2ms**였고 latency breakdown에서 STT를 주 bottleneck으로 확인했습니다. 2026년 8월 기능 동결과 repository cleanup까지 마치고 프로젝트를 종료했습니다.
 
+상세: [experiences/mallo.md](experiences/mallo.md)
+
+## Additional Projects
+
+### Verilog Single-cycle CPU
+
+**2025.05 · 개인 RTL 구현/검증 · Verilog / ModelSim**  
+기존 Logisim MIPS 구조를 분석해 32-bit Single-cycle CPU를 Verilog로 재구현하고 Decoder, ALU, Register File, Memory, CP0, Syscall을 통합했습니다. Syscall은 `$v0/$a0` 기반 Hex/Halt 흐름으로, CP0는 **외부 `ExpSrc` exception → EPC 저장 → 0x800 → ERET 복귀**로 분리해 구현하고 모듈별 testbench/waveform으로 검증했습니다.  
 상세: [experiences/verilog-cpu.md](experiences/verilog-cpu.md)
 
-### webOS Smart Planter — LG 산학 연계 종합설계
+### webOS Smart Planter
 
-**Raspberry Pi / webOS OSE / Arduino / React / AWS**
-
-- 센서와 액추에이터를 연결한 Arduino 기반 하드웨어 제어
-- Raspberry Pi와 장치 사이의 데이터 연결
-- React UI 일부 구현
-- 센서 이름, 단위, 전송 주기와 제어 기준 등 팀 간 데이터 규격 조정
-- 2024 임베디드 소프트웨어 경진대회 webOS 부문 입선
-
+**2024.03 ~ 2024.07 · 5인 팀 · Arduino/I2C firmware 및 webOS HW integration**  
+Arduino I2C slave firmware와 10-byte 센서 protocol을 구현하고 webOS Peripheral Manager Luna API로 실제 센서값, NeoPixel, pump 제어를 JS Service에 연결했습니다. 개발 중반 Uno R3에서 검증한 뒤 최종형을 Nano로 이식했으며, **2024 임베디드 SW 경진대회 webOS 부문 입선**을 수상했습니다.  
 상세: [experiences/webos-smart-planter.md](experiences/webos-smart-planter.md)
 
-### Paperware — micro:bit 교육용 메이커 키트
+### Crypto Microstructure Prediction — MAMBA Trading
 
-**micro:bit / PCB Design / Prototyping**
-
-- 카드보드와 구리박 테이프로 회로를 만드는 교육용 메이커 키트 개발
-- 기존 네오픽셀 모듈의 납땜 필요성을 사용성 문제로 정의
-- 카드보드에 바로 연결할 수 있도록 접점을 넓힌 커스텀 PCB 모듈 설계 및 시제품 제작
-
-상세: [experiences/paperware.md](experiences/paperware.md)
-
-### Crypto LOB Prediction
-
-**Python / Deep Learning / CNN / Mamba / Time-series**
-
-- 거래소 호가와 체결 데이터를 수집하고 전처리
-- CNN과 Mamba를 결합한 시계열 분류 모델 실험
-- 5초와 15초 뒤 가격 방향 예측
-- 분류 정확도뿐 아니라 거래 수수료를 반영한 백테스트로 실제 활용 가능성 검토
-
+**2025.10 ~ 2025.12 · 모델 개발 4인 · MAMBA 담당 · Python / Mamba / Time-series**  
+Binance BTCUSDT tick 데이터를 50-trade sequence로 구성해 4-layer Mamba로 5초 뒤 방향을 예측했습니다. 무수수료 backtest는 **+23.26%**였지만 Spot 0.1%/side 수수료를 적용하면 약 **-99.18%**로 붕괴해, high-turnover 전략에서는 분류 성능보다 transaction cost와 trade edge가 중요하다는 점을 확인했습니다.  
 상세: [experiences/crypto-lob-prediction.md](experiences/crypto-lob-prediction.md)
+
+### Paperware
+
+**HummingBlocks 이전 네모감성 메이커 프로젝트 · micro:bit / PCB Design**  
+카드보드와 구리박 테이프 기반 교육 키트에서 납땜이 필요한 NeoPixel 모듈을 문제로 보고, 넓은 접점으로 바로 연결할 수 있는 커스텀 PCB를 설계해 시제품과 카드보드 무드등에 적용했습니다.  
+상세: [experiences/paperware.md](experiences/paperware.md)
 
 ### HCI Stock Information Service
 
-**Web / SQLite / Database Design / HCI**
-
-- 한국 증권사 리포트를 기반으로 목표가, 투자의견, 정확도를 정리하는 서비스 기획
-- 초보 투자자의 정보 탐색 흐름을 고려해 화면과 기능 설계
-- CSV 데이터를 SQLite에 저장하고 3정규형 구조로 설계
-
+**대학 4학년 HCI 프로젝트 · Web / SQLite / Database Design**  
+증권사 리포트의 목표가·투자의견·과거 정확도를 초보 투자자가 탐색할 수 있도록 정보 구조와 화면 흐름을 설계하고 CSV 데이터를 SQLite 3정규형 구조로 구성했습니다.  
 상세: [experiences/hci-stock-service.md](experiences/hci-stock-service.md)
 
-## Computer Vision
+## Computer Vision Coursework
 
-- 디지털 이미지와 노이즈, convolution/filtering, gradient와 edge detection
-- binary image analysis, segmentation, clustering, feature matching
-- image warping/stitching, object recognition
-- Gaussian filter, Canny, separable filter, Manhattan distance transform, Chamfer Matching, Hough Transform, RANSAC 직접 실습
-- 같은 알고리즘도 촬영 조건과 파라미터에 따라 결과가 달라짐을 확인하고 원본, 중간 처리 결과, 최종 결과를 함께 비교하는 습관을 형성
+- Gaussian filter, Canny, separable filter, Manhattan distance transform, Chamfer Matching, Hough Transform, RANSAC 등을 직접 구현·실습
+- 촬영 조건과 parameter 변화에 따라 결과가 달라지는 문제를 원본·중간 처리 결과·최종 결과로 분리해 비교
 
 상세: [experiences/computer-vision.md](experiences/computer-vision.md)
-
-## Additional Making Experience
-
-- Arduino 센서와 액추에이터 제어
-- 브레드보드 Arduino 제작 및 PCB 설계 자습
-- Raspberry Pi Linux 환경과 CCTV 프로젝트
-- Arduino 드론 제작 및 코딩
-- micro:bit 기반 드론 제작 시도
-- Arduino 기반 스마트 쓰레기통 프로젝트
-
-전체 흐름: [experiences/career-timeline.md](experiences/career-timeline.md)
 
 ## Awards
 
@@ -159,7 +127,7 @@ PyTorch 양자화부터 Verilog 구현과 검증, 합성 이후 정확도와 PPA
 - **2022.02.10** 제1회 전국 장애·비장애 대학생 창업경진대회 대상
 - **2021.11.13** 제6회 글로벌 이노베이터 페스타 메이커톤 KT 트랙 대상 — 부총리 겸 교육부장관
 - **2019.12.13** 국제로봇콘테스트 WCRC micro:bit 창작 대학일반 부문 금상 — 산업통상자원부장관
-- **2019.11.14** 대한민국 마이스터대전 WCRC 2차본선 micro:bit 창작 대학일반 부문 1위(금상) — 과학기술정보통신부장관
+- **2019.11.14** 대한민국 마이스터대전 WCRC micro:bit 창작 대학일반 부문 1위(금상) — 과학기술정보통신부장관
 
 ## Training
 
@@ -167,4 +135,4 @@ PyTorch 양자화부터 Verilog 구현과 검증, 합성 이후 정확도와 PPA
 
 ---
 
-이 문서는 모든 경험을 보존하는 마스터 이력서입니다. 실제 지원 시에는 직무와 공고에 맞춰 관련 경험만 남기고 1~2페이지 수준으로 압축합니다.
+이 문서는 경험을 보존하는 마스터 이력서이면서, 상단과 주력 프로젝트는 채용 담당자가 핵심 근거를 빠르게 확인할 수 있도록 구성합니다. 세부 구현과 source provenance는 `experiences/` 문서에서 관리하고, 실제 지원 시에는 공고에 맞춰 1~2페이지로 압축합니다.
