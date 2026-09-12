@@ -58,20 +58,29 @@ Raspberry Pi 4의 webOS OSE와 Arduino를 I2C로 연결하고, 실제 센서 수
 - 수위 센서: A1
 - 토양 수분 입력: A2
 
-### Arduino 보드 모델에 대한 자료 차이
+### Arduino Uno → Nano 전환
 
-공개 README의 Hardware Setup은 **Arduino Nano**를 적고 있지만, 2024년 7월 별도 하드웨어 정리 문서는 **Arduino Uno R3**를 실제 업로드 대상으로 기록합니다.
+개발 중반까지는 **Arduino Uno R3**를 사용해 I2C 통신과 센서·액추에이터 제어를 개발하고 검증했습니다. 이후 최종 하드웨어 형태를 구성하면서 **Arduino Nano로 교체**했습니다.
 
-firmware의 핵심 인터페이스는 일반 Arduino I2C/ADC/GPIO이므로 프로젝트 설명에서는 특정 보드 모델보다 **Arduino ↔ Raspberry Pi I2C 연동**에 초점을 둡니다. 이력서에서 보드 모델을 굳이 써야 한다면 자료 간 차이가 있다는 점을 확인한 뒤 사용합니다.
+하드웨어 정리 문서에도 이 두 단계가 함께 남아 있습니다.
+
+- 초기/개발 단계: Uno R3의 SDA/SCL, pin 2/3/4, A0/A1/A2 배선 기록
+- 최종 형태: Nano의 SDA/SCL, pin 2/3/4, A0/A1/A2에 동일 기능을 대응한 배선 기록
+- 공개 README의 최종 Hardware Setup도 Arduino Nano를 기준으로 설명
+
+즉 Uno와 Nano 기록은 서로 충돌하는 자료가 아니라 **개발 보드에서 최종 소형 보드로 교체된 과정**으로 이해하는 것이 정확합니다. 이력서에서는 보통 `Arduino`로 간결하게 쓰고, 하드웨어 개발 과정을 설명할 때는 `Uno에서 기능을 검증한 뒤 최종형에서 Nano로 교체`했다고 설명할 수 있습니다.
 
 ### 토양 수분 센서 검증 범위
 
-firmware와 공개 README에는 A2의 토양 수분 센서 입력이 포함되어 있습니다. 그러나 2024년 7월 하드웨어 정리 문서에는 당시 토양 수분 센서를 아직 보유하지 못해 **A2를 GND에 연결해 사용했다**고 기록되어 있습니다.
+firmware와 공개 README에는 A2의 토양 수분 센서 입력이 포함되어 있습니다. 다만 하드웨어 정리 문서의 Uno 사용 단계에는 당시 토양 수분 센서를 아직 보유하지 못해 **A2를 GND에 연결해 사용했다**는 기록이 있습니다.
+
+최종 Nano 배선 문서에는 A2에 토양 수분 센서를 연결하는 구성이 적혀 있지만, 현재 보관 자료만으로 실제 최종형에서 토양 수분 센서까지 end-to-end 측정한 결과는 별도로 확인되지 않습니다.
 
 따라서 다음을 구분합니다.
 
 - 토양 수분 입력을 포함한 firmware/protocol 구현: 확인 가능
-- 당시 보관된 하드웨어 구성에서 실제 토양 수분 센서를 연결해 end-to-end 검증: 확인 불가
+- 최종 Nano 하드웨어의 토양 수분 센서 배선 설계: 확인 가능
+- 실제 토양 수분 측정 결과까지 포함한 end-to-end 검증 완료: 현재 자료만으로는 단정하지 않음
 
 이력서나 면접에서는 DHT11, 조도, 수위 센서의 실제 연동과 NeoPixel/Pump actuator 제어를 중심으로 설명하는 것이 안전합니다.
 
@@ -201,10 +210,17 @@ React 기반 webOS WebApp이 JS Service와 Luna bus API로 통신합니다.
 - NeoPixel 및 Water Pump 실제 제어 연결
 - 하드웨어 연동 오류 수정 후 `Fix: HW 완성` 커밋
 
+### 최종 하드웨어 정리
+
+- 개발 중반까지 Arduino Uno R3로 기능 개발·검증
+- 최종 하드웨어 구성에서 Arduino Nano로 교체
+- 기존 I2C/ADC/GPIO 핀 기능을 Nano에 동일하게 이식
+
 ## 결과
 
 - Raspberry Pi 4 + webOS OSE 기반 실제 동작 시스템 구현
 - Arduino와 I2C를 통한 센서/액추에이터 양방향 제어
+- Uno 기반 개발 환경에서 최종 Nano 기반 하드웨어 형태로 전환
 - WebSocket 기반 원격 제어 구조 연결
 - 2024 제22회 임베디드 소프트웨어 경진대회 webOS 부문 입선
 
@@ -212,6 +228,7 @@ React 기반 webOS WebApp이 JS Service와 Luna bus API로 통신합니다.
 
 - Raspberry Pi 4의 webOS OSE와 Arduino를 I2C로 연결하고 **센서 데이터 packet과 NeoPixel/Water Pump 제어 command를 정의해 양방향 HW 인터페이스 구현**
 - webOS Peripheral Manager I2C API를 적용해 **dummy sensor data를 실제 DHT11·조도·수위 센서 입력으로 교체**하고 서비스 자동제어 로직을 실제 actuator 동작까지 연결
+- 개발 단계의 Arduino Uno R3 환경에서 기능을 검증한 뒤 **최종 하드웨어를 Arduino Nano로 이식**해 동일 I2C/ADC/GPIO 인터페이스 유지
 - Node.js WebSocket을 webOS JS Service에 연결해 **로컬 HW 제어 흐름을 외부 서버의 원격 상태 조회·제어 구조와 통합**
 - Arduino firmware와 webOS service를 함께 수정하며 **HW/SW interface mismatch를 end-to-end로 디버깅**
 
@@ -225,6 +242,7 @@ Git과 추가 하드웨어 자료로 직접 확인되는 강한 근거는 다음
 - DHT11 / 조도 / 수위 실제 하드웨어 구성
 - NeoPixel / Water Pump actuator 연결
 - pump transistor/diode 회로
+- Uno 기반 개발 단계와 Nano 기반 최종 하드웨어 구성
 - WebSocket module 연결
 
 반면 다음 내용은 개인 구현으로 과장하지 않습니다.
@@ -235,8 +253,6 @@ Git과 추가 하드웨어 자료로 직접 확인되는 강한 근거는 다음
 - 초기 기획의 얼굴 인식 / 게이미피케이션을 최종 구현 기능으로 단정
 - 토양 수분 센서의 실제 end-to-end 검증 완료
 
-보드 모델도 README와 하드웨어 정리 자료가 서로 다르므로, 이력서에서는 `Arduino`로 표현하는 것이 가장 안전합니다.
-
 ## 보여주는 역량
 
 - Embedded/IoT 시스템 통합
@@ -246,6 +262,7 @@ Git과 추가 하드웨어 자료로 직접 확인되는 강한 근거는 다음
 - Luna Service / Peripheral Manager API 활용
 - 센서 데이터 parsing
 - actuator 제어와 transistor 기반 pump 구동
+- 개발용 보드에서 최종 하드웨어 보드로의 이식
 - WebSocket 통신
 - HW와 서비스 로직 사이 인터페이스 설계
 - 실제 장치까지 이어지는 end-to-end 디버깅
@@ -256,5 +273,6 @@ Git과 추가 하드웨어 자료로 직접 확인되는 강한 근거는 다음
 - 임베디드 시스템 통합 경험
 - 통신 인터페이스를 직접 정의하고 연결한 경험
 - dummy data를 실제 센서/actuator로 전환한 경험
+- 개발 보드에서 최종 하드웨어 형태로 옮긴 경험
 - 서로 다른 팀 파트의 interface를 맞춘 협업 경험
 - SW 로직이 실제 물리 장치 동작으로 이어지는 시스템을 완성한 경험
