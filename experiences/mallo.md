@@ -1,409 +1,337 @@
 # Mallo — Senior-Friendly Voice Ordering Kiosk
 
-## 한 줄 요약
+## 채용용 경험 요약
 
-고령 사용자의 키오스크 주문 부담을 줄이기 위해 만든 3인 팀 음성 주문 서비스입니다. 팀장으로서 PRD/TRD와 공통 인터페이스를 정리하고 Order Engine, Senior-first UI, TTS 파인튜닝, STT/NLU 추가 튜닝 실험, 실제 STT/NLU/TTS 통합, 런타임·배포, 최종 E2E 검증까지 제품 전체 흐름을 연결했습니다.
-
-## 기간 및 프로젝트 상태
+고령 사용자의 키오스크 주문 부담을 줄이기 위해 만든 3인 팀 음성 주문 서비스입니다. Team Lead / Product & Integration으로 PRD/TRD와 공통 contract, deterministic Order Engine, Senior-first UI, TTS fine-tuning, STT/NLU 추가 튜닝, multi-model runtime과 배포까지 제품 전체 흐름을 연결했습니다.
 
 - 기간: **2026.06 ~ 2026.08**
-- 2026-08-28: 기능 동결(feature freeze)
-- 2026-08-30: 최종 merge/정리 단계 완료
-- 현재 상태: **프로젝트 종료 및 동결**
-- 3인 팀 프로젝트
+- 팀 규모: **3인**
+- 역할: **Team Lead / Product & Integration**
+- 공식 파트 분담: 김재훈 Product/Integration, 이규헌 STT Lead, 이승훈 NLU Lead
+- 프로젝트 상태: 2026-08-28 feature freeze, 2026-08-30 최종 정리 후 종료/동결
+- 기술: Whisper, Qwen, MeloTTS, QLoRA, FastAPI, Python sidecar, Vercel, Cloudflare Tunnel
 
-최종 README 기준 공식 역할은 다음과 같습니다.
+공식 STT/NLU Lead는 별도로 있었으므로 각 파트 전체를 개인 기여로 주장하지 않습니다. 다만 프로젝트 후반 통합 병목을 해결하기 위해 Whisper/Qwen 학습 자산을 직접 인수해 추가 fine-tuning, candidate sweep, checkpoint 평가와 production 연결을 수행했습니다.
 
-- 김재훈: **Team Lead / Product & Integration**
-- 이규헌: STT Lead
-- 이승훈: NLU Lead
+### 상황 → 문제 → 판단 → 조치 → 결과
 
-공식 분담상 STT와 NLU의 주 담당자는 별도로 있었으므로 두 모델의 전체 학습 파이프라인을 개인 기여로 주장하지 않습니다. 다만 프로젝트 후반 통합과 성능 개선 과정에서 팀장으로서 두 영역의 실험에도 직접 참여했습니다.
+**상황**  
+음성으로 메뉴 추가·수정·삭제·확인·결제를 진행하고, 다시 듣기·천천히 듣기·직원 호출을 함께 제공하는 senior-friendly voice-first kiosk를 3인 팀으로 개발했습니다.
 
-대화 및 실험 기록으로 확인되는 직접 수행 범위는 다음과 같습니다.
+**문제**  
+STT/NLU/TTS 정확도만 높여서는 제품이 완성되지 않았습니다. TTS 후보마다 생성시간이 수십 배 차이 났고, MeloTTS와 Qwen NLU는 `transformers` dependency가 충돌했으며, LLM이 주문 상태를 직접 변경하게 하면 Cart 계산/검증을 안정적으로 보장하기 어려웠습니다. 통합 과정에서는 화면 구조 자체도 고령 사용자의 부담으로 남았습니다.
 
-- Whisper Medium QLoRA continuation smoke 및 adapter 변화 검증
-- STT 후보 sweep과 benchmark 실행, Train65 계열 후보 선정과 merged BF16 production 전환
-- Qwen3-1.7B QLoRA NLU fine-tuning 3 epochs / 450 steps 실행과 validation checkpoint 선정
-- 최종 STT/NLU artifact를 runtime에 연결하고 latency 관점에서 비교
+**판단**  
+1. 주문 상태는 LLM이 아니라 **deterministic Order Engine을 SSOT**로 관리한다.
+2. 모델은 정확도 하나가 아니라 **latency + 품질 + deployment cost**를 함께 보고 선택한다.
+3. dependency가 다른 STT/NLU/TTS는 **resident sidecar + separate venv**로 분리한다.
+4. 음성 모델과 UI를 별개 문제로 보고 **Senior-first UI**도 함께 수정한다.
 
-따라서 직접 기여의 중심은 **제품 기획과 인터페이스 설계, Order Engine, TTS 실험·파인튜닝, STT/NLU 보조 파인튜닝과 모델 검증, Senior-first UI, 모델 선택과 통합, runtime/deployment, 최종 검증**입니다.
+**조치**  
+PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정의하고 Mock E2E를 먼저 구성했습니다. `54131e8` 커밋에서 직접 `REMOVE_ITEM`, `UPDATE_QUANTITY`, `UPDATE_OPTION`, `QUERY_CART`, `CONFIRM_ORDER`, `CANCEL`을 deterministic Order Engine에 구현했습니다. AI Hub 친절체 데이터로 MeloTTS를 fine-tuning하고 Qwen3-TTS와 동일 20문장 benchmark를 수행했습니다. 프로젝트 후반에는 Whisper Medium QLoRA candidate sweep과 Qwen3-1.7B QLoRA 3-epoch 학습도 직접 수행했습니다. 최종 runtime은 Gateway/STT/NLU/TTS를 `8000/8001/8002/8003` resident process로 분리하고 health/warm-up launcher로 관리했습니다.
 
-## 문제 정의
+**결과**  
+동일 20문장 GPU benchmark에서 **Melo Base 198.5ms / Melo Friendly 204.1ms / Qwen Base 6.91s / Qwen Friendly 28.20s**를 측정해 **MeloTTS Friendly를 최종 선택**했습니다. Fine-tuning으로 평균 지연은 약 **5.6ms(+2.8%)** 늘었지만 0.2초 수준의 interactive latency를 유지하면서 친절체 억양을 적용했습니다. 이후 `G_2800` production TTS benchmark는 **mean 0.38s / p95 0.53s / RTF 0.0894**였습니다. Vercel + Cloudflare Tunnel + local FastAPI로 배포했고 real STT+NLU + MockTTS 50-turn isolated E2E에서 **p95 312.2ms**를 측정해 STT가 주 latency bottleneck임을 확인했습니다.
 
-Mallo는 음성 기능을 하나 더 붙인 키오스크가 아니라, 화면 탐색과 옵션 선택이 익숙하지 않은 사용자가 주문을 끝까지 완료할 수 있도록 **voice-first이되 voice-only는 아닌 주문 경험**을 만드는 것을 목표로 했습니다.
+## 핵심 수치
 
-주요 방향은 다음과 같습니다.
+| 항목 | 결과 | 의미 |
+|---|---:|---|
+| 팀 규모 | 3인 | Team Lead / Product & Integration |
+| MeloTTS Baseline, 20문장 GPU | **198.5ms mean, RTF 0.0403** | 빠르지만 어조 단조 |
+| MeloTTS Friendly `G_2000`, 20문장 GPU | **204.1ms mean, RTF 0.0485** | 최종 모델 후보로 선정 |
+| Qwen3-TTS Baseline, 20문장 GPU | **6.9075s mean** | interactive serving에 느림 |
+| Qwen3-TTS Friendly, 20문장 GPU | **28.1953s mean** | fine-tuned tone 후보, latency 과다 |
+| Production MeloTTS `G_2800` | **mean 0.38s / p95 0.53s / RTF 0.0894** | 최종 runtime 별도 benchmark |
+| NLU source benchmark | **198/198 exact match** | final NLU evaluation |
+| NLU legacy batch | **1000/1000** | schema parse error 0 |
+| isolated 50-turn E2E | **p50 253.9ms / p95 312.2ms** | real STT + real NLU + MockTTS |
+| 사용자 평가 | **n=13, 만족 응답 92.3%** | 참가자 전원이 고령자는 아님 |
 
-- 음성으로 메뉴 추가·수량 변경·삭제·장바구니 확인·결제 진행
-- 화면과 음성을 함께 사용해 현재 주문 상태를 계속 확인 가능
-- 다시 듣기, 천천히 듣기, 직원 호출 등 접근성 기능 제공
-- 잘못 인식되거나 애매한 명령은 Validator/Order Engine에서 방어
-- AI 모델의 출력이 바로 UI 상태를 변경하지 않고 공통 command schema를 거치도록 구성
+## 1. 공통 contract와 Mock E2E부터 구성
 
-## 최종 시스템 구조
+실제 모델이 완성될 때까지 기다리지 않고 STT/NLU/TTS adapter와 Mock implementation을 공통 interface에 맞춰 먼저 연결했습니다.
 
-최종 runtime의 핵심 흐름은 다음과 같습니다.
+핵심 contract:
 
-`Mic / Tap-to-talk → STT → NLU → Validator → Order Engine → Response Policy / Adaptive TTS → TTS → Web UI`
-
-서비스 프로세스는 분리해 상주시켰습니다.
-
-- Gateway / FastAPI: `127.0.0.1:8000`
-- STT sidecar: `127.0.0.1:8001`
-- NLU sidecar: `127.0.0.1:8002`
-- TTS sidecar: `127.0.0.1:8003`
-
-통합 launcher가 각 sidecar를 시작하고 `/health` readiness 확인, 실제 inference warm-up, gateway 시작 순서를 관리합니다. 모델마다 필요한 Python dependency가 달라 runtime과 NLU virtual environment도 분리했습니다.
-
-## 1. 기획과 공통 계약부터 시작
-
-프로젝트 초반에는 PRD와 TRD를 먼저 작성하고 STT/NLU/TTS를 독립적으로 개발해도 마지막에 연결할 수 있도록 공통 contract를 정리했습니다.
-
-- 음성 입력과 STT result contract
-- NLU command schema
+- audio/STT result
+- NLU `OrderCommand`
 - Validator의 허용/거부 규칙
-- Cart와 Order Engine state
-- TTS request/response interface
-- Mock adapter를 이용한 E2E skeleton
+- Cart / Order Engine state
+- ErrorResponse
+- TTS request/response
 
-초기 단계에서 실제 모델을 모두 기다리지 않고 Mock STT/NLU/TTS로 주문 흐름을 먼저 연결해, 각 모델 담당자가 동일한 인터페이스에 맞춰 교체할 수 있도록 했습니다.
+이 구조 덕분에 각 파트가 독립적으로 모델을 바꿔도 전체 주문 flow는 유지할 수 있었습니다.
 
-## 2. Order Engine과 deterministic ordering flow
+## 2. LLM과 주문 상태를 분리한 deterministic Order Engine
 
-AI가 생성한 문장을 그대로 주문 상태에 반영하지 않고, 구조화된 command를 deterministic Order Engine에 전달했습니다.
+`54131e860...`은 `nanocode00`이 직접 작성한 Order Engine 확장 커밋입니다.
 
-직접 작업한 주요 주문 연산에는 다음이 포함됩니다.
+구현 Intent:
 
-- 메뉴 추가
 - `REMOVE_ITEM`
-- `CHANGE_QTY`
-- `CLEAR_CART`
-- 장바구니 조회 및 review
-- fulfillment/payment flow
+- `UPDATE_QUANTITY`
+- `UPDATE_OPTION`
+- `QUERY_CART`
+- `CONFIRM_ORDER`
+- `CANCEL`
 
-이 구조 덕분에 NLU 모델이 바뀌어도 Cart state와 주문 규칙은 AI 모델 밖에서 일관되게 유지할 수 있었습니다.
+해당 spec의 핵심 판단은 **LLM에게 Cart 변경을 직접 맡기면 수량 누락·계산 착오 같은 비결정적 오류가 발생할 수 있으므로, Order Engine이 SSOT로 상태를 검증·변경해야 한다**는 것입니다.
 
-## 3. TTS 후보 비교와 파인튜닝
+Edge case에서는 잘못된 수량, 지원하지 않는 옵션, 존재하지 않는 item, 빈 Cart confirm 등을 거부하고 기존 Cart를 보호했습니다.
 
-TTS는 직접 담당한 핵심 AI 영역입니다.
+## 3. TTS 모델 비교와 fine-tuning
 
-초기에는 MeloTTS와 Qwen 계열 TTS 후보의 한국어 품질, latency, 실행 환경을 비교하고 공통 adapter를 만들었습니다. 이후 AI Hub의 친절한 발화 데이터를 중심으로 dataset 전처리와 학습 pipeline을 구성해 MeloTTS를 fine-tuning했습니다.
+### 초기 baseline 비교
 
-주요 흐름은 다음과 같습니다.
+20개 카페 주문 문장을 CPU 환경에서 동일하게 합성한 초기 benchmark:
 
-1. TTS candidate 조사 및 latency/quality benchmark
-2. AI Hub 친절체 dataset 정리와 전처리
-3. 학습용 metadata/audio 검증
-4. MeloTTS fine-tuning 실행
-5. **2,800 step의 `G_2800.pth` checkpoint 생성**
-6. baseline과 fine-tuned checkpoint listening comparison
-7. 말하기 속도 Level 0/1/2 showcase 구성
-8. 최종 production TTS sidecar에 `G_2800.pth` 연결
+- MeloTTS Baseline: **mean 1.92s, RTF 0.3939**
+- Qwen3-TTS 0.6B Baseline: **mean 22.31s, RTF 3.9254**
 
-최종 정량 결과 문서의 production MeloTTS benchmark는 다음과 같습니다.
+초기 단계부터 MeloTTS가 interactive serving에 훨씬 유리했습니다.
 
-- 평균 synthesis latency: **0.38 s**
-- p95 latency: **0.53 s**
-- RTF: **0.0894**
-- TTS CI: **49 tests passed**
+### AI Hub 친절체 adaptation
 
-Fine-tuning 결과가 모든 문장에서 baseline보다 좋아졌다고 과장하지 않습니다. 실제 listening 과정에서는 자연스러움, 억양, 음색 변화와 일부 발음 안정성 trade-off를 함께 확인했고, baseline과 checkpoint를 직접 비교할 수 있는 showcase를 남겼습니다.
+AI Hub 71349 감성/발화스타일 데이터의 10번 화자를 이용해 약 30분 adaptation package를 만들고 MeloTTS Korean VITS2를 fine-tuning했습니다.
 
-## 4. STT/NLU 튜닝에도 직접 참여
+`G_2000` 실험:
 
-공식 역할표에서는 STT Lead와 NLU Lead가 따로 있었지만, 프로젝트 후반에는 통합 병목을 해결하기 위해 두 모델의 학습·평가 일부도 직접 수행했습니다.
+- paired audio-text: 299개
+- batch size: 4
+- lr: 1e-4
+- pretrained: `myshell-ai/MeloTTS-Korean`
+- 2,000 steps까지 학습
 
-### STT — Whisper Medium QLoRA 실험과 Train65 production 전환
+Qwen3-TTS 0.6B도 비교용으로 10 epoch SFT를 진행해 `calm_friendly` voice를 구성했습니다.
 
-저장소에는 Whisper Medium을 대상으로 4-bit NF4 QLoRA, speaker-level split, BF16 비교, merged model 생성, 도메인 추가 학습까지 이어지는 실험 파이프라인이 남아 있습니다.
+### 동일 20문장 GPU 비교
 
-개인 작업 기록에서는 다음 작업을 직접 수행했습니다.
+| Model | Mean latency | Mean RTF | 판단 |
+|---|---:|---:|---|
+| MeloTTS Baseline | 0.1985s | 0.0403 | 매우 빠름, baseline tone |
+| **MeloTTS Friendly** | **0.2041s** | **0.0485** | **선정** |
+| Qwen3-TTS Baseline | 6.9075s | 1.4620 | real-time 부적합 |
+| Qwen3-TTS Friendly | 28.1953s | 1.5732 | tone adaptation은 됐지만 latency 과다 |
 
-- **Whisper Medium QLoRA Train65 continuation smoke**
-  - clean 16건 + cafe 16건, 총 32건
-  - cafe SNR 15 / 10 / 5 dB 조건 검증
-  - 1 step, batch 8 학습
-  - adapter tensor **288 / 288 변경 확인**으로 실제 update 검증
-- cafe mixing SNR 15 / 10 / 5 dB 계약 직접 검증
-- Train65, cafe-adapt, golden500 HPF, kiosk-test, speaker-split, fast-exp 등 누적 STT artifact를 정리하고 후보 sweep 수행
-- 전체 STT benchmark 실행 후 Train65 계열과 cafe-adapt 후보 비교
-- 최종적으로 **Train65 merged BF16을 production 기본 runtime으로 전환**
-- baseline / QLoRA rollback 경로는 유지하고 production inference에서 PEFT runtime 의존성을 제거
-- unit test와 CUDA BF16 merged model load를 확인한 뒤 runtime에 연결
+따라서 `최신/큰 모델`이라는 이유로 Qwen을 선택하지 않고, **친절체 tone을 적용하면서도 0.2초 수준 생성 지연을 유지한 MeloTTS Friendly**를 선택했습니다.
 
-후반 후보 sweep 기록에서 Train65 `lr=2e-5, ep=2`는 clean CER **0.135667**, cafe5 CER **0.205689**로 가장 안정적인 우선 후보였고, cafe-adapt는 cafe15 CER **0.150802**로 특정 노이즈 조건에서 근소하게 우세했습니다.
+### fine-tuning 전후를 어떻게 표현할 것인가
 
-이 실험은 프로젝트의 STT 전체 개발을 혼자 담당했다는 의미가 아니라, **STT Lead가 구축한 학습 자산을 인수해 추가 학습, 후보 정리, 재평가, production artifact 선정까지 직접 수행한 경험**으로 정리합니다.
+동일 GPU/20문장 controlled comparison에서:
 
-최종 정량 문서에서 별도로 기록된 `openai/whisper-medium` baseline 결과는 다음과 같습니다.
+- Melo Baseline: 198.5ms
+- Melo Friendly: 204.1ms
+- latency 차이: **+5.6ms, 약 +2.8%**
 
-- CER: **0.0546**
-- WER: **0.1626**
-- median latency: **385.57 ms**
-- p95 latency: **424.15 ms**
+즉 fine-tuning의 성과를 `속도 개선`이라고 표현하지 않습니다. 속도는 거의 유지하면서 친절한 tone을 적용한 trade-off입니다. 음질/친절성은 청음 비교와 showcase로 검증했지만 정량 MOS 같은 수치는 확보하지 않았습니다.
 
-후속 fine-tuned candidate 중에는 정확도 개선에 비해 inference가 baseline보다 약 **35~115배 느린 경우**도 있었습니다. 따라서 최종 제품에서는 accuracy만으로 모델을 결정하지 않고 kiosk 응답성과 deployment cost를 함께 고려했습니다.
+이후 학습을 더 진행해 최종 production에는 `G_2800.pth`를 사용했습니다. 최종 정량 문서의 production benchmark는 mean **0.38s**, p95 **0.53s**, RTF **0.0894**입니다. `G_2000` 20문장 GPU 비교와 `G_2800` production benchmark는 측정 목적/환경이 다른 별도 결과이므로 직접 성능 향상률로 비교하지 않습니다.
 
-### NLU — Qwen3-1.7B QLoRA 직접 학습
+## 4. STT fine-tuning/선정에도 직접 참여
 
-NLU 역시 전체 데이터셋 구축과 모델 개발의 주 담당자는 NLU Lead였지만, 통합 직전 모델 성능을 직접 확인하기 위해 별도 fine-tuning run을 수행했습니다.
+공식 STT Lead는 별도로 있었지만 후반 통합 단계에서 학습 자산을 직접 받아 추가 실험과 production selection을 수행했습니다.
 
-직접 실행한 Qwen3-1.7B QLoRA 학습 기록은 다음과 같습니다.
+직접 작업 기록:
 
-- **3 epochs / 450 steps** 학습 완료
-- validation 기준 best checkpoint: **step 350**
+- Whisper Medium QLoRA Train65 continuation smoke
+- clean 16 + cafe 16 = 32 sample
+- cafe SNR 15 / 10 / 5dB contract 확인
+- 1 step, batch 8 학습
+- adapter tensor **288 / 288 변경 확인**으로 실제 update 검증
+- Train65, cafe-adapt, golden500 HPF, kiosk-test, speaker-split, fast-exp artifact sweep
+- candidate benchmark 후 Train65 merged BF16을 production 기본 runtime으로 전환
+- baseline/QLoRA rollback path 유지
+
+후반 candidate sweep에서 Train65 `lr=2e-5, ep=2`는 clean CER **0.135667**, cafe5 CER **0.205689**로 안정적인 후보였고, cafe-adapt는 cafe15 CER **0.150802**로 특정 노이즈 조건에서 근소하게 우세했습니다.
+
+저장소 전체 STT worklog에는 더 이른 단계의 QLoRA 학습, speaker-level split, 도메인 TTS data 추가학습도 기록되어 있으나 이 전체 파이프라인을 개인 기여로 주장하지 않습니다.
+
+## 5. NLU QLoRA 학습에도 직접 참여
+
+공식 NLU Lead가 데이터셋/학습 stack을 주도했지만 통합 직전 Qwen3-1.7B QLoRA run을 직접 수행했습니다.
+
+- 3 epochs / 450 steps
+- validation best checkpoint: step 350
 - Exact Match: **91.67%**
 - Intent Accuracy: **96.54%**
 - Slot Accuracy: **96.10%**
 - Schema Valid: **98.33%**
-- final adapter, training manifest, validation 결과 artifact 생성
 
-이후 production runtime에서는 더 작은 Qwen3-0.6B 계열이 사용됐으며, 최종 NLU benchmark에는 다음 결과가 남아 있습니다.
+최종 production은 더 작은 Qwen3-0.6B 계열을 사용했고 final benchmark는:
 
 - source benchmark: **198 / 198 exact match**
 - legacy batch: **1000 / 1000**
 - schema parse error: **0**
-- source benchmark mean latency: **0.153 s**
-- median latency: **0.035 s**
+- source benchmark mean latency: **0.153s**
+- median latency: **0.035s**
 
-따라서 NLU 경험은 **전체 NLU 파트의 소유권**이 아니라, Qwen3 QLoRA를 직접 학습하고 checkpoint 성능을 검증한 뒤 최종 service integration과 latency 최적화까지 참여한 경험으로 표현합니다.
+따라서 `Qwen3-1.7B를 최종 production model로 사용했다`고 표현하지 않습니다.
 
-## 5. Senior-first UI/UX로 방향 전환
+## 6. dependency 충돌을 sidecar로 분리
 
-중간 통합 과정에서 AI 모델만 개선해서는 사용성이 해결되지 않는다는 문제가 드러났습니다. 음성 기능과 별개로 화면 구조가 복잡해지면 고령 사용자의 주문 부담이 그대로 남기 때문에 UI/UX 개선을 병행했습니다.
+후반 runtime에서 실제 문제가 된 부분은 모델별 Python dependency였습니다.
 
-직접 반영한 주요 항목은 다음과 같습니다.
+`275929306...` 커밋에는 다음 이유가 명시되어 있습니다.
+
+- STT/TTS runtime: `transformers 4.27.4` 필요
+- Qwen NLU: `transformers 5.15.0` 필요
+- 동일 venv로 통합하지 않고 separate venv + resident HTTP sidecar 사용
+
+최종 port 구조:
+
+- Gateway/FastAPI: `127.0.0.1:8000`
+- STT sidecar: `127.0.0.1:8001`
+- NLU sidecar: `127.0.0.1:8002`
+- TTS sidecar: `127.0.0.1:8003`
+
+통합 launcher는 각 child process를 시작하고 `/health` readiness를 확인한 뒤 실제 inference warm-up을 수행하고 마지막에 gateway를 시작합니다.
+
+모델을 매 요청마다 load하지 않고 resident process로 유지해 model loading cost도 요청 path에서 제거했습니다.
+
+## 7. Senior-first UI/UX pivot
+
+모델 지연을 개선하는 과정에서 음성 인식이 잘 되더라도 화면 자체가 복잡하면 고령 사용자의 주문 부담이 남는다는 문제를 확인했습니다.
+
+반영한 항목:
 
 - Voice Overlay
-- 큰 글자와 고대비 중심의 Senior-first 화면
-- 접근성 footer 2×2 구조
+- 큰 글자/고대비 화면
+- 접근성 footer 2×2
 - 다시 듣기
-- 천천히 듣기 / 음성 속도 단계 변경
+- 천천히 듣기 / speed level
 - 직원 호출
 - ORDER / REVIEW / PAYMENT 단계 정리
 - 결제 UI 단순화
-- Express mode / one-shot voice payment flow
-- 마이크 입력과 음성 session state 연결
+- express/one-shot voice payment
+- microphone session state 연결
 
-즉 프로젝트 중반 이후에는 `모델 성능 개선`과 `화면 사용성 개선`을 별도 문제로 보고 동시에 수정했습니다.
+따라서 프로젝트 후반에는 `모델 성능`과 `사용 흐름`을 별도 문제로 보고 동시에 수정했습니다.
 
-## 6. 실제 모델 runtime 통합
+## 8. Hybrid deployment
 
-후반에는 Mock adapter 중심 구조를 실제 모델로 교체했습니다.
-
-- real STT service integration
-- real TTS playback
-- Qwen NLU service integration
-- STT/NLU/TTS resident sidecar 분리
-- process별 health/readiness 확인
-- warm-up 이후 gateway 시작
-- session log와 debug path 구성
-- 한 줄 launcher로 전체 runtime 기동
-
-특히 STT/NLU/TTS를 한 Python process에 모두 넣지 않고 독립 sidecar로 분리해 모델별 dependency와 GPU resident state를 관리했습니다.
-
-프로젝트 진행 중 직접 측정한 운영 기록에서는 STT와 TTS를 동시에 GPU에 올려도 실행 가능함을 확인했고, 최종 단계에서는 각 sidecar의 `/health`가 ready/warmed 상태인지 확인한 뒤 E2E 검증을 진행했습니다.
-
-## 7. Hybrid deployment
-
-브라우저 UI와 로컬 AI runtime을 분리하는 형태로 배포했습니다.
+구조:
 
 `Vercel Static Frontend → Cloudflare Tunnel → Local FastAPI Gateway → STT/NLU/TTS Sidecars`
 
 - Web UI: Vercel
-- AI runtime: local Windows/WSL + CUDA environment
-- backend: FastAPI gateway
+- inference: CUDA가 있는 local Windows/WSL
+- API: FastAPI gateway
 - public connection: Cloudflare Tunnel
-- CORS/runtime config를 통해 Vercel frontend와 local inference server 연결
 
-큰 모델 파일을 Vercel에 올리는 대신 GPU가 있는 로컬 PC에서 inference를 수행하고 web UI만 정적 hosting하는 구조를 선택했습니다.
+대형 model artifact를 Vercel에 올리지 않고 정적 UI만 hosting하고, GPU inference는 local runtime에서 수행했습니다.
 
-## 8. E2E latency를 단계별로 측정
+## 9. E2E latency breakdown
 
-최종 정량 검증에서는 isolated 50-turn voice pipeline run을 수행했습니다.
+최종 isolated 50-turn voice pipeline:
 
-- E2E p50: **253.9 ms**
-- E2E p95: **312.2 ms**
-- STT median: 약 **188.5 ms**
-- NLU median: 약 **15.6 ms**
+- p50: **253.9ms**
+- p95: **312.2ms**
+- STT median: 약 **188.5ms**
+- NLU median: 약 **15.6ms**
 - NLU latency 비중: 약 **6.2%**
 
-이 결과를 통해 당시 pipeline의 주 latency가 NLU가 아니라 STT 쪽이라는 점을 확인했습니다.
+이 결과로 해당 test 구성에서는 NLU보다 STT가 주 latency bottleneck임을 확인했습니다.
 
-단, 이 50-turn 수치는 **real STT + real NLU + MockTTS 기반 isolated latency run**입니다. 따라서 `실제 TTS 음성 생성까지 포함한 전체 p95가 312.2 ms`라고 표현하지 않습니다. 실제 TTS 성능은 별도의 MeloTTS benchmark(mean 0.38 s, p95 0.53 s)로 관리합니다.
+주의: 이 run은 **real STT + real NLU + MockTTS**입니다. 따라서 `실제 TTS 생성까지 포함한 전체 E2E p95 312.2ms`라고 말하지 않습니다. 실제 TTS는 별도 production benchmark를 사용합니다.
 
-## 9. STT/TTS showcase와 최종 검증 자산
-
-최종 결과를 코드만으로 남기지 않고 별도 showcase도 구성했습니다.
+## 10. Showcase와 사용자 평가
 
 ### STT showcase
 
-직접 녹음한 한국어 발화 5개를 사용해 실제 inference 결과를 확인했습니다. 일반 주문뿐 아니라 존댓말 어미와 머뭇거림 등이 섞인 발화도 포함했습니다.
+직접 녹음한 한국어 5개 발화로 실제 inference를 검증했습니다. 일반 주문 외에 존댓말 어미/머뭇거림도 포함했습니다.
 
 ### TTS showcase
 
-- baseline MeloTTS
-- fine-tuned `G_2800`
+- MeloTTS baseline
+- fine-tuned checkpoint
 - speed Level 0 / 1 / 2
 
-를 같은 문장으로 비교할 수 있도록 구성했습니다.
+를 같은 문장으로 비교할 수 있는 web showcase를 구성했습니다.
 
-소개 페이지에서는 STT showcase와 TTS showcase를 함께 연결해 개발 결과를 외부에서 확인할 수 있도록 정리했습니다.
+### 사용자 평가
 
-## 10. 사용자 평가를 해석할 때의 주의점
+최종 정량 문서:
 
-최종 정량 결과 문서는 사용자 평가에서 **n=13, 만족 응답 92.3%**를 기록합니다.
+- n=13
+- 만족 응답 **92.3%**
 
-다만 목표했던 고령 사용자 표본을 충분히 확보하지 못해 실제 참가자 구성은 20~40대가 섞인 제한된 표본이었습니다. 따라서 다음과 같이 구분합니다.
+다만 실제 참가자에는 20~40대가 섞여 있어 `고령자 13명에게 92.3%`라고 표현하지 않습니다.
 
-- senior-friendly product를 설계하고 senior-specific evaluation protocol을 준비함: 확인 가능
-- 최종 사용자 평가 n=13, 만족도 92.3%: 확인 가능
-- 13명 모두 고령 사용자였다고 주장: 하지 않음
+## 11. 프로젝트 종료와 artifact cleanup
 
-README의 사용자 수 표기와 최종 정량 문서 사이에도 차이가 있으므로, 이력서에서는 더 구체적인 최종 정량 문서의 **n=13**을 기준으로 사용합니다.
+feature freeze 이후 production에 필요한 artifact와 학습/실험 자산을 분리했습니다.
 
-## 11. 프로젝트 종료와 repository cleanup
+cleanup audit 당시:
 
-기능 동결 이후에는 실행에 필요한 production artifact와 대용량 training/research 자산을 분리했습니다.
+- WSL workspace 약 **213.83GB**
+- checkpoint/output 약 **176GB**
+- dataset extract 약 **28GB**
 
-cleanup audit에서 당시 WSL workspace 약 **213.83 GB**, checkpoint/output 약 **176 GB**, dataset extract 약 **28 GB** 규모를 점검하고 `keep / retain / confirm / delete` 기준으로 분류했습니다.
-
-최종 production set에는 다음 핵심 artifact를 유지했습니다.
+최종 production set:
 
 - STT runtime model
 - NLU merged model
 - TTS `G_2800.pth` + `config.json`
-- runtime source / tests / docs
+- runtime source/tests/docs
 - showcase assets
 
-raw dataset, intermediate checkpoints, cache, 실험 산출물은 runtime repository와 분리해 프로젝트를 동결했습니다.
+raw dataset, intermediate checkpoint, cache, 불필요한 experiment output은 runtime repo와 분리해 프로젝트를 동결했습니다.
 
-## Git과 작업 기록으로 확인되는 직접 작업 흐름
+## Git과 작업 기록으로 확인되는 흐름
 
-주요 PR과 실험 기록을 보면 역할이 다음처럼 확장되었습니다.
+### 제품/아키텍처
 
-### 초기: 제품/아키텍처
+- PRD/TRD
+- Mock E2E
+- common schema/error contract
+- `54131e8`: deterministic Order Engine operations — **author nanocode00**
 
-- PRD / TRD 작성
-- Mock E2E integration
-- NLU general order coverage
-- Order Engine operation 구현
-- TTS candidate 조사와 benchmark
-- TTS adapter / Adaptive TTS controller
+### TTS
 
-### 중기: TTS와 Senior-first UX
+- `2d75463`: MeloTTS/Qwen3 baseline 20문장 benchmark
+- `b3bd337`: Melo friendly 2,000-step fine-tuning + 4-model GPU benchmark
+- adaptive TTS/showcase
+- 최종 `G_2800` production checkpoint
 
-- AI Hub TTS dataset tooling/preprocessing
-- MeloTTS/Qwen 계열 비교
-- TTS latency benchmark 및 결과 정리
-- Senior-first UI
-- mic input / audio input 통합
-- one-shot voice payment
+### 통합
 
-### 후반: STT/NLU 추가 실험과 실제 모델 통합
+- `2759293`: Qwen NLU separate cu128 sidecar / venv 분리
+- STT/NLU/TTS resident services
+- readiness / warm-up launcher
+- Vercel + Cloudflare + local runtime
 
-- Whisper Medium QLoRA continuation smoke
-- STT artifact sweep / benchmark / Train65 merged BF16 선정
-- Qwen3-1.7B QLoRA 3-epoch NLU 학습과 checkpoint 검증
-- real STT service integration
-- real TTS playback
-- Qwen NLU service integration
-- voice pipeline E2E
-- runtime launcher
-- Vercel static deployment
-- Cloudflare/local runtime 연결
-- STT/NLU/TTS sidecar 분리
-- latency optimization
+### 종료
+
 - final quantitative results
 - showcase/intro portal
-- repository cleanup 및 기능 동결
+- artifact/repository cleanup
+- feature freeze
 
 ## 결과
 
-- 3인 팀의 음성 주문 제품을 기획 단계부터 실제 모델 통합·배포까지 연결
-- deterministic Order Engine과 AI adapter를 분리해 모델 교체 가능한 구조 구성
-- MeloTTS fine-tuning `G_2800` checkpoint 생성 및 production sidecar 적용
-- Whisper Medium QLoRA smoke/sweep를 직접 수행하고 Train65 merged BF16 production artifact 선정·전환
-- Qwen3-1.7B QLoRA를 3 epochs / 450 steps 직접 학습하고 best checkpoint step 350 검증
-- production TTS mean **0.38 s**, p95 **0.53 s**, RTF **0.0894** 측정
-- STT/NLU/TTS resident sidecar와 통합 launcher 구성
-- Vercel + Cloudflare Tunnel + local FastAPI hybrid deployment
-- real STT/NLU 기반 isolated 50-turn E2E p95 **312.2 ms** 측정
-- 사용자 평가 최종 근거 문서 기준 **n=13, 만족 응답 92.3%**
-- 기능 동결 후 production artifact와 대용량 학습 자산을 분리해 프로젝트 종료
+- 3인 팀 Team Lead로 요구사항/contract부터 모델 통합·배포·동결까지 제품 전체 흐름 연결
+- LLM의 Cart 직접 변경 대신 deterministic Order Engine을 SSOT로 분리
+- Melo/Qwen 4-model latency benchmark 후 **MeloTTS Friendly 선택**
+- MeloTTS fine-tuning 전후 controlled latency **198.5ms → 204.1ms**, tone adaptation을 위해 +2.8% latency trade-off 수용
+- Whisper QLoRA candidate 재검증과 Qwen3-1.7B QLoRA 직접 학습
+- dependency 충돌을 separate venv + sidecar architecture로 해결
+- final production TTS **mean 0.38s / p95 0.53s / RTF 0.0894**
+- isolated E2E **p95 312.2ms**, STT bottleneck 확인
+- hybrid deployment와 repository cleanup 후 프로젝트 종료
 
 ## 이력서용 핵심 bullet
 
-- 3인 팀 팀장으로 **PRD/TRD와 STT·NLU·TTS 공통 contract를 정의하고 Order Engine, Senior-first UI, 실제 AI adapter를 연결해 음성 주문 E2E 제품 구현**
-- AI Hub 친절 발화 데이터로 **MeloTTS 2,800-step fine-tuning(`G_2800`)**을 수행하고, 추가로 **Whisper Medium QLoRA 후보 sweep과 Qwen3-1.7B QLoRA 3-epoch 학습**을 직접 수행해 모델별 accuracy/latency 특성을 비교
-- STT 후보를 재평가해 **Train65 merged BF16 production artifact**로 전환하고, **Gateway 8000 + STT 8001 + NLU 8002 + TTS 8003 sidecar 구조와 health/warm-up launcher**로 runtime 통합
-- **Vercel frontend + Cloudflare Tunnel + local FastAPI** hybrid deployment를 구성하고, real STT/NLU 기반 50-turn isolated E2E에서 **p95 312.2 ms**를 측정해 bottleneck을 STT 단계로 분해
+- 3인 팀 Team Lead로 PRD/TRD와 AI command contract를 정의하고, **LLM과 Cart 상태 변경을 분리한 deterministic Order Engine**을 직접 구현해 STT→NLU→주문→TTS E2E flow 구성
+- AI Hub 친절체로 MeloTTS를 fine-tuning하고 4개 TTS 후보를 동일 20문장에서 비교해 **Melo Base 198.5ms / Friendly 204.1ms vs Qwen 6.91~28.20s**를 근거로 MeloTTS Friendly 선정
+- Whisper Medium QLoRA candidate sweep과 Qwen3-1.7B QLoRA 학습까지 직접 수행하고, `transformers` dependency 충돌을 **Gateway 8000 + STT/NLU/TTS 8001~8003 resident sidecar**와 별도 venv로 분리
+- Vercel + Cloudflare Tunnel + local FastAPI hybrid deployment 후 real STT/NLU 기반 50-turn isolated E2E **p95 312.2ms**를 측정해 STT bottleneck 식별
 
-## 면접/자소서에서 강조할 문제 해결 경험
+## 면접에서 주의할 표현
 
-### 1. 담당 경계를 넘어서 병목 모델을 직접 재검증
-
-통합 막바지에는 팀원별 공식 담당만 기다리지 않고 STT와 NLU 학습 자산을 직접 가져와 smoke, sweep, 추가 fine-tuning과 benchmark를 수행했습니다. 기존 담당자의 작업을 대체하기보다 제품 통합에 필요한 후보를 직접 검증하고 production artifact로 연결한 경험입니다.
-
-### 2. 정확도가 좋아도 느리면 제품에 쓰지 않은 선택
-
-STT fine-tuned candidate가 일부 accuracy 지표에서 개선됐지만 inference가 35~115배 느려지는 결과도 확인했습니다. 모델 성능 하나보다 kiosk의 응답 시간을 우선해 빠른 후보를 선택했습니다.
-
-### 3. NLU만 고치려다 UI 문제를 함께 발견한 pivot
-
-초기에는 음성 명령 인식 성능과 latency를 주로 개선했지만, 통합 과정에서 화면 자체가 복잡하면 senior 사용성이 해결되지 않는다는 문제를 확인했습니다. 모델 최적화와 동시에 Senior-first UI를 다시 설계했습니다.
-
-### 4. 모델마다 dependency가 달라 발생한 runtime 문제
-
-STT/TTS와 NLU의 dependency가 충돌하고 모델을 매 요청마다 로드하면 latency가 커지는 문제를 sidecar와 별도 venv로 분리했습니다. 각 모델을 resident process로 유지하고 launcher에서 readiness와 warm-up을 검사하도록 구성했습니다.
-
-### 5. 실험 결과를 제품 지표로 다시 측정
-
-개별 모델 benchmark만 보는 대신 voice pipeline을 실제 조합으로 측정했습니다. 50-turn latency breakdown으로 STT가 주 bottleneck임을 확인하고 이후 최적화 우선순위를 조정했습니다.
-
-## 근거와 사용 시 주의
-
-강하게 사용할 수 있는 내용:
-
-- 3인 팀 Team Lead / Product & Integration 역할
-- PRD/TRD, Order Engine, common contract, UI/UX, integration/deployment 직접 기여
-- TTS dataset/preprocessing/fine-tuning과 `G_2800`
-- Whisper Medium QLoRA continuation smoke, 후보 sweep, Train65 production 전환 직접 수행
-- Qwen3-1.7B QLoRA 3 epochs / 450 steps 직접 학습과 checkpoint 평가
-- production TTS latency 수치
-- sidecar/launcher/Vercel/Cloudflare runtime 구조
-- final E2E latency 측정과 bottleneck 분석
-- 프로젝트 종료 및 repository cleanup
-
-개인 기여로 과장하지 않을 내용:
-
-- STT 데이터 파이프라인과 모든 fine-tuning 실험을 처음부터 끝까지 혼자 담당했다고 주장
-- NLU 데이터셋 구축과 전체 training pipeline을 혼자 담당했다고 주장
-- 최종 production Qwen3-0.6B 모델 전체 학습을 개인 성과로 주장
-- 50-turn p95 312.2 ms에 실제 TTS synthesis까지 포함됐다고 주장
-- 사용자 평가 13명이 모두 고령자였다고 주장
-- fine-tuned TTS가 모든 발화에서 baseline보다 우수했다고 주장
-
-## 보여주는 역량
-
-- Team Lead / 제품 통합
-- AI product architecture
-- Voice AI(STT/NLU/TTS) integration
-- TTS fine-tuning 및 inference benchmark
-- Whisper QLoRA / Qwen QLoRA 실험 및 checkpoint 검증
-- deterministic domain logic / Order Engine
-- 접근성 중심 UI/UX
-- FastAPI / sidecar / process orchestration
-- Vercel / Cloudflare hybrid deployment
-- latency profiling과 bottleneck 분석
-- 대용량 ML artifact 정리와 production handoff
-
-## 자소서 활용 포인트
-
-- 팀장으로 여러 AI 모델 파트를 하나의 제품으로 연결한 경험
-- 담당 영역 밖의 STT/NLU 모델까지 직접 재학습·검증해 통합 병목을 해소한 경험
-- 모델 accuracy와 실제 latency 사이에서 기술 선택을 한 경험
-- 초기 방향을 고집하지 않고 사용자 문제를 보고 UI까지 pivot한 경험
-- AI model과 deterministic business logic을 분리한 설계 경험
-- prototype을 deployment·showcase·cleanup까지 마무리한 경험
+- STT/NLU 전체 학습 파이프라인을 혼자 담당했다고 주장하지 않음
+- Qwen3-1.7B가 최종 production NLU라고 표현하지 않음
+- TTS fine-tuning이 latency를 개선했다고 표현하지 않음. controlled benchmark는 198.5ms → 204.1ms
+- Friendly tone improvement를 MOS 같은 정량 품질 향상으로 표현하지 않음
+- 312.2ms에 real TTS synthesis까지 포함됐다고 표현하지 않음
+- 사용자 평가 13명이 전부 고령자였다고 표현하지 않음
