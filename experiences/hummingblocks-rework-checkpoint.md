@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-29 확인 완료  
-> 다음 확인 대상: HB-30 시각장애 사용자용 촬영·방향 안내·오류 피드백 UX 대규모 개편
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-30 확인 완료  
+> 다음 확인 대상: HB-31 저장 음악 목록·재생·설정 UI와 저장 음악 재생 흐름
 
 ## 0. 작업 단위 복원 원칙
 
@@ -306,6 +306,25 @@
 - 사용자 기억상 이후 태블릿에서 버튼이 지나치게 작아지거나 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 별도로 대응한 작업이 있었으므로, 그 기기 대응은 HB-27에 억지로 합치지 않고 정확한 후속 커밋을 찾을 때 별도 작업으로 분리한다.
 - 새 UI의 원본 디자인은 디자이너가 Figma에 제작한 시안이었다. 재훈님은 해당 시안을 보고 각 요소의 위치·크기·비율을 계산해 Android의 `ConstraintLayout`, percentage `Guideline`, `0dp` constraint, auto-size text 구조로 옮겨 구현했다. 따라서 개인 기여는 `UI 시안 디자인`이 아니라 **Figma 시안을 Android 반응형 레이아웃으로 변환·구현한 작업**으로 표현한다.
 
+### HB-30 — QR 위치 상태를 이용한 시각장애 사용자용 자동 촬영·방향 안내 UX 재설계
+
+- 2024-10-12 `2c0cf19`는 별도 접근성 앱 `hummingblocks_for_blind_ones`의 Select→Camera→Play 흐름을 크게 다시 정리한 커밋이다. 제품·UX 방향은 팀 내부 논의 결과로 보고, 아래 Android 구현·통합을 개인 기여로 본다.
+- 기존에는 `SelectActivity`가 `BarcodeActivity`를 열고, ML Kit가 한 프레임에서 barcode를 4개 이상 발견하면 자동 촬영하는 비교적 단순한 구조였다. 이 커밋에서 `BarcodeActivity`를 제거하고 `CameraActivity` 하나에 CameraX ImageAnalysis, ML Kit barcode scanning, 촬영, Python 분류, 결과 복구 흐름을 통합했다.
+- 새 CameraActivity에는 수동 촬영 버튼이 없고 barcode analyzer에서만 `capture()`가 호출된다. 즉 사용자는 카메라를 블록 쪽으로 맞추기만 하면 되고, 촬영 시점은 앱이 자동으로 결정하도록 단순화했다.
+- 단순히 barcode 개수만 세지 않고, QR의 display value가 `1~4`일 때 각각 bit로 누적해 `contain_barcode` bitmask를 만들었다. `7, 11, 13, 14, 15`이면 촬영하는데, 이는 기대 QR 1~4 중 **아무 3개 또는 4개가 모두 보이는 상태**에 해당한다. 기존 `barcodes.size() >= 4`보다 필요한 특정 QR의 가시성을 직접 확인하면서도 1개가 프레임 밖에 있어도 촬영 가능하게 완화한 구조다.
+- 아직 촬영 조건이 안 되면 bitmask 패턴에 따라 이동 방향을 정했다. `1/4/5`는 오른쪽, `2/8/10`은 왼쪽, `12`는 위, `3`은 아래 이동 안내로 매핑했다. 코드상 핵심은 검출된 QR ID 조합을 **사용자가 카메라를 어느 방향으로 움직여야 하는지**로 변환한 것이다.
+- 방향 상태는 한 소스에서 시각·음성 피드백으로 동시에 표현했다. 동일한 분기에서 arrow rotation을 `0/90/180/270°`로 바꾸고, 화면 문구를 `왼쪽/오른쪽/위/아래로 움직여 주세요`로 갱신하며, `AccessibilityEvent.TYPE_ANNOUNCEMENT`로 같은 의미의 TalkBack 안내를 전송했다.
+- arrow는 `AnimatedVectorDrawable`로 움직임을 보여주고 안내 텍스트는 600ms 후 fade-out animation을 시작했다. `isShowingArrow`를 약 1.2초 동안 유지해 ImageAnalysis가 매 프레임 같은 방향을 검출하더라도 화살표 애니메이션과 TalkBack 안내가 과도하게 연속 재생되지 않도록 throttling했다.
+- 방향을 특정할 수 없는 QR 조합에서는 별도 이동 안내를 강제로 만들지 않고 기본 문구 `모든 QR코드가 화면에 들어오도록 해주세요`로 복귀시켜 잘못된 방향 지시를 피했다. CameraActivity 시작 시에도 같은 기본 안내를 TalkBack announcement로 전달했다.
+- 자동 촬영이 시작되면 `isProcessing` guard로 중복 촬영을 막고, 상단 loading layer를 표시한 뒤 `잠시만 기다려주세요`를 TalkBack으로 알렸다. Preview의 SurfaceProvider를 잠시 분리하고 `temp.jpg`에 저장한 뒤 기존 Chaquopy/Python classifier와 Runner로 결과를 판정했다.
+- 인식 성공 시 PlayActivity로 진입한다. Error와 Warning은 별도 중복 코드를 없애 `show_dialog_result(image, message)` 하나로 통합하고, `제대로 연결하였나요?` 제목·오류/경고별 그림·구체 설명·확인 버튼을 갖는 결과 다이얼로그로 표시했다.
+- 이전 BarcodeActivity에서는 Warning 확인 후 PlayActivity로 진행하는 코드가 있었지만, 새 구조에서는 Error/Warning 모두 다이얼로그가 닫히면 Preview SurfaceProvider를 복구하고 loading layer를 숨긴 뒤 `isProcessing=false`로 돌린다. 따라서 문제가 있는 인식 결과는 같은 촬영 화면에서 다시 맞춰 촬영하는 일관된 복구 흐름이 됐다.
+- Camera layout도 실제 QR 위치를 맞추기 위한 4개의 QR corner guide, 중앙 crosshair, 방향 arrow, percentage Guideline 기반 안내 문구로 다시 구성했다. 시각 정보만 추가한 것이 아니라 TalkBack announcement와 같은 상태를 공유하도록 구현한 점이 핵심이다.
+- 앱의 진입점은 계속 `SelectActivity`로 유지하고, 음악/장르를 고르면 새 CameraActivity로 이동하도록 변경했다. Select 화면도 360×740 Guideline 레이아웃, 큰 genre button grid, 명시적인 앱 종료 버튼으로 정리해 접근성 앱의 단순한 진입 흐름을 유지했다.
+- PlayActivity는 일반 앱의 최신 재생 UI/로직 일부를 접근성 앱에 다시 동기화했다. 음악 라벨, Lottie 캐릭터, 진행 원, 조건 상태, 좌우 방향 표시, pause/resume animation 동기화, 재촬영·메인 복귀·다시 시작 흐름을 유지하면서 저장·퀘스트·복잡한 교체 UI 같은 일반 앱 기능은 중심 흐름에서 제외했다.
+- 같은 커밋에는 일반 앱과 접근성 앱 `Classifier.py`의 OpenCV DNN 호출 방식 변경(`dnn_DetectionModel`, confidence 0.85→0.9 등)과 SDK/CameraX/ML Kit dependency 업데이트도 함께 들어 있다. 이는 자동 촬영·방향 안내 UX와 직접 동일한 작업은 아니므로 HB-30의 핵심 기여와 구분해 mixed-scope maintenance로 기록한다.
+- 결과적으로 HB-30은 `QR ID 실시간 분석 → 촬영 가능 여부 판단 → 부족한 방향 추론 → 시각 화살표/문구 + TalkBack 동시 안내 → 자동 촬영 → CV 판정 → 오류·경고 시 촬영 상태 복구`를 하나의 폐루프로 만든 접근성 촬영 UX 구현으로 정리한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **Main/Home 등 다른 화면의 기기별 비율 대응:** HB-06과 별도 작업. 태블릿에서 버튼이 너무 작아지고 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 나중에 발견해 추가 대응했다. 정확한 시점과 적용 화면을 커밋으로 다시 복원한다.
@@ -314,24 +333,25 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-30 — 시각장애 사용자용 촬영·방향 안내·오류 피드백 UX 대규모 개편**이다.
+다음 작업은 **HB-31 — 저장 음악 목록·재생 화면·설정 화면 UI와 저장 음악 재생 흐름 개선**이다.
 
-`2c0cf19`를 중심으로 다음을 확인한다.
+`4db36f8`, `d32fc8e`, `1f11d93`을 중심으로 다음을 확인한다.
 
-- 기존 단순 Camera→Play 접근성 앱에서 촬영 안내가 어떻게 재설계됐는지
-- QR 1~4 인식 상태를 이용해 사용자가 카메라를 어느 방향으로 움직여야 하는지 어떻게 계산했는지
-- 화면 화살표, AnimatedVectorDrawable, TalkBack announcement가 같은 방향 상태를 어떻게 공유했는지
-- 3개 또는 4개 QR이 들어왔을 때 자동 촬영하는 조건
-- 인식 오류/경고를 전용 그림·설명 다이얼로그로 어떻게 통합했는지
-- Select/Play까지 포함된 전체 접근성 UX 개편 범위와 일반 앱과의 차이
+- 저장 음악 목록이 어떤 파일 메타데이터를 읽어 카드/목록으로 구성됐는지
+- 저장된 JSON 음악을 MusicPlayer에 다시 넣는 흐름과 일반 실시간 재생의 차이
+- 재생/일시정지/종료 상태를 목록 또는 상세 화면에서 어떻게 동기화했는지
+- 삭제·이름 변경·공유 같은 관리 기능이 어느 시점까지 포함됐는지
+- Setting UI와 volume/vibration 등의 상태 저장이 어떻게 개편됐는지
+- 10~11월의 여러 수정이 하나의 작업인지, 목록/재생/설정을 별도 작업으로 나누는 편이 맞는지
 
-HB-29 확정:
-- 음악별 quest.json의 기대 block code와 Runner refined block list를 strict sequence match
-- 성공할 때 현재 quest progress를 1단계만 증가·영속화
-- 실제 조건 만족 시에만 다음 교체 버튼을 순차 해금
-- Select 화면에서 0~3단계 진행을 별 이미지로 반영
-- 새로 열린 교체 버튼은 반복 unlock animation으로 강조하고 실제 사용 시 종료
-- replace button UI가 비활성화된 설정에서는 퀘스트 progress도 증가시키지 않도록 후속 보완
+HB-30 확정:
+- 접근성 앱의 BarcodeActivity를 제거하고 CameraActivity에 ML Kit 분석·자동 촬영·CV 판정·복구 흐름 통합
+- QR 값 1~4를 bitmask로 관리하고 특정 3개 이상이 보이면 자동 촬영
+- 부족한 QR 조합을 좌/우/상/하 카메라 이동 지시로 변환
+- 동일 상태를 arrow rotation/AnimatedVectorDrawable·화면 문구·TalkBack announcement로 동기화
+- 반복 ImageAnalysis 프레임에서 안내가 폭주하지 않도록 약 1.2초 guidance throttling
+- Error/Warning 모두 결과 다이얼로그 후 동일 촬영 화면으로 복구
+- 일반 앱과 별도인 단순 Select→Camera→Play 접근성 흐름 유지
 
 역할 원칙:
 - 제품·UX 기획은 특별히 개인 기획이라고 확인된 항목을 제외하면 대체로 팀 내부 논의 결과로 취급
@@ -341,6 +361,7 @@ HB-29 확정:
 - HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
 - 속도 비교의 원본 측정표/로그가 남아 있는지 여부
 - 태블릿/Z Flip 화면비 대응의 정확한 후속 커밋·화면 범위
+- `2c0cf19`에 함께 포함된 Classifier.py 리팩터링의 직접적인 문제/성능 개선 목적
 
 ---
 
