@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-25 확인 완료  
-> 다음 확인 대상: HB-26 대용량 음악·이미지 자산 관리와 APK 처리 자동화
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-26 확인 완료  
+> 다음 확인 대상: HB-27 주요 화면 UI 개편과 기기별 비율·배치 보정
 
 ## 0. 작업 단위 복원 원칙
 
@@ -280,6 +280,19 @@
 - 같은 커밋에서 결과/삭제/퀘스트 다이얼로그 레이아웃도 각각 전용 배경·버튼·Guideline 기반 구조로 재작성했다. HB-25에서는 이 중 진행도 해금 흐름과 직접 연결된 `DialogQuest` 재설계를 핵심으로 보고, 다른 다이얼로그의 시각 개편은 UI 전반 개편 작업과 겹치므로 과대해석하지 않는다.
 - 따라서 이 작업은 단순 JSON 저장 수정이 아니라 `화면별 임시 boolean 상태 → 앱 전역 Progress 모델 → 음악별 순차 단계 정수 → 즉시 영속화 → lock/unlock UI 렌더링`으로 진행 상태의 책임과 데이터 계약을 정리한 작업으로 본다.
 
+### HB-26 — 대용량 모델 파일의 Git LFS 관리와 AAB→universal APK 패키징 자동화
+
+- 2024-08-02 `e452f2d`에서 기존에 저장소에서 통째로 ignore하던 `weights` 자산을 버전 관리 대상으로 전환했다. 작은 `nemo.cfg`는 일반 Git에 넣고, YOLO 가중치 `nemo_best.weights`는 Git LFS로 추적하도록 `.gitattributes`와 `manage_large_file.bat`을 추가했다.
+- LFS pointer 기준 `nemo_best.weights`의 실제 크기는 `257,286,840 bytes`(약 257 MB)였다. 일반 Git blob으로 직접 관리하지 않고 LFS로 분리해 대형 모델 파일을 저장소 이력에 포함시키면서도 Git 객체가 불필요하게 비대해지는 것을 피했다.
+- 같은 방식으로 APK 변환에 필요한 `bundletool-all-1.17.1.jar`도 Git LFS로 관리했다. 이 JAR의 LFS 대상 크기는 `32,456,876 bytes`(약 32.5 MB)였다.
+- 프로젝트의 일반 앱과 시각장애 사용자용 앱 모두 Gradle에서 `assetPacks = [":musics", ":weights"]`를 사용하고, `musics`·`weights`는 `com.android.asset-pack`의 `install-time` delivery로 구성돼 있었다. 따라서 배포/테스트 산출물은 단순 APK보다 AAB + asset pack 구조와 연결돼 있었다.
+- `extract_apk.bat`을 추가해 모듈명을 인자로 받아 release AAB를 `bundletool build-apks --mode=universal`로 `.apks` 파일로 변환하고, ZIP으로 풀어 나온 `universal.apk`를 `app.apk` 또는 `hummingblocks_for_blind_ones.apk`처럼 모듈명 기반 파일명으로 바꾸도록 자동화했다.
+- 스크립트는 변환 후 중간 `.zip`과 `toc.pb`를 삭제해 최종 APK만 남겼고, 같은 한 개의 batch script를 `app`과 `hummingblocks_for_blind_ones` 두 모듈에 재사용하도록 만들었다.
+- 즉 Android Studio/명령행에서 AAB를 만든 뒤 `bundletool 실행 → .apks 생성 → 압축 해제 → universal.apk 찾기 → 이름 변경 → 중간 파일 삭제`를 수동으로 반복하던 배포 준비 절차를 하나의 명령으로 줄인 작업으로 정리한다.
+- 이 커밋에서 음악·이미지 asset pack 자체를 새로 설계한 것은 아니다. `musics`와 `weights` asset-pack 구조는 이미 존재했고, HB-26의 핵심 개인 작업은 **대용량 모델/빌드 도구의 버전 관리 방식 정리와 universal APK 추출 자동화**다.
+- 바로 뒤 `bef51f4`는 release maintenance 성격의 인접 작업이다. 일반 앱의 `compileSdk/targetSdk`를 33→34, version을 `1.2.1(code 20)`→`1.3.0(code 22)`로 올리고 AppCompat, Material, CameraX, Play Asset Delivery와 테스트 라이브러리 버전을 함께 갱신했다. 이는 HB-26 자동화의 핵심 구현과는 분리하되 같은 배포 정비 구간의 작업으로 기록한다.
+- 당시 batch script에는 로컬 release signing 설정을 직접 참조하는 부분이 있으나, 재사용 가능한 경험으로 정리할 때는 signing 비밀값이나 개인 PC 경로가 아니라 `release AAB를 bundletool로 서명된 universal APK로 변환하는 자동화`만 기술한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **Main/Home 등 다른 화면의 기기별 비율 대응:** HB-06과 별도 작업. 태블릿에서 버튼이 너무 작아지고 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 나중에 발견해 추가 대응했다. 정확한 시점과 적용 화면을 커밋으로 다시 복원한다.
@@ -288,18 +301,20 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-26 — 대용량 음악·이미지 자산 관리와 APK 산출물 처리 자동화**다.
+다음 작업은 **HB-27 — 주요 화면 UI 개편과 다양한 화면비 대응 보완**이다.
 
-`e452f2d`, `bef51f4`를 중심으로 다음을 확인한다.
+`65ee77b`, `e5c69ad` 및 연관 커밋을 중심으로 다음을 확인한다.
 
-- 앱 내부에 누적된 음악·이미지 자산이 빌드/배포에 어떤 문제를 만들었는지
-- 별도 `musics` 모듈 또는 asset 복사 구조를 어떻게 정리했는지
-- APK/AAB 산출물을 어떤 스크립트·Gradle 흐름으로 후처리했는지
-- 수동 작업을 자동화하면서 어떤 파일 구조·배포 절차가 바뀌었는지
+- Main/Home/Select/Play 등 어떤 화면을 어느 순서로 개편했는지
+- 태블릿, Z Flip 펼침 화면 등에서 실제로 어떤 배치 문제가 발생했는지
+- HB-06의 9:16 percentage Guideline 방식이 다른 화면으로 어떻게 확장됐는지
+- 단순 디자인 교체와 기기 호환성 수정이 한 커밋에 섞여 있는지
+- 사용자 직접 구현 범위와 디자이너 원본 리소스 범위를 어떻게 구분할지
 
-분류 메모:
-- HB-25 시점의 `quest_progress`는 순차 해금 상태 저장 모델이며, 실제 블록 조건 자동 검증은 아직 연결되지 않음
-- `quest.json` 기반 match 조건, 별 표시, 완료 판정, 해금 애니메이션은 HB-29에서 별도로 확인
+분류 정정:
+- HB-26의 기존 `대용량 음악·이미지 자산 관리` 표현은 제거. 해당 두 커밋의 직접 근거는 Git LFS 기반 YOLO 모델/bundletool 관리와 AAB→universal APK 자동 추출
+- `musics`·`weights` install-time asset pack 구조는 HB-26 이전부터 존재하므로 신규 설계 기여로 주장하지 않음
+- `bef51f4`의 SDK·라이브러리·앱 버전 갱신은 같은 배포 정비 시기의 인접 maintenance로 분리
 
 남은 미확인:
 - HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
