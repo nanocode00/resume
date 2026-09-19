@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-33, HB-31S 확인 완료  
-> 다음 확인 대상: HB-34 재생 조작 UI의 공통 percentage Guideline 재배치
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-34, HB-31S 확인 완료  
+> 다음 확인 대상: HB-35 CameraX 동영상 녹화와 recording state
 
 ## 0. 작업 단위 복원 원칙
 
@@ -302,8 +302,8 @@
 - Play 화면도 `360:740` 기준 영역을 유지하면서 조건 표시, 재생/일시정지, 재시작, 코드 보기, 저장·설정 등 주요 조작 UI와 drawable을 새 디자인에 맞게 교체했다. 기존 `ResultViewActivity` 계열은 `ViewCodeActivity`/`activity_view_code`로 이름과 화면 구조가 정리됐다.
 - 텍스트는 여러 화면에서 `android:autoSizeTextType="uniform"`과 constraint 영역을 결합해 고정 sp만으로 배치하지 않도록 했다. 일반 TextView와 달리 기본 auto-size가 직접 적용되기 어려운 `EditText`에는 `EditTextAutoSizeUtil`을 추가해 동일 크기의 invisible TextView로 계산한 textSize를 EditText에 반영했다.
 - 즉 이 작업은 개별 버튼 margin을 조금씩 고치는 수준보다, 디자인 기준 좌표(360×740)를 percentage constraint로 변환해 여러 화면에 일관되게 적용하고 텍스트 크기도 컨테이너에 맞춰 조정하는 **UI 시스템 전면 교체**에 가깝다.
-- 다만 `e5c69ad`와 `65ee77b`만으로는 이 개편이 태블릿이나 Galaxy Z Flip 펼침 화면에서 발견된 문제를 직접 해결하기 위해 시작됐다고 증명할 수 없다. Main의 기준 비율은 기존 `18:37`과 새 `360:740`이 수학적으로 동일하고, 별도의 screen-size 분기 코드도 없다.
-- 사용자 기억상 이후 태블릿에서 버튼이 지나치게 작아지거나 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 별도로 대응한 작업이 있었으므로, 그 기기 대응은 HB-27에 억지로 합치지 않고 정확한 후속 커밋을 찾을 때 별도 작업으로 분리한다.
+- 사용자 확인상 이 레이아웃 전략은 태블릿/Z Flip 같은 **특정 기기별 분기**를 두는 방식이 아니었다. 화면의 실제 크기에 맞춰 별도 `layout-sw...` 리소스를 만드는 대신, 기준 화면에서 계산한 위치·크기를 percentage `Guideline`으로 표현하고 각 View를 `0dp` constraint에 묶어 **화면 비율에 따라 컴포넌트 전체가 함께 늘고 줄도록** 구현한 방식이었다.
+- 따라서 HB-27은 `특정 기기 대응`이 아니라 Figma 기준 좌표를 비율 좌표로 변환해 전체 화면을 상대 배치한 responsive layout 구현으로 정리한다.
 - 새 UI의 원본 디자인은 디자이너가 Figma에 제작한 시안이었다. 재훈님은 해당 시안을 보고 각 요소의 위치·크기·비율을 계산해 Android의 `ConstraintLayout`, percentage `Guideline`, `0dp` constraint, auto-size text 구조로 옮겨 구현했다. 따라서 개인 기여는 `UI 시안 디자인`이 아니라 **Figma 시안을 Android 반응형 레이아웃으로 변환·구현한 작업**으로 표현한다.
 
 ### HB-30 — QR 위치 상태를 이용한 시각장애 사용자용 자동 촬영·방향 안내 UX 재설계
@@ -387,41 +387,50 @@
 - `VersionUtil.read_version_file()`은 파싱 실패 시 `-1`을 반환하고, `save_version()`은 PackageManager에서 현재 versionCode를 읽어 `{ "version": ... }` 형태로 저장한다. 다만 LoadingActivity는 이미 version file이 존재하는 경우 이 값으로 추가 migration 여부를 판단하지 않고 로그만 남긴다.
 - 따라서 HB-33은 **대규모 저장 구조 변경이 기존 설치 데이터를 바로 깨뜨리지 않도록 pre-v25 사용자 데이터를 새 MusicFile 구조로 실제 변환하고, 변환 중 발견된 데이터 형태/파일명/출력 문제를 수정한 호환 작업**으로 정리한다. `앱 버전별 migration 모듈`이나 `별도 migration module`이라고 과장하지 않는다.
 
+### HB-34 — 재생 화면 버튼을 개별 좌표에서 공통 percentage Guideline 그룹으로 재정렬
+
+- 2024-12-02 `bfc794e`, 2024-12-04 `3c5b4e2`는 일반 앱 `activity_play.xml`과 튜토리얼의 동일 UI를 복제한 `overlay_tutorial_description.xml`에서 재생 화면 조작 버튼의 크기·배치를 다시 정리한 작업이다.
+- 사용자 확인상 이 계열의 반응형 대응은 특정 화면 크기나 기기 모델별 resource를 분기하는 방식이 아니라, 기준 화면 좌표를 percentage Guideline으로 바꾸고 각 컴포넌트를 해당 Guideline 사이의 `0dp` constraint로 묶어 화면 비율 변화에 따라 함께 확대·축소되도록 하는 방식이었다.
+- 기존에는 `btn_view_code_left/right`, `btn_retake_photo_left/right`, `btn_back_to_main_left/right`, `btn_setting_left/right`처럼 버튼마다 별도 Guideline이 흩어져 있었다. 후속 수정에서는 이를 `buttons_left_1/right_1`, `buttons_left_2/right_2`, `buttons_left_3/right_3`, `buttons_top/bottom_*`처럼 **행·열 단위 공통 기준선**으로 재구성했다.
+- View Code와 다시 촬영 버튼은 첫 번째 버튼 행의 공통 좌우 Guideline을 사용하고, Main 복귀와 설정 버튼은 두 번째 행의 같은 좌우 기준을 재사용하도록 바뀌었다. Restart/Save 역시 세 번째 공통 좌우 Guideline에 묶였다.
+- 버튼 label도 개별 좌우 경계선 대신 `buttons_text_left/right`, `btn_play_left/right`, `buttons_text_top/bottom_*`를 공유하도록 바뀌어 버튼과 텍스트가 같은 비율 좌표계 안에서 함께 움직이도록 했다.
+- `3c5b4e2`에서는 Main 복귀/설정 버튼을 기존 약 40×40 기준에서 50×50 기준으로 키우고, Y 범위를 `0.055~0.123`, 좌우 범위를 각각 약 `0.119~0.258`, `0.742~0.881`로 맞췄다. 텍스트 영역도 좌우 약 `0.037~0.963` 안에서 양쪽 버튼 그룹에 맞춰 재배치했다.
+- 같은 변경을 tutorial overlay에도 거의 동일하게 반영했다. 튜토리얼이 실제 Play UI 위치를 가정해 설명을 덮어씌우는 구조였기 때문에, 본 화면과 overlay의 Guideline을 함께 수정해야 안내 위치가 어긋나지 않았다.
+- 코드상 `activity_play.xml`과 tutorial overlay 모두 360×740 기준 ratio와 다수의 percentage Guideline을 유지하며, 별도의 tablet/Z Flip 전용 layout resource나 runtime device 분기 없이 같은 상대 배치 체계를 사용한다.
+- 따라서 HB-34는 `특정 기기 대응`보다는 **재생 화면의 버튼·텍스트를 공통 상대 좌표 체계로 묶어, 화면 비율 변화에도 전체 조작 UI의 크기와 간격 관계가 함께 유지되도록 보정한 작업**으로 정리한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
-- **Main/Home 등 다른 화면의 기기별 비율 대응:** HB-06과 별도 작업. 태블릿에서 버튼이 너무 작아지고 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 나중에 발견해 추가 대응했다. 정확한 시점과 적용 화면을 커밋으로 다시 복원한다.
 - **BPM 기능 제거 사유:** 구현 완료와 이후 제거 사실은 확인됐지만 제품 판단 이유는 미확인으로 유지한다.
 - **TFLite 실험:** 속도는 여러 Galaxy S9+에서 두 버전을 기기별 1회씩 실행해 비교한 조건까지 확인됐다. `약 90% → 57%` 정확도 수치의 평가 데이터셋·샘플 수·집계 방식은 여전히 미확인이다.
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-34 — 재생 조작 버튼 위치·크기를 공통 percentage Guideline으로 재배치**다.
+다음 작업은 **HB-35 — CameraX 동영상 녹화와 recording state 관리**다.
 
-`bfc794e`, `3c5b4e2`를 중심으로 다음을 확인한다.
+`d85faeb`를 중심으로 다음을 확인한다.
 
-- PlayActivity의 어떤 조작 버튼이 기기별로 깨졌는지
-- 개별 margin/dp 배치에서 공통 Guideline 기준으로 무엇을 바꿨는지
-- 태블릿/Z Flip 펼침 화면 대응으로 기억한 작업과 직접 연결되는지
-- 일반 앱과 접근성 앱 양쪽에 같은 방식이 적용됐는지
-- HB-06/HB-27의 percentage layout 접근과 무엇이 다른 후속 보완인지
+- 기존 사진 촬영 CameraX pipeline에 VideoCapture/Recorder를 어떻게 추가했는지
+- 녹화 시작·진행·종료 상태를 어떤 변수/콜백으로 관리했는지
+- 촬영 결과와 음악 재생/저장 흐름을 어떻게 연결하려 했는지
+- 권한·파일 경로·Lifecycle 관리는 어떻게 처리했는지
+- 같은 커밋의 HB-36 FFmpeg 음악 영상 합성과 어디서 작업 단위를 나눌지
 
-HB-33 확정:
-- 2.0.0(versionCode 25)에서 `version.json` marker를 새로 도입
-- version file 부재 + setting file 존재를 pre-v25 기존 설치로 판정
-- 장르별 구형 저장 음악/별도 block/MP3/cache를 HB-31 MusicFile 기반 구조로 1회 변환
-- old bpm cache와 weight cache를 제거하고 최신 asset을 다시 생성/복사
-- 초기 migration의 loop/title/block shape/MP3 extension 오류를 `6d66423`에서 즉시 수정
-- `fbd31c9`는 별도 Gradle 모듈 생성이 아니라 version I/O를 VersionUtil로 추출한 코드 모듈화
-- 저장 version 숫자별 순차 migration framework는 아니므로 그렇게 표현하지 않음
+HB-34 확정:
+- 특정 기기별 layout 분기가 아니라 percentage Guideline 기반 상대 배치
+- 개별 버튼별 Guideline을 행·열 단위 공통 Guideline으로 묶어 위치·크기 관계를 일관되게 유지
+- 버튼과 label을 같은 상대 좌표 체계에 연결해 화면 비율에 따라 함께 확대·축소
+- Main 복귀/설정 버튼 크기 및 위치를 다시 계산해 비율 값으로 반영
+- 실제 Play 화면과 tutorial overlay의 좌표 체계를 동시에 수정
 
-역할 원칙:
-- 제품·UX 기획은 특별히 개인 기획이라고 확인된 항목을 제외하면 대체로 팀 내부 논의 결과로 취급
-- 개인 기여는 Git 이력과 사용자 확인으로 뒷받침되는 구현·통합·디버깅·기술 선택 범위로 표현
+반응형 UI 역할 정리:
+- Figma 원안은 디자이너 제작
+- 재훈님은 Figma상의 위치·크기를 계산해 ConstraintLayout percentage Guideline으로 변환·구현
+- 화면 크기별 별도 레이아웃을 만드는 것이 아니라, 하나의 상대 좌표 체계에서 컴포넌트 전체가 함께 늘고 줄도록 구성
 
 남은 미확인:
 - HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
 - 속도 비교의 원본 측정표/로그가 남아 있는지 여부
-- 태블릿/Z Flip 화면비 대응의 정확한 후속 커밋·화면 범위
 - `2c0cf19`에 함께 포함된 Classifier.py 리팩터링의 직접적인 문제/성능 개선 목적
 
 ---
