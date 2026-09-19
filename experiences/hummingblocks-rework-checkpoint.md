@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-35, HB-31S 확인 완료  
-> 다음 확인 대상: HB-36 분할 녹화 영상과 저장 음악 MP3의 FFmpeg 합성·갤러리 저장
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-36, HB-31S 확인 완료  
+> 다음 확인 대상: HB-37 저장 음악·영상 제작 UX의 최종 통합 보완
 
 ## 0. 작업 단위 복원 원칙
 
@@ -417,6 +417,22 @@
 - `719732b`에서는 finish 시 MediaPlayer를 `stop→prepare`하지 않고 `pause→seekTo(0)`으로 정리하고, 합성 중 top loading layer를 표시하는 등 최종화 중 UI state도 보완했다. 이 중 **임시 segment/녹화 세션 상태 관리**는 HB-35 후속 보완으로, 실제 concat/audio merge는 HB-36으로 분리한다.
 - 결과적으로 HB-35는 `저장 음악 선택 → MusicFile/MP3 로드 → CameraX VideoCapture → 음악과 동기화된 start/pause → tempN 분할 녹화 → 오류·이탈 시 segment 정리`를 만든 작업이다. 최초 prototype 작성은 팀원, 재훈님 기여는 이 prototype을 실제 앱 데이터·UI·상태 흐름과 연결해 제품 기능으로 재구성한 부분으로 표현한다.
 
+### HB-36 — 분할 CameraX 영상과 저장 음악 MP3를 FFmpeg로 합성해 갤러리 영상으로 생성
+
+- HB-35에서 만들어진 `temp1.mp4`, `temp2.mp4`, ... segment와 저장 `MusicFile`에서 생성한 MP3를 최종 영상으로 만드는 후처리 파이프라인이다. 최초 단일 녹화 prototype의 audio/video 합성 실험은 팀원 코드에 있었지만, `d85faeb`에서 재훈님이 분할 녹화·저장 음악 구조에 맞춰 `FFmpegUtil`과 `RecordActivity.finishRecording()`을 다시 구성했다.
+- `mergeTempVideoFiles()`는 `video_count`만큼의 `tempN.mp4` 절대 경로를 FFmpeg concat demuxer용 `file_list.txt`에 순서대로 기록하고, 앱 내부 `videos` 디렉터리로 옮긴 뒤 `concat.mp4`를 생성한다.
+- segment 연결 명령은 `-f concat -safe 0 -i file_list.txt -c copy concat.mp4`이다. 영상 stream을 재인코딩하지 않고 그대로 이어 붙이므로, CameraX에서 같은 녹화 설정으로 만들어진 segment를 빠르게 하나의 연속 영상으로 조합하는 방식이다.
+- HB-35에서 record stop 시 저장 음악 MediaPlayer도 pause되고, 다시 녹화할 때 같은 위치에서 resume한다. 따라서 사용자가 촬영을 멈춘 동안의 시간은 MP3 재생 진행에도, 최종 concat video에도 포함되지 않는다. 여러 segment를 공백 없이 연결하면 실제 음악을 들으며 촬영한 구간의 시간축이 다시 이어진다.
+- concat 완료 후 `merge_video_and_audio()`가 `concat.mp4`와 `files/music/<title>.mp3`를 입력으로 받아 최종 MP4를 만든다. FFmpeg 옵션은 `-c:v copy -c:a aac -shortest`로, 영상은 다시 인코딩하지 않고 복사하고 MP3 audio만 AAC로 넣는다.
+- `-shortest` 때문에 사용자가 저장 음악 전체를 촬영하지 않고 중간에 `완료`를 눌렀다면 최종 출력은 더 짧은 video stream 길이에 맞춰 종료된다. 반대로 음악이 끝까지 재생되면 HB-35의 completion callback이 finishRecording을 호출하므로 전체 곡 길이 기준 영상이 만들어진다.
+- RecordActivity는 합성 결과를 앱 내부 `files/videos/<timestamp>.mp4`에 먼저 만든 뒤 Android `MediaStore.Video`에 `DISPLAY_NAME=<timestamp>.mp4`, MIME `video/mp4`, `RELATIVE_PATH=DCIM/HummingBlocks`로 entry를 생성한다. ContentResolver output stream으로 내부 결과 파일을 복사해 사용자가 일반 갤러리에서 확인할 수 있게 했다.
+- 갤러리 복사가 끝나면 `temp1...tempN.mp4`, `file_list.txt`, `concat.mp4`, 앱 내부 최종 `<timestamp>.mp4`를 모두 삭제하고 `video_count=0`으로 초기화한다. 즉 앱 내부 videos 폴더는 작업용 임시 공간으로 쓰고 사용자가 보관하는 결과물은 MediaStore 쪽만 남긴다.
+- `d85faeb` 당시 MusicFile→MP3 생성 함수 `saveMp3FromMusicFile()`은 내부 `merge_and_concat()`을 비동기 `FFmpeg.executeAsync()`로 실행했다. 그런데 SelectMusicActivity 등 호출부는 MP3 생성을 요청한 직후 그 파일을 MediaPlayer/RecordActivity에서 사용한다.
+- 2025-01-07 `719732b`에서는 이 MP3 합성도 동기 `FFmpeg.execute()`로 변경하고 async wrapper를 제거했다. 코드상 효과는 **MP3 합성이 완료된 뒤 호출부가 다음 단계로 진행하도록 실행 순서를 보장**하는 것이다. 직접적인 버그 리포트는 확인되지 않으므로 원인을 단정하지 않고, 영상 제작처럼 출력 파일을 즉시 소비하는 흐름에 맞춘 순서 안정화로 기록한다.
+- `719732b`에서 finish 시 합성 작업 동안 `topLayer`를 표시하고 완료 후 숨기도록 UI state를 추가했으며, 내부 결과를 MediaStore로 복사할 때도 공통 `Utils.copyFile()`을 사용하도록 정리했다.
+- FFmpeg concat/audio merge 자체는 동기 호출이라 `finishRecording()`의 `mergeTempVideoFiles() → merge_video_and_audio() → MediaStore copy → cleanup`이 순서대로 실행된다. 다만 CameraX recording finalize 직후 파일 flush를 기다리는 명시적 callback chain 대신 500ms `Handler.postDelayed()` 뒤 합성을 시작하는 구현이므로, 이를 더 강한 완료 보장 구조로 과장하지 않는다.
+- 결과적으로 HB-36은 `분할 무음 영상 → concat demuxer로 무재인코딩 결합 → 저장 음악 MP3를 AAC audio로 mux → -shortest 길이 정렬 → MediaStore/DCIM 저장 → 임시 파일 정리`의 로컬 뮤직비디오 생성 파이프라인을 구현한 작업으로 정리한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **BPM 기능 제거 사유:** 구현 완료와 이후 제거 사실은 확인됐지만 제품 판단 이유는 미확인으로 유지한다.
@@ -424,27 +440,26 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-36 — 분할 녹화 영상과 저장 음악 MP3의 FFmpeg 합성·갤러리 저장**이다.
+다음 작업은 **HB-37 — 저장 음악·영상 제작 UX의 최종 통합 보완**이다.
 
-`d85faeb`, `719732b`의 `FFmpegUtil`과 `RecordActivity.finishRecording()`을 중심으로 다음을 확인한다.
+`719732b`, `a2f2037`, `7a1cb0f`를 중심으로 다음을 확인한다.
 
-- `temp1...tempN.mp4`를 어떤 concat list/FFmpeg 명령으로 하나로 합쳤는지
-- 무음 concat video와 저장 음악 MP3를 어떤 stream mapping/codec 옵션으로 합쳤는지
-- 영상 길이와 음악 길이 차이를 어떻게 처리했는지
-- 내부 임시 파일과 최종 결과물을 어떻게 정리했는지
-- MediaStore를 통해 DCIM/HummingBlocks로 저장하는 과정
-- `719732b`에서 FFmpeg 합성 로직을 어떤 이유로/어떻게 수정했는지
+- SavedMusicActivity와 SelectMusicActivity의 역할이 최종적으로 어떻게 나뉘었는지
+- 저장 음악 재생·선택·삭제·제목 변경 UI가 어떤 상태 모델로 정리됐는지
+- 저장 음악에서 바로 영상 제작으로 진입하는 경로가 추가됐는지
+- MP3/영상 popup, 삭제·제목 변경 dialog와 accessibility 보완 범위
+- `a2f2037`, `7a1cb0f`가 실제 기능 변경인지 UI 위치/튜토리얼 후속 fix인지 분리
+- HB-31/35/36과 중복되지 않는 독립 작업 단위를 최종 확정
 
-HB-35 확정:
-- 최초 RecordActivity prototype은 팀원 Tinto-Verano 구현
-- 재훈님은 저장 MusicFile 선택→RecordActivity 흐름으로 제품화
-- 고정 테스트 음원 대신 사용자가 저장한 MP3를 녹화 타임라인으로 사용
-- CameraX Preview + VideoCapture<Recorder>, Quality.HIGHEST, 전/후면 전환
-- `Recording` null 여부와 `video_count`로 start/stop 및 여러 temp segment 관리
-- 음악 pause/resume 지점과 영상 segment 분할을 동기화
-- 곡 종료 또는 finish 버튼으로 녹화 세션 최종화
-- mic audio는 녹음하지 않고 영상과 MP3 합성을 후단 HB-36으로 분리
-- 오류/뒤로가기/Activity 종료 시 temp segment 정리
+HB-36 확정:
+- `tempN.mp4` 목록을 concat demuxer input list로 만들어 `-c copy`로 하나의 `concat.mp4` 생성
+- 저장 음악 MP3를 `-c:v copy -c:a aac -shortest`로 영상에 mux
+- 녹화 pause와 음악 pause가 함께 움직여 segment concat 후 연속 시간축 복원
+- 중간 완료 시 `-shortest`로 영상 길이에 맞춰 audio 종료
+- 최종 MP4를 MediaStore `DCIM/HummingBlocks`에 저장
+- MediaStore 저장 후 temp/list/concat/internal output을 정리
+- `719732b`에서 MusicFile→MP3 FFmpeg 실행을 async→sync로 바꿔 출력 파일 소비 순서를 안정화
+- CameraX finalize와 FFmpeg 사이에는 500ms delay를 사용했으므로 callback 기반 완료 보장으로 과장하지 않음
 
 남은 미확인:
 - HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
