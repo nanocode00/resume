@@ -109,7 +109,7 @@
 | HB-34 | 2024.12 | 재생 화면 버튼·label의 개별 좌표 Guideline을 행·열 단위 공통 percentage Guideline으로 재구성해 화면 비율 변화에 따라 조작 UI 전체가 함께 확대·축소되도록 보정 | `bfc794e`, `3c5b4e2` | A(구현) / 디자인 원안은 디자이너 | 높음 |
 | HB-35 | 2024.11~2025.01 | 팀원 CameraX 녹화 prototype을 저장 `MusicFile` 선택·음악 동기화·`tempN.mp4` 분할 녹화·오류/이탈 cleanup이 가능한 제품 흐름으로 재구성 | `83d51f6`(팀원 prototype), `d85faeb`, `719732b`(후속 상태 보완) | A(제품화 구현) / 최초 prototype은 팀원 | 매우 높음 |
 | HB-36 | 2024.12~2025.01 | `tempN.mp4` 분할 영상을 FFmpeg concat demuxer로 무재인코딩 결합하고 저장 음악 MP3를 AAC로 mux해 MediaStore/DCIM에 최종 뮤직비디오를 저장 | `d85faeb`, `719732b` | A(구현·후속 동기화 보완) | 매우 높음 |
-| HB-37 | 2025.01 | 저장 음악 선택·재생·삭제·제목 변경과 영상 제작 UX를 통합 개선 | `719732b`, `a2f2037`, `7a1cb0f` | A | 높음 |
+| HB-37 | 2025.01 | 저장 음악 재생을 생성 MP3 직접 `MediaPlayer` 재생으로 단순화하고 관리 화면의 영상 제작 진입·전용 음악 선택 흐름·접근성 semantics를 최종 통합 | `719732b`; `a2f2037`,`7a1cb0f`는 후속 UI/tutorial fix | A(구현·통합) | 매우 높음 |
 
 ## 2. 팀 작업 또는 개인 기여 범위 확인이 필요한 항목
 
