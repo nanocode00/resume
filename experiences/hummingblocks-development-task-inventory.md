@@ -8,7 +8,7 @@
 ## 번호 체계
 
 - 개인 개발작업은 예외 접미사 없이 `HB-01~HB-45` 연속 번호로 관리한다.
-- 번호는 현재 인벤토리의 논리적 작업 순서를 유지한 식별자이며, 번호 자체가 엄밀한 시간순을 뜻하지는 않는다.
+- 번호는 현재 인벤토리의 논리적 작업 순서를 유지하는 식별자이며, 번호 자체가 엄밀한 시간순을 뜻하지는 않는다.
 - 팀 선행·공동 구현은 `PRE-*`, `TEAM-*`, 상위 통합 단위는 `GROUP-*`를 유지한다.
 
 ## 분류 기준
@@ -47,7 +47,7 @@
 - 브랜치 간 중복 SHA를 제거하면 **229개 고유 커밋**, 그중 `nanocode00` 작성 커밋은 **162개**였다.
 - 제품 기준 브랜치 `app_develop`은 총 **199개 커밋**이며, 기존 checkpoint/inventory에 SHA가 직접 등장하지 않던 `nanocode00` non-merge 커밋 **54개**를 별도로 역검토했다.
 - 또한 최종 `app_develop`에 포함되지 않은 다른 브랜치의 `nanocode00` 고유 커밋 **21개**를 확인해 TFLite 실험, BPM 분기, 대용량 파일/음악·캐릭터 병렬 작업이 기존 항목에 이미 반영됐는지 대조했다.
-- 이 교차검증에서 새 독립 작업으로 추가할 가치가 확인된 것은 **2023.10 Play Asset Delivery 기반 `musics`/`weights` asset pack 분리(HB-33)**였다.
+- 이 교차검증에서 새 독립 작업으로 추가할 가치가 확인된 것은 **2023.10 Play Asset Delivery 기반 `musics`/`weights` asset pack 분리(HB-33)**였다. 최종 재검토 결과, 그 외 개인 독립 작업 누락은 발견되지 않았다.
 - 별도 ID로 늘리지 않고 기존 작업에 흡수해야 할 중요한 누락 단계도 확인했다. 대표적으로 `3889c17`의 2024.02 앱 전반 percentage Guideline 전환은 HB-12→HB-34→HB-42로 이어지는 반응형 UI 작업군의 중간 단계이며, `61ea93b`은 HB-16 MusicPlayer/scheduler 재설계의 핵심 근거다.
 - 나머지 미참조 커밋은 대부분 동일 기능의 후속 bugfix, asset 교체, UI polish, revert/재적용, 또는 다른 브랜치에서 동일 작업을 다른 SHA로 진행한 기록이었다. 따라서 commit message 하나만 보고 새 개발작업으로 중복 계상하지 않는다.
 - 이 검증은 저장소에 남은 commit graph와 diff를 기준으로 한다. 커밋되지 않은 로컬 실험이나 저장소 밖 작업까지 존재하지 않았음을 증명하는 것은 아니다.
@@ -136,7 +136,7 @@
 
 | 통합 ID | 통합 작업군 | 포함 세부 작업·추가 근거 | 통합 관점 |
 |---|---|---|---|
-| GROUP-CORE-01 | Android–Python CV/블록 실행 제품화 | HB-02~E04, HB-07, HB-08, HB-11, HB-14; `8c21546` | 카메라 입력·방향 보정·Chaquopy·Runner 계약·Python 실행 결과를 하나의 Android 실행 흐름으로 연결 |
+| GROUP-CORE-01 | Android–Python CV/블록 실행 제품화 | HB-02~HB-04, HB-07, HB-08, HB-11, HB-14; `8c21546` | 카메라 입력·방향 보정·Chaquopy·Runner 계약·Python 실행 결과를 하나의 Android 실행 흐름으로 연결 |
 | GROUP-AUDIO-01 | 실시간 다중 악기 재생 엔진 | HB-09, HB-10, HB-16, HB-17, HB-29; `61ea93b` | MediaPlayer gap 해결에서 시작해 scheduler phase, pause/resume delay, condition input, countdown까지 하나의 시간축 제어 문제로 통합 |
 | GROUP-UI-01 | 화면 비율 기반 반응형 Android UI | HB-12 → `3889c17` → HB-34 → HB-42 | Play 화면에서 시작한 percentage Guideline 방식을 앱 전반으로 확장하고, Figma 시안을 상대 좌표로 재구현한 뒤 공통 행·열 Guideline으로 보정 |
 | GROUP-ACCESS-01 | TalkBack·촉각·시각장애 사용자 흐름 | HB-20, HB-21, HB-22, HB-25, HB-37; `c2cca66`, `190a583`, `c3871c9`, `e52f941` | 탐색 순서/음성 설명 → 블록 읽기 → 진동 → 별도 접근성 앱 → QR 위치 기반 촬영 안내로 접근성 수준을 단계적으로 확장 |
@@ -190,10 +190,10 @@
 - 전체 8개 브랜치 commit graph 교차검증 완료: **229 unique commits / `nanocode00` 162 commits**.
 - 제품 기준 `app_develop` 199 commits 중 기존 문서에 직접 매핑되지 않은 user non-merge 54개를 역검토했다.
 - 최종 브랜치 밖의 user unique commit 21개도 별도 확인했다.
-- 새 독립 개발작업으로 **HB-33 Play Asset Delivery 자산 분리/내부 materialization**을 추가했으며, 최종 재검토에서 그 외 개인 독립 작업 누락은 발견되지 않았다.
+- 새 독립 개발작업으로 **HB-33 Play Asset Delivery 자산 분리/내부 materialization**을 추가했다.
 - `3889c17`의 앱 전반 percentage Guideline 전환은 별도 성과로 중복 세지 않고 GROUP-UI-01의 중간 단계로 통합했다.
 - `8c21546`, `61ea93b`, `1bce3cf`, `190a583`, `c3871c9`, `e52f941` 등 미참조 핵심 커밋은 기존 HB의 근거·진화 단계에 흡수했다.
-- 상세 추적 단위는 초기 Android `HB-01~E06`, 제품 작업 `HB-07~HB-45`, 보조 ID `HB-33`, `HB-39`로 유지한다.
+- 상세 추적 단위는 예외 없이 `HB-01~HB-45` 연속 번호로 유지한다.
 - 이력서용 상위 단위는 `GROUP-*` 작업군을 기준으로 한다.
 - 다음 단계는 `experiences/hummingblocks.md`에서 **중복 작업을 통합한 4~6개 핵심 경험 구조**를 만드는 것이다.
 - 기존 Draft PR은 계속 draft 상태로 유지하며, `main`에는 반영하지 않는다.
