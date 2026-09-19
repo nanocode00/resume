@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-36, HB-31S 확인 완료  
-> 다음 확인 대상: HB-37 저장 음악·영상 제작 UX의 최종 통합 보완
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-37, HB-31S 확인 완료  
+> 다음 확인 대상: 전체 개발 작업 인벤토리 교차검증 및 이력서용 핵심 경험 선별
 
 ## 0. 작업 단위 복원 원칙
 
@@ -433,6 +433,25 @@
 - FFmpeg concat/audio merge 자체는 동기 호출이라 `finishRecording()`의 `mergeTempVideoFiles() → merge_video_and_audio() → MediaStore copy → cleanup`이 순서대로 실행된다. 다만 CameraX recording finalize 직후 파일 flush를 기다리는 명시적 callback chain 대신 500ms `Handler.postDelayed()` 뒤 합성을 시작하는 구현이므로, 이를 더 강한 완료 보장 구조로 과장하지 않는다.
 - 결과적으로 HB-36은 `분할 무음 영상 → concat demuxer로 무재인코딩 결합 → 저장 음악 MP3를 AAC audio로 mux → -shortest 길이 정렬 → MediaStore/DCIM 저장 → 임시 파일 정리`의 로컬 뮤직비디오 생성 파이프라인을 구현한 작업으로 정리한다.
 
+### HB-37 — 저장 음악 재생을 생성 MP3 기준으로 단순화하고 영상 제작 진입을 통합
+
+- 2025-01-07 `719732b`은 HB-31의 저장 음악 화면과 HB-35~36의 영상 제작 흐름을 최종적으로 연결하면서 SavedMusicActivity/SelectMusicActivity의 역할을 정리한 커밋이다.
+- 가장 큰 내부 변화는 저장 음악 재생 방식을 `MusicPlayer` 기반 재구성 재생에서 **생성된 MP3를 Android `MediaPlayer`로 직접 재생**하는 방식으로 바꾼 것이다. 이전에는 `MusicFile`의 section/level/replace를 다시 MusicPlayer에 공급해 재생했지만, 이후에는 `files/music/<title>.mp3`를 직접 열었다.
+- 화면 진입 시 MusicFile마다 대응 MP3가 없으면 `FFmpegUtil.saveMp3FromMusicFile()`로 먼저 생성한다. 카드의 전체 길이도 MusicInfo의 `section_count × measure_length` 추정값 대신 실제 MP3를 잠시 MediaPlayer로 열어 `getDuration()`으로 읽는다.
+- 재생 진행도는 20ms 주기로 `MediaPlayer.getCurrentPosition()`을 읽어 progress bar와 `mm:ss`를 갱신한다. 재생 완료 시 MediaPlayer를 처음 위치로 되돌리고 카드 UI를 `play`, `00:00`, progress 0 상태로 함께 초기화한다.
+- 다른 저장 음악을 선택하면 기존 MediaPlayer를 stop/release하고 이전 카드 detail을 닫은 뒤 새 MP3로 MediaPlayer를 생성한다. 장르 tab을 바꿀 때도 같은 정리 흐름을 적용해 한 번에 하나의 저장 음악만 활성 상태를 갖도록 했다.
+- 이 변경으로 SavedMusicActivity의 역할은 `MusicFile 구조를 다시 실행하는 플레이어`보다 **저장 결과물 MP3를 관리·미리듣는 라이브러리 화면**에 가까워졌다. HB-20/31에서 생성한 MP3와 사용자가 실제로 듣는 저장 음악이 동일 파일이 되어 재생·공유·영상 제작이 같은 파생물을 기준으로 동작한다.
+- 제목 변경 시에도 더 이상 MP3를 FFmpeg로 다시 생성하지 않는다. MusicFile JSON의 title을 수정해 새 파일명으로 저장하고 기존 `<old>.mp3`를 `<new>.mp3`로 rename한다. 오디오 내용은 제목과 무관하므로 불필요한 재합성을 제거한 것이다.
+- 삭제 시 현재 재생 중인 MediaPlayer를 stop/release하고 MusicFile JSON과 대응 MP3를 함께 삭제한 뒤 전체/장르별 목록에서 같은 객체를 제거한다. 재생 상태와 파일 관리 상태가 남지 않도록 정리했다.
+- 저장 음악 카드에는 기존 MP3 추출·제목 수정·삭제 외에 `영상 제작` 버튼을 추가했다. 이 버튼은 `popup_video`를 열어 기존 Graphytoon QR 연동과 새 `영상 촬영` 두 경로를 한 메뉴로 묶는다.
+- `영상 촬영`을 선택하면 별도의 음악 선택 화면을 다시 거치지 않고 현재 카드의 `music_title`을 `Utils.MUSIC_TITLE` extra로 RecordActivity에 직접 전달한다. 따라서 사용자는 SavedMusicActivity에서 듣고 있던 바로 그 저장 음악으로 HB-35/36 영상 촬영·합성 흐름에 진입할 수 있다.
+- 반대로 SelectActivity의 전역 `영상 촬영` 버튼으로 들어가는 `SelectMusicActivity`는 **영상에 사용할 저장 음악을 고르는 전용 화면**으로 역할을 축소했다. 삭제·제목 수정·MP3 popup 같은 관리 기능을 제거하고, 선택/해제 상태와 미리듣기·진행률·`영상 촬영하기` 버튼에 집중한다.
+- SelectMusicActivity도 같은 생성 MP3 + MediaPlayer 방식을 사용한다. 선택되면 MP3를 재생하면서 카드 detail/progress를 열고 `btnSelectDone`을 활성화하며, 해제 시 pause→seekTo(0) 후 선택 완료 버튼을 다시 비활성화한다. contentDescription도 `재생` 의미가 아니라 `선택/선택 해제` semantics로 수정됐다.
+- SavedMusicActivity의 `영상 제작`, MP3 popup, 삭제/제목 수정 dialog와 SelectMusicActivity의 선택 button에는 contentDescription/AccessibilityDelegate를 보완해 시각적 ImageView/CheckBox 조작을 Button semantics로 노출했다.
+- `719732b` 직후 `a2f2037`은 영상 popup의 horizontal offset 계산만 `(btn_width - width)/4 → btn_width/2 - width/4`로 보정한 위치 fix다. 별도 기능 단위로 확대하지 않는다.
+- `7a1cb0f`은 HB-28 튜토리얼 overlay에 새 `영상 촬영` 버튼과 `저장된 음악으로 영상을 만들 수 있어요` 설명을 추가하고 해당 tutorial step에서만 show/hide하도록 맞춘 후속 교육 UI 수정이다. HB-37 핵심 구현보다는 새 기능을 기존 튜토리얼에 반영한 integration fix로 본다.
+- 따라서 HB-37은 `MusicFile 재구성 재생 → 실제 생성 MP3 직접 재생`으로 저장 결과물의 source of truth를 단순화하고, **저장 음악 관리 화면에서 바로 영상 제작으로 이어지는 UX와 별도 음악 선택 화면의 역할 분리**를 마무리한 작업으로 정리한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **BPM 기능 제거 사유:** 구현 완료와 이후 제거 사실은 확인됐지만 제품 판단 이유는 미확인으로 유지한다.
@@ -440,31 +459,33 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-37 — 저장 음악·영상 제작 UX의 최종 통합 보완**이다.
+HB-E01~E05, HB-01~HB-37 및 HB-31S의 개별 개발 작업 복원은 완료했다.
 
-`719732b`, `a2f2037`, `7a1cb0f`를 중심으로 다음을 확인한다.
+다음 단계는 **전체 개발 작업 인벤토리 교차검증 및 이력서용 핵심 경험 선별**이다.
 
-- SavedMusicActivity와 SelectMusicActivity의 역할이 최종적으로 어떻게 나뉘었는지
-- 저장 음악 재생·선택·삭제·제목 변경 UI가 어떤 상태 모델로 정리됐는지
-- 저장 음악에서 바로 영상 제작으로 진입하는 경로가 추가됐는지
-- MP3/영상 popup, 삭제·제목 변경 dialog와 accessibility 보완 범위
-- `a2f2037`, `7a1cb0f`가 실제 기능 변경인지 UI 위치/튜토리얼 후속 fix인지 분리
-- HB-31/35/36과 중복되지 않는 독립 작업 단위를 최종 확정
+확인할 내용:
+- 서로 중복된 작업(HB-06/HB-27/HB-34 반응형 UI, HB-20/HB-31/HB-37 저장 음악)을 이력서 문장에서는 어떻게 묶을지
+- 팀 기획/디자이너·외부 제작 asset/팀원 prototype과 개인 구현 경계를 최종 점검
+- 구현됐지만 롤백된 TFLite/BPM 같은 실험과 최종 제품 기능을 구분
+- 정량 수치가 검증된 항목만 남기고 불명확한 숫자는 제거 또는 조건을 명시
+- `experiences/hummingblocks.md`와 `resume.md`에 넣을 4~6개의 가장 강한 문제 해결 사례 선별
 
-HB-36 확정:
-- `tempN.mp4` 목록을 concat demuxer input list로 만들어 `-c copy`로 하나의 `concat.mp4` 생성
-- 저장 음악 MP3를 `-c:v copy -c:a aac -shortest`로 영상에 mux
-- 녹화 pause와 음악 pause가 함께 움직여 segment concat 후 연속 시간축 복원
-- 중간 완료 시 `-shortest`로 영상 길이에 맞춰 audio 종료
-- 최종 MP4를 MediaStore `DCIM/HummingBlocks`에 저장
-- MediaStore 저장 후 temp/list/concat/internal output을 정리
-- `719732b`에서 MusicFile→MP3 FFmpeg 실행을 async→sync로 바꿔 출력 파일 소비 순서를 안정화
-- CameraX finalize와 FFmpeg 사이에는 500ms delay를 사용했으므로 callback 기반 완료 보장으로 과장하지 않음
+HB-37 확정:
+- 저장 음악 재생을 MusicPlayer의 section 재구성 방식에서 생성 MP3 직접 MediaPlayer 재생으로 단순화
+- 카드 duration/progress를 실제 MP3 기준으로 표시
+- 제목 변경 시 MP3 재합성 대신 JSON 저장 + MP3 rename
+- 저장 음악 카드에 영상 제작 popup을 추가해 현재 곡으로 RecordActivity 직접 진입
+- 영상 제작 popup에서 기존 Graphytoon QR 경로와 직접 영상 촬영 경로를 통합
+- SelectMusicActivity는 전역 영상 제작 진입 시 저장 음악 선택·미리듣기 전용 화면으로 역할 축소
+- `a2f2037`은 popup 위치 보정, `7a1cb0f`은 새 영상 제작 기능을 튜토리얼에 반영한 후속 fix
 
-남은 미확인:
+현재 남은 미확인:
 - HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
 - 속도 비교의 원본 측정표/로그가 남아 있는지 여부
+- BPM 기능 제거의 제품 판단 이유
 - `2c0cf19`에 함께 포함된 Classifier.py 리팩터링의 직접적인 문제/성능 개선 목적
+
+이 미확인 항목은 사실 확인이 되기 전까지 이력서의 확정 성과 문장에 넣지 않거나 제한적으로 표현한다.
 
 ---
 
