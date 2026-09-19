@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-30 확인 완료  
-> 다음 확인 대상: HB-31 저장 음악 목록·재생·설정 UI와 저장 음악 재생 흐름
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-31, HB-31S 확인 완료  
+> 다음 확인 대상: HB-32 장르·음악·캐릭터 콘텐츠 확장 구조
 
 ## 0. 작업 단위 복원 원칙
 
@@ -324,6 +324,36 @@
 - PlayActivity는 일반 앱의 최신 재생 UI/로직 일부를 접근성 앱에 다시 동기화했다. 음악 라벨, Lottie 캐릭터, 진행 원, 조건 상태, 좌우 방향 표시, pause/resume animation 동기화, 재촬영·메인 복귀·다시 시작 흐름을 유지하면서 저장·퀘스트·복잡한 교체 UI 같은 일반 앱 기능은 중심 흐름에서 제외했다.
 - 같은 커밋에는 일반 앱과 접근성 앱 `Classifier.py`의 OpenCV DNN 호출 방식 변경(`dnn_DetectionModel`, confidence 0.85→0.9 등)과 SDK/CameraX/ML Kit dependency 업데이트도 함께 들어 있다. 이는 자동 촬영·방향 안내 UX와 직접 동일한 작업은 아니므로 HB-30의 핵심 기여와 구분해 mixed-scope maintenance로 기록한다.
 - 결과적으로 HB-30은 `QR ID 실시간 분석 → 촬영 가능 여부 판단 → 부족한 방향 추론 → 시각 화살표/문구 + TalkBack 동시 안내 → 자동 촬영 → CV 판정 → 오류·경고 시 촬영 상태 복구`를 하나의 폐루프로 만든 접근성 촬영 UX 구현으로 정리한다.
+- 후속 `d32fc8e`(2024-10-15)는 저장 음악 작업이 아니라 접근성 앱의 Select/Play 디자인 보정과 `ViewCodeActivity` 추가 작업이다. HB-31 근거에서 제외하고 HB-30 계열 후속 UX 보완으로 분류한다.
+
+### HB-31 — 저장 음악을 독립 `MusicFile` 모델로 통합하고 목록·재생·관리·MP3 내보내기를 재구성
+
+- 2024-10-10 `4db36f8`에서 저장 음악 화면을 RecyclerView 기반 카드/목록 UI로 크게 개편하고, 장기적으로 저장 데이터를 한 객체에서 관리하기 위한 `MusicFile` 클래스를 처음 추가했다. 다만 이 시점의 실제 PlayActivity/SavedMusicActivity 주요 흐름은 아직 기존 `JSONArray`와 별도 `_block.json` 파일을 사용하고 있어 데이터 모델 전환이 완전히 끝난 상태는 아니었다.
+- 기존 저장 구조는 장르별 디렉터리 아래 `<name>.json`에 마디별 `{level, replace}` 배열을 저장하고 `<name>_block.json`에 인식 block 데이터를 따로 저장하는 방식이었다. SavedMusicActivity도 특정 장르 디렉터리의 JSON들을 직접 열어 `int[][] level`, `boolean[][] replace` 배열로 다시 파싱했다.
+- `4db36f8`의 초기 `MusicFile`은 제목·장르·생성일·마디별 level/replace를 필드로 캡슐화하고 `load/save`를 제공했다. 이 초기 버전에는 replace load 시 `replaces_json` 대신 `levels_json`을 읽는 실수가 있었고, 이후 `1f11d93`에서 저장 모델을 실제 적용하면서 함께 수정됐다.
+- 2024-11-18 `1f11d93`에서 저장 포맷을 본격 전환했다. 저장 위치를 `files/music/<genre>/<name>.json + <name>_block.json`에서 `files/music/<name>.json` 한 파일로 통합하고, JSON 안에 `music_title`, `creation_date`, `genre`, `genre_label`, `levels`, `replaces`, `blocks`를 함께 저장하도록 했다.
+- `creation_date`는 문자열 대신 epoch millisecond `long`으로 저장하고 필요할 때 `Date`로 복원했으며, 장르는 숫자 code와 label을 같이 보관했다. 저장 파일만 읽어도 어떤 MusicInfo와 연결해야 하는지, 제목/생성일/마디 상태/원본 block이 무엇인지 알 수 있는 self-contained 데이터가 됐다.
+- PlayActivity도 더 이상 재생 중 만든 raw JSONArray와 별도 block 파일을 직접 쓰지 않고, 저장 시 `MusicFile`을 생성해 `addSections(levels, replaces, section_count)`, `setBlocks(runner.getRefinedBlockList())`, `setCreationDate()`를 채운 뒤 단일 JSON으로 저장하도록 바뀌었다. 동일 제목이 있으면 `(1)`, `(2)`처럼 suffix를 붙였다.
+- SavedMusicActivity는 앱의 `files/music` 아래 모든 JSON을 `MusicFile` 객체로 로드하고, 각 파일의 `genre_label`을 `MusicInfo.getMusicCodeByName()`으로 다시 music code에 연결했다. 이를 전체 목록과 장르별 `music_files_genre`로 동시에 분류해 하나의 화면에서 전체 저장 음악 또는 특정 장르만 탭으로 필터링할 수 있게 했다.
+- 서로 다른 장르의 저장 음악을 같은 목록에서 재생하기 위해 `MusicPlayer.setMusicInfo(MusicInfo)`를 추가했다. 사용자가 다른 장르의 곡을 선택하면 해당 곡의 MusicInfo로 measure length와 replace mapping을 교체한 뒤 같은 MusicPlayer 인스턴스로 재생한다.
+- 저장 음악 재생은 MusicFile의 `levels`와 `replaces`를 순서대로 `setNextInstLevel()`·`setNextReplace()`에 공급한다. 각 마디가 시작될 때 `accumulated_time`과 index를 갱신하고, 20ms 주기의 UpdateProgress가 현재 카드의 progress bar와 `mm:ss` 시간을 갱신한다.
+- 다른 저장 음악을 누르면 기존 재생을 stop하고 이전 카드의 detail을 닫은 뒤 새 카드만 펼친다. start/pause/resume/stop callback에서 재생/일시정지 아이콘, TalkBack용 contentDescription, progress와 현재 시간을 함께 갱신해 MusicPlayer 상태와 RecyclerView UI가 같은 상태를 보도록 했다.
+- 각 카드에는 제목, 생성일, 장르, 전체 길이와 재생 진행 상태를 표시하고 삭제·제목 수정·외부 연동·MP3 내보내기 기능을 연결했다. 삭제 시 재생 중인 항목이면 먼저 stop하고 목록/장르별 목록에서도 함께 제거한다.
+- 제목 수정은 파일명 금지 문자를 검사하고 중복 제목에 `(n)` suffix를 붙인 뒤 MusicFile의 title을 바꿔 새 JSON으로 저장한다. 제목에 종속되는 MP3도 새 제목 기준으로 다시 합성하도록 연결했다.
+- `MusicFile.createJSON()`은 외부 그래피툰/QR 연동에 필요한 `genre`, `levels`, `blocks`만 뽑아낸 JSON을 만들도록 정리했다. 이전처럼 SavedMusicActivity에서 원본 파일과 `_block.json`을 다시 직접 열어 조합하지 않도록 데이터 책임을 MusicFile로 이동했다.
+- MP3는 `AudioUtil.saveMp3FromMusicFile()`가 MusicFile의 마디별 level/replace 상태를 읽어 HB-20과 같은 FFmpeg `amix → concat` 파이프라인으로 재구성한다. 저장 시 생성할 수도 있고, 다운로드/공유 시 MP3가 없으면 on-demand로 다시 생성한다.
+- MP3 다운로드는 Storage Access Framework의 `ACTION_CREATE_DOCUMENT`로 사용자가 저장 위치를 고르게 하고 생성된 MP3를 반환 URI에 copy한다. 공유는 `FileProvider` URI와 `audio/mpeg` MIME을 사용한다. 따라서 앱 내부 저장 파일과 사용자에게 내보내는 파일 경로를 분리했다.
+- 이 작업은 `재생 중 임시 JSONArray + 별도 block 파일 + 장르별 직접 파일 탐색`에서 **도메인 객체 MusicFile → 단일 self-contained JSON → 장르 독립 목록/재생 → 관리·외부공유·MP3 파생물** 구조로 저장 음악 기능을 재설계한 작업으로 정리한다.
+
+### HB-31S — 설정 상태 모델과 설정/진행도 초기화 UI 정리 (`4db36f8`의 독립 작업)
+
+- 같은 `4db36f8`에는 SavedMusic과 별개로 SettingActivity/Setting의 재설계가 함께 들어 있다. 한 커밋에 섞였지만 개발 작업 단위는 별도로 본다.
+- setting JSON key를 `volume_label → volume_level`, `vibration_control → enable_vibration`, `replace_button_view → show_replace_buttons`처럼 실제 의미가 드러나는 이름으로 정리하고 `setting_file_name`을 Setting이 직접 소유하도록 했다.
+- SettingActivity는 5개 악기 SeekBar를 배열로 묶어 `Setting.volume_level`과 동기화하고, 진동 사용 여부와 교체 버튼 표시 여부를 switch에 연결했다. `syncWithSetting()`으로 처음 진입하거나 초기화한 뒤 UI를 한 번에 상태 객체와 맞추도록 했다.
+- `Setting.reset()`을 추가해 5개 volume을 기본값 5로 되돌리고 vibration/replace 표시 기본값도 한 곳에서 정의했다. 설정 초기화 버튼은 개별 View를 직접 하나씩 변경하지 않고 `Setting.reset() → syncWithSetting()`을 호출한다.
+- 별도의 `진행도 초기화` 버튼에서는 `Progress.reset()` 후 즉시 progress.json을 저장하도록 연결해 튜토리얼/퀘스트 진행 상태를 설정 화면에서 리셋할 수 있게 했다.
+- Activity가 pause될 때 Setting 전체를 `setting.json`에 저장하고, SeekBar 변경은 배열의 대응 index에 바로 반영한다. 따라서 설정 UI와 영속 상태를 `Setting` 정적 모델 하나를 통해 동기화하는 구조로 정리됐다.
+- UI 디자인/기능 기획은 팀 내부 논의와 디자인 산출물을 바탕으로 한 것으로 보고, 개인 기여는 상태 모델 정리·Android UI 연결·초기화/영속화 구현으로 표현한다.
 
 ## 3. 별도로 다시 확인할 후속 작업
 
@@ -333,25 +363,29 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-31 — 저장 음악 목록·재생 화면·설정 화면 UI와 저장 음악 재생 흐름 개선**이다.
+다음 작업은 **HB-32 — 장르·음악·캐릭터 콘텐츠 확장 구조**다.
 
-`4db36f8`, `d32fc8e`, `1f11d93`을 중심으로 다음을 확인한다.
+`f924c6d`, `35d7e18`, `eb8a47f`, `64a4afb`와 관련 자산/metadata 변경을 중심으로 다음을 확인한다.
 
-- 저장 음악 목록이 어떤 파일 메타데이터를 읽어 카드/목록으로 구성됐는지
-- 저장된 JSON 음악을 MusicPlayer에 다시 넣는 흐름과 일반 실시간 재생의 차이
-- 재생/일시정지/종료 상태를 목록 또는 상세 화면에서 어떻게 동기화했는지
-- 삭제·이름 변경·공유 같은 관리 기능이 어느 시점까지 포함됐는지
-- Setting UI와 volume/vibration 등의 상태 저장이 어떻게 개편됐는지
-- 10~11월의 여러 수정이 하나의 작업인지, 목록/재생/설정을 별도 작업으로 나누는 편이 맞는지
+- 초기 pop 중심 구조가 여러 장르/곡으로 늘어날 때 MusicInfo와 asset 경로가 어떻게 일반화됐는지
+- 새 콘텐츠를 추가할 때 코드 수정이 필요한 부분과 JSON/asset 추가만으로 가능한 부분
+- 일반 음악 장르와 동요/전통음악 등 콘텐츠 유형이 같은 구조를 공유했는지
+- 캐릭터·배경·Lottie·MP3 원본 제작과 Android 통합 역할을 구분
+- `4db36f8`에 대량 음악 asset 변경이 함께 포함된 이유가 콘텐츠 확장인지 파일 구조 변경인지
 
-HB-30 확정:
-- 접근성 앱의 BarcodeActivity를 제거하고 CameraActivity에 ML Kit 분석·자동 촬영·CV 판정·복구 흐름 통합
-- QR 값 1~4를 bitmask로 관리하고 특정 3개 이상이 보이면 자동 촬영
-- 부족한 QR 조합을 좌/우/상/하 카메라 이동 지시로 변환
-- 동일 상태를 arrow rotation/AnimatedVectorDrawable·화면 문구·TalkBack announcement로 동기화
-- 반복 ImageAnalysis 프레임에서 안내가 폭주하지 않도록 약 1.2초 guidance throttling
-- Error/Warning 모두 결과 다이얼로그 후 동일 촬영 화면으로 복구
-- 일반 앱과 별도인 단순 Select→Camera→Play 접근성 흐름 유지
+HB-31 확정:
+- `MusicFile` 도메인 객체와 self-contained 단일 JSON 저장 포맷 도입
+- 제목·생성일·장르·마디별 level/replace·block을 한 파일에 통합
+- 저장 음악 전체/장르별 RecyclerView 목록과 동일 MusicPlayer 기반 장르 전환 재생
+- 재생 카드 progress/time/icon 상태를 MusicPlayer callback과 동기화
+- 삭제·제목 수정·외부 QR용 JSON·MP3 다운로드/공유를 MusicFile 중심으로 연결
+- MP3가 없으면 MusicFile에서 FFmpeg 합성을 on-demand 수행
+- `d32fc8e`는 HB-31에서 제외하고 접근성 앱 후속 작업으로 재분류
+
+HB-31S 확정:
+- Setting key/state 이름 정리 및 reset/sync 구조 도입
+- 5개 악기 volume + vibration + replace 표시 상태를 Setting 모델과 UI에 연결
+- 설정 초기화와 Progress 진행도 초기화를 설정 화면에서 영속화
 
 역할 원칙:
 - 제품·UX 기획은 특별히 개인 기획이라고 확인된 항목을 제외하면 대체로 팀 내부 논의 결과로 취급
