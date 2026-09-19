@@ -5,6 +5,12 @@
 > 기준 브랜치: 저장소의 전체 8개 브랜치  
 > 목적: 전체 8개 브랜치의 commit graph를 기준으로 실제 개발작업을 복원하고, 세부 작업과 이력서용 통합 작업군을 함께 관리
 
+## 번호 체계
+
+- 개인 개발작업은 예외 접미사 없이 `HB-01~HB-45` 연속 번호로 관리한다.
+- 번호는 현재 인벤토리의 논리적 작업 순서를 유지한 식별자이며, 번호 자체가 엄밀한 시간순을 뜻하지는 않는다.
+- 팀 선행·공동 구현은 `PRE-*`, `TEAM-*`, 상위 통합 단위는 `GROUP-*`를 유지한다.
+
 ## 분류 기준
 
 - **A — 직접 근거 강함:** `nanocode00` 작성 커밋과 구체적인 코드 변경이 확인됨
@@ -41,10 +47,11 @@
 - 브랜치 간 중복 SHA를 제거하면 **229개 고유 커밋**, 그중 `nanocode00` 작성 커밋은 **162개**였다.
 - 제품 기준 브랜치 `app_develop`은 총 **199개 커밋**이며, 기존 checkpoint/inventory에 SHA가 직접 등장하지 않던 `nanocode00` non-merge 커밋 **54개**를 별도로 역검토했다.
 - 또한 최종 `app_develop`에 포함되지 않은 다른 브랜치의 `nanocode00` 고유 커밋 **21개**를 확인해 TFLite 실험, BPM 분기, 대용량 파일/음악·캐릭터 병렬 작업이 기존 항목에 이미 반영됐는지 대조했다.
-- 이 교차검증에서 새 독립 작업으로 추가할 가치가 확인된 것은 **2023.10 Play Asset Delivery 기반 `musics`/`weights` asset pack 분리(HB-26A)**였다.
-- 별도 ID로 늘리지 않고 기존 작업에 흡수해야 할 중요한 누락 단계도 확인했다. 대표적으로 `3889c17`의 2024.02 앱 전반 percentage Guideline 전환은 HB-06→HB-27→HB-34로 이어지는 반응형 UI 작업군의 중간 단계이며, `61ea93b`은 HB-10 MusicPlayer/scheduler 재설계의 핵심 근거다.
+- 이 교차검증에서 새 독립 작업으로 추가할 가치가 확인된 것은 **2023.10 Play Asset Delivery 기반 `musics`/`weights` asset pack 분리(HB-33)**였다.
+- 별도 ID로 늘리지 않고 기존 작업에 흡수해야 할 중요한 누락 단계도 확인했다. 대표적으로 `3889c17`의 2024.02 앱 전반 percentage Guideline 전환은 HB-12→HB-34→HB-42로 이어지는 반응형 UI 작업군의 중간 단계이며, `61ea93b`은 HB-16 MusicPlayer/scheduler 재설계의 핵심 근거다.
 - 나머지 미참조 커밋은 대부분 동일 기능의 후속 bugfix, asset 교체, UI polish, revert/재적용, 또는 다른 브랜치에서 동일 작업을 다른 SHA로 진행한 기록이었다. 따라서 commit message 하나만 보고 새 개발작업으로 중복 계상하지 않는다.
 - 이 검증은 저장소에 남은 commit graph와 diff를 기준으로 한다. 커밋되지 않은 로컬 실험이나 저장소 밖 작업까지 존재하지 않았음을 증명하는 것은 아니다.
+- 최종 재검토에서 `2e30063`의 그래피툰 QR/block JSON 공유 기능은 `EunbinSeo` 구현으로 확인해 `TEAM-07`로 분리했다. 그래피툰 공유 QR과 HB-27의 접근성 앱 바코드 촬영 흐름은 서로 다른 기능이다.
 
 ### 0.2 Android 이전·초기 Python 팀 작업
 
@@ -72,56 +79,56 @@
 
 | ID | 추정 시기 | 개발작업 후보 | 코드 근거 | 구분 | 상세화 우선순위 |
 |---|---|---|---|---|---|
-| HB-E01 | 2023.03 이전 | Loading → Main → 장르 선택 → 촬영 → 재생으로 이어지는 초기 Android 화면 구조와 Activity 전환 설계 | `LoadingActivity`, `MainActivity`, `SelectActivity`, `ScanActivity`, `PlayActivity` | A·사용자 확인 | 매우 높음 |
-| HB-E02 | 2023.03 이전 | 카메라 권한 요청, `SurfaceView` preview, 촬영 callback을 연결한 카메라 프로토타입 구현 | `camtest1`, `CameraSurfaceView`, `ScanActivity` | A·사용자 확인 | 높음 |
-| HB-E03 | 2023.03 이전 | 촬영 bitmap을 90도 회전해 cache JPEG로 저장하고 재생 화면에 파일 경로로 전달 | `ScanActivity` → `PlayActivity` | A·사용자 확인 | 높음 |
-| HB-E04 | 2023.03 이전 | 중력센서 값을 각도로 변환해 좌·우·중립 상태를 판단하고 지휘자·화살표 UI에 반영 | `acctest`, `PlayActivity` | A·사용자 확인 | 매우 높음 |
-| HB-E05 | 2023.03 이전 | RecyclerView와 ViewBinding으로 음악 장르 선택 상태를 관리하고 메인 화면에 결과 반영 | `SelectActivity`, `MainActivity`, `Common` | A·사용자 확인 | 중간 |
-| HB-E06 | 2023.03 이전 | 카메라·중력센서 기능을 별도 테스트 모듈에서 검증한 뒤 본 앱에 통합 | `camtest1`, `acctest`, 본 앱 모듈 | A·사용자 확인 | 높음 |
+| HB-01 | 2023.03 이전 | Loading → Main → 장르 선택 → 촬영 → 재생으로 이어지는 초기 Android 화면 구조와 Activity 전환 설계 | `LoadingActivity`, `MainActivity`, `SelectActivity`, `ScanActivity`, `PlayActivity` | A·사용자 확인 | 매우 높음 |
+| HB-02 | 2023.03 이전 | 카메라 권한 요청, `SurfaceView` preview, 촬영 callback을 연결한 카메라 프로토타입 구현 | `camtest1`, `CameraSurfaceView`, `ScanActivity` | A·사용자 확인 | 높음 |
+| HB-03 | 2023.03 이전 | 촬영 bitmap을 90도 회전해 cache JPEG로 저장하고 재생 화면에 파일 경로로 전달 | `ScanActivity` → `PlayActivity` | A·사용자 확인 | 높음 |
+| HB-04 | 2023.03 이전 | 중력센서 값을 각도로 변환해 좌·우·중립 상태를 판단하고 지휘자·화살표 UI에 반영 | `acctest`, `PlayActivity` | A·사용자 확인 | 매우 높음 |
+| HB-05 | 2023.03 이전 | RecyclerView와 ViewBinding으로 음악 장르 선택 상태를 관리하고 메인 화면에 결과 반영 | `SelectActivity`, `MainActivity`, `Common` | A·사용자 확인 | 중간 |
+| HB-06 | 2023.03 이전 | 카메라·중력센서 기능을 별도 테스트 모듈에서 검증한 뒤 본 앱에 통합 | `camtest1`, `acctest`, 본 앱 모듈 | A·사용자 확인 | 높음 |
 
 ## 1. 개인 개발작업 후보
 
 | ID | 시기 | 개발작업 후보 | 대표 근거 | 구분 | 상세화 우선순위 |
 |---|---|---|---|---|---|
-| HB-01 | 2023.03 | Android에서 Python 코드를 실행하기 위한 Chaquopy 연동 및 빌드 구성 | `17aa4a0`, `5adb514` | A | 높음 |
-| HB-02 | 2023.04~06 | 카메라 촬영 방향 보정 및 촬영 화면 흐름 개편 | `8cc6dc9`, `7ba3775` | B | 중간 |
-| HB-03 | 2023.04 | 여러 악기 음원을 동시에 실행하기 위한 MediaPlayer 재생 구조 실험 | `8cc6dc9`, `406589a`, `5cd4f9f` | A | 높음 |
-| HB-04 | 2023.04 | 음악 실행 중 일시정지·재개·정지 상태 처리 | `9937f39`, `b170496` | A | 높음 |
-| HB-05 | 2023.04~07 | CV 인식 결과를 `Runner`의 SUCCESS/ERROR/WARNING 계약과 블록 실행 상태로 변환해 Camera→Play 재생 흐름에 연결 | `ccfc11f`, `8c21546`, `7ba3775`, `7d823b7` | A(통합·후속 구현) / 초기 Python port는 팀원 | 매우 높음 |
-| HB-06 | 2023.04 | 화면비가 다른 기기에서 재생 화면이 깨지는 문제를 9:16 비율과 percentage Guideline으로 개선 | `4fb4957` | A | 매우 높음 |
-| HB-07 | 2023.05 | 단일 음원 구성을 여러 음악 장르로 확장하고 장르별 음원을 매핑 | `5efb0ac` | A | 중간 |
-| HB-08 | 2023.05~06 | 팀원이 이식한 Python 블록 실행 코드를 실제 Android 흐름에 맞춰 리팩터링하고 Java `Runner` 결과 계약·오류/경고 enum을 정리 | `c7a7d3c`, `f517396`, `8c21546` | A(후속 리팩터링) / 초기 interpreter는 팀원 | 높음 |
-| HB-09 | 2023.06 | 음악 장르에 맞춰 캐릭터·무대·악기 UI를 변경하고 새로운 촬영 화면을 통합 | `7ba3775` | B | 중간 |
-| HB-10 | 2023.07~09 | 음악 재생을 별도 `MusicPlayer`로 캡슐화하고 `ScheduledThreadPoolExecutor`의 Prepare/Start phase와 pause/resume delay 복원 구조로 개편 | `7d823b7`, `61ea93b` | A | 매우 높음 |
-| HB-11 | 2023.07 | 재생 진행도와 인식된 블록 입력을 화면에 시각화 | `7d823b7` | A | 높음 |
-| HB-12 | 2023.09~10 | 3단계 BPM 음원 선택과 `beats × 60000/BPM` 기반 마디 길이 계산을 재생 scheduler에 통합 | `2cc6c58`, `5a8fcad`, `6950154`, `1bce3cf` | A | 매우 높음 |
-| HB-13 | 2023.10 | BPM 메타데이터가 없는 음악도 재생할 수 있도록 호환 처리 | `44037d8` | A | 높음 |
-| HB-14 | 2023.10~2025.01 | TalkBack 설명·탐색 순서·처리중 focus 제어를 시작으로 화면 전반의 Button semantics와 접근성 상태 안내를 지속 보강 | `44037d8`, `7a06422`, `1bce3cf`, `190a583`, `e52f941`, `197bb19` | A | 매우 높음 |
-| HB-15 | 2023.10~2024.04 | 인식 블록을 사람이 읽는 label로 보여주고 이후 PLAY/LOOP/STAR·조건 scope와 괄호를 갖는 코드형 구조 및 TalkBack용 설명까지 확장 | `0ac520c`, `7a06422`, `3889c17`, `c2cca66`, `190a583` | A | 높음 |
-| HB-16 | 2023.10 | 진동 피드백·설정 화면·BPM 설정 등 사용자 제어 기능 추가 | `28468a6` | B | 중간 |
-| HB-17 | 2023.11 | Python bridge를 제거하고 Java/TensorFlow Lite 추론 경로와 후처리를 구현 | `7cdc9e1`, `fc771fd` | 실험/A | 매우 높음 |
-| HB-18 | 2023.11 | TFLite 전처리의 이미지 비율·padding을 보정하고 정확도 저하로 제품 경로를 원복 | `fc771fd`, `1bb3f7c` | 실험/A | 매우 높음 |
-| HB-19 | 2024.04 | 시각장애 사용자용 앱을 별도 Android 모듈로 분리 | `88d70d6`, `e0356b8` | A | 높음 |
-| HB-20 | 2024.05 | 여러 악기 음원을 합성해 MP3로 추출하고 저장 음악 흐름에 연결 | `ce30682`, `273e11a` | A | 매우 높음 |
-| HB-21 | 2024.05~07 | QR/바코드 촬영 흐름의 권한·화면 전환 오류 수정과 선택 화면 UI 개선 | `8353f20`, `48af586` | B | 중간 |
-| HB-22 | 2024.07 | 재생 pause/resume 시 악기·지휘자 Lottie 애니메이션 상태를 음악 재생 상태와 동기화 | `c63b2bb` | A | 중간 |
-| HB-23 | 2024.07 | 첫 음악 시작 전 2.5초 준비 구간을 3·2·1 countdown으로 시각화하고 pause/resume 시 남은 countdown을 복원 | `3ef066b`, `8ff5698` 일부 | A | 중간 |
-| HB-24 | 2024.07 | 다음 마디부터 기존 악기를 교체 음원으로 바꾸고 UI·캐릭터·저장 JSON·SavedMusic·MP3까지 상태를 일관되게 유지 | `4d37e3b`, `c22b525`, `063713c`, `1969c30` 일부, `8ff5698` 일부 | A | 매우 높음 |
-| HB-25 | 2024.07 | 음악별 3개 boolean 진행도를 전역 `Progress`의 순차 단계 정수로 재설계하고 lock/unlock·퀘스트 안내 UI와 즉시 영속화를 연결 | `e837550`, `28bee75` | A | 매우 높음 |
-| HB-26 | 2024.08 | 약 257MB YOLO weight와 bundletool을 Git LFS로 관리하고 AAB→universal APK 추출을 batch script로 자동화 | `e452f2d` (`bef51f4`는 인접 release maintenance) | A | 높음 |
-| HB-26A | 2023.10 | 음악·YOLO 모델 자산을 install-time Play Asset Delivery `:musics`/`:weights` pack으로 분리하고 weight/cfg를 내부 파일로 materialize해 Python/OpenCV에 실제 경로 전달 | `a7003ee` | A | 매우 높음 |
-| HB-27 | 2024.08 | 2024.02 앱 전반의 percentage layout(`3889c17`)을 기반으로 디자이너 Figma 좌표·비율을 다시 계산해 Main/Select/Play/Loading·다이얼로그를 360×740 Guideline·auto-size UI로 전면 구현 | `3889c17`(선행 단계), `e5c69ad`, `65ee77b` | A(구현) / 디자인 원안은 디자이너 | 매우 높음 |
-| HB-28 | 2024.09~12 | 첫 사용자용 튜토리얼과 시작 안내 팝업 구현·개선 | `9d9d330`, `35d4c6c`, `3f47bb7`, `a086476` | A | 높음 |
-| HB-29 | 2024.08~09 | 음악별 JSON block 조건을 실제 인식 결과와 비교해 퀘스트를 순차 완료하고 별 표시·교체 기능 해금·unlock animation까지 연결 | `0881ce8`, `35d4c6c`, `164edf8`, `dc2ad19`, `37446ca` | A(구현) / 기획은 팀 공동 | 매우 높음 |
-| HB-30 | 2024.05~10 | 오류/경고별 시각 피드백을 보강한 뒤 접근성 앱에서 QR 1~4 bitmask로 카메라 이동 방향을 추론해 화살표·TalkBack 안내·3개 이상 자동 촬영·촬영 복구까지 폐루프로 통합 | `c3871c9`(선행 피드백), `2c0cf19` | A(구현) / 기획은 팀 공동 | 매우 높음 |
-| HB-31 | 2024.10~11 | 저장 음악을 `MusicFile` 단일 JSON 모델로 통합하고 전체/장르별 목록·재생 상태·제목수정/삭제·QR 연동·MP3 다운로드/공유까지 재구성 | `4db36f8`, `1f11d93` | A(구현) / 기획은 팀 공동 | 매우 높음 |
-| HB-31S | 2024.10 | 악기별 volume·진동·교체버튼 표시 설정을 `Setting` 모델로 정리하고 설정/진행도 reset·영속화 UI를 통합 | `4db36f8` | A(구현) / 기획은 팀 공동 | 높음 |
-| HB-32 | 2024.05~11 | 공통 asset 경로와 metadata 계약을 이용해 Cyberpunk·Classic 등 신규 음악을 Java 수정 없이 추가하고 음원/이미지/Lottie 콘텐츠를 통합·유지보수 | `f924c6d`, `35d7e18`, `eb8a47f`, `64a4afb` 외 | A(통합) / 원본 자산은 팀·외부 제작 | 높음 |
-| HB-33 | 2024.12 | 2.0.0 전환에서 pre-v25 설치를 감지해 장르별 구형 저장 음악·block·MP3/cache를 `MusicFile` 구조로 1회 migration하고 version I/O를 `VersionUtil`로 분리 | `36f8253`, `6d66423`, `fbd31c9` | A(구현·디버깅) | 매우 높음 |
-| HB-34 | 2024.12 | 재생 화면 버튼·label의 개별 좌표 Guideline을 행·열 단위 공통 percentage Guideline으로 재구성해 화면 비율 변화에 따라 조작 UI 전체가 함께 확대·축소되도록 보정 | `bfc794e`, `3c5b4e2` | A(구현) / 디자인 원안은 디자이너 | 높음 |
-| HB-35 | 2024.11~2025.01 | 팀원 CameraX 녹화 prototype을 저장 `MusicFile` 선택·음악 동기화·`tempN.mp4` 분할 녹화·오류/이탈 cleanup이 가능한 제품 흐름으로 재구성 | `83d51f6`(팀원 prototype), `d85faeb`, `719732b`(후속 상태 보완) | A(제품화 구현) / 최초 prototype은 팀원 | 매우 높음 |
-| HB-36 | 2024.12~2025.01 | `tempN.mp4` 분할 영상을 FFmpeg concat demuxer로 무재인코딩 결합하고 저장 음악 MP3를 AAC로 mux해 MediaStore/DCIM에 최종 뮤직비디오를 저장 | `d85faeb`, `719732b` | A(구현·후속 동기화 보완) | 매우 높음 |
-| HB-37 | 2025.01 | 저장 음악 재생을 생성 MP3 직접 `MediaPlayer` 재생으로 단순화하고 관리 화면의 영상 제작 진입·전용 음악 선택 흐름·접근성 semantics를 최종 통합 | `719732b`; `a2f2037`,`7a1cb0f`는 후속 UI/tutorial fix | A(구현·통합) | 매우 높음 |
+| HB-07 | 2023.03 | Android에서 Python 코드를 실행하기 위한 Chaquopy 연동 및 빌드 구성 | `17aa4a0`, `5adb514` | A | 높음 |
+| HB-08 | 2023.04~06 | 카메라 촬영 방향 보정 및 촬영 화면 흐름 개편 | `8cc6dc9`, `7ba3775` | B | 중간 |
+| HB-09 | 2023.04 | 여러 악기 음원을 동시에 실행하기 위한 MediaPlayer 재생 구조 실험 | `8cc6dc9`, `406589a`, `5cd4f9f` | A | 높음 |
+| HB-10 | 2023.04 | 음악 실행 중 일시정지·재개·정지 상태 처리 | `9937f39`, `b170496` | A | 높음 |
+| HB-11 | 2023.04~07 | CV 인식 결과를 `Runner`의 SUCCESS/ERROR/WARNING 계약과 블록 실행 상태로 변환해 Camera→Play 재생 흐름에 연결 | `ccfc11f`, `8c21546`, `7ba3775`, `7d823b7` | A(통합·후속 구현) / 초기 Python port는 팀원 | 매우 높음 |
+| HB-12 | 2023.04 | 화면비가 다른 기기에서 재생 화면이 깨지는 문제를 9:16 비율과 percentage Guideline으로 개선 | `4fb4957` | A | 매우 높음 |
+| HB-13 | 2023.05 | 단일 음원 구성을 여러 음악 장르로 확장하고 장르별 음원을 매핑 | `5efb0ac` | A | 중간 |
+| HB-14 | 2023.05~06 | 팀원이 이식한 Python 블록 실행 코드를 실제 Android 흐름에 맞춰 리팩터링하고 Java `Runner` 결과 계약·오류/경고 enum을 정리 | `c7a7d3c`, `f517396`, `8c21546` | A(후속 리팩터링) / 초기 interpreter는 팀원 | 높음 |
+| HB-15 | 2023.06 | 음악 장르에 맞춰 캐릭터·무대·악기 UI를 변경하고 새로운 촬영 화면을 통합 | `7ba3775` | B | 중간 |
+| HB-16 | 2023.07~09 | 음악 재생을 별도 `MusicPlayer`로 캡슐화하고 `ScheduledThreadPoolExecutor`의 Prepare/Start phase와 pause/resume delay 복원 구조로 개편 | `7d823b7`, `61ea93b` | A | 매우 높음 |
+| HB-17 | 2023.07 | 재생 진행도와 인식된 블록 입력을 화면에 시각화 | `7d823b7` | A | 높음 |
+| HB-18 | 2023.09~10 | 3단계 BPM 음원 선택과 `beats × 60000/BPM` 기반 마디 길이 계산을 재생 scheduler에 통합 | `2cc6c58`, `5a8fcad`, `6950154`, `1bce3cf` | A | 매우 높음 |
+| HB-19 | 2023.10 | BPM 메타데이터가 없는 음악도 재생할 수 있도록 호환 처리 | `44037d8` | A | 높음 |
+| HB-20 | 2023.10~2025.01 | TalkBack 설명·탐색 순서·처리중 focus 제어를 시작으로 화면 전반의 Button semantics와 접근성 상태 안내를 지속 보강 | `44037d8`, `7a06422`, `1bce3cf`, `190a583`, `e52f941`, `197bb19` | A | 매우 높음 |
+| HB-21 | 2023.10~2024.04 | 인식 블록을 사람이 읽는 label로 보여주고 이후 PLAY/LOOP/STAR·조건 scope와 괄호를 갖는 코드형 구조 및 TalkBack용 설명까지 확장 | `0ac520c`, `7a06422`, `3889c17`, `c2cca66`, `190a583` | A | 높음 |
+| HB-22 | 2023.10 | 진동 피드백·설정 화면·BPM 설정 등 사용자 제어 기능 추가 | `28468a6` | B | 중간 |
+| HB-23 | 2023.11 | Python bridge를 제거하고 Java/TensorFlow Lite 추론 경로와 후처리를 구현 | `7cdc9e1`, `fc771fd` | 실험/A | 매우 높음 |
+| HB-24 | 2023.11 | TFLite 전처리의 이미지 비율·padding을 보정하고 정확도 저하로 제품 경로를 원복 | `fc771fd`, `1bb3f7c` | 실험/A | 매우 높음 |
+| HB-25 | 2024.04 | 시각장애 사용자용 앱을 별도 Android 모듈로 분리 | `88d70d6`, `e0356b8` | A | 높음 |
+| HB-26 | 2024.05 | 여러 악기 음원을 합성해 MP3로 추출하고 저장 음악 흐름에 연결 | `ce30682`, `273e11a` | A | 매우 높음 |
+| HB-27 | 2024.05~07 | QR/바코드 촬영 흐름의 권한·화면 전환 오류 수정과 선택 화면 UI 개선 | `8353f20`, `48af586` | B | 중간 |
+| HB-28 | 2024.07 | 재생 pause/resume 시 악기·지휘자 Lottie 애니메이션 상태를 음악 재생 상태와 동기화 | `c63b2bb` | A | 중간 |
+| HB-29 | 2024.07 | 첫 음악 시작 전 2.5초 준비 구간을 3·2·1 countdown으로 시각화하고 pause/resume 시 남은 countdown을 복원 | `3ef066b`, `8ff5698` 일부 | A | 중간 |
+| HB-30 | 2024.07 | 다음 마디부터 기존 악기를 교체 음원으로 바꾸고 UI·캐릭터·저장 JSON·SavedMusic·MP3까지 상태를 일관되게 유지 | `4d37e3b`, `c22b525`, `063713c`, `1969c30` 일부, `8ff5698` 일부 | A | 매우 높음 |
+| HB-31 | 2024.07 | 음악별 3개 boolean 진행도를 전역 `Progress`의 순차 단계 정수로 재설계하고 lock/unlock·퀘스트 안내 UI와 즉시 영속화를 연결 | `e837550`, `28bee75` | A | 매우 높음 |
+| HB-32 | 2024.08 | 약 257MB YOLO weight와 bundletool을 Git LFS로 관리하고 AAB→universal APK 추출을 batch script로 자동화 | `e452f2d` (`bef51f4`는 인접 release maintenance) | A | 높음 |
+| HB-33 | 2023.10 | 음악·YOLO 모델 자산을 install-time Play Asset Delivery `:musics`/`:weights` pack으로 분리하고 weight/cfg를 내부 파일로 materialize해 Python/OpenCV에 실제 경로 전달 | `a7003ee` | A | 매우 높음 |
+| HB-34 | 2024.08 | 2024.02 앱 전반의 percentage layout(`3889c17`)을 기반으로 디자이너 Figma 좌표·비율을 다시 계산해 Main/Select/Play/Loading·다이얼로그를 360×740 Guideline·auto-size UI로 전면 구현 | `3889c17`(선행 단계), `e5c69ad`, `65ee77b` | A(구현) / 디자인 원안은 디자이너 | 매우 높음 |
+| HB-35 | 2024.09~12 | 첫 사용자용 튜토리얼과 시작 안내 팝업 구현·개선 | `9d9d330`, `35d4c6c`, `3f47bb7`, `a086476` | A | 높음 |
+| HB-36 | 2024.08~09 | 음악별 JSON block 조건을 실제 인식 결과와 비교해 퀘스트를 순차 완료하고 별 표시·교체 기능 해금·unlock animation까지 연결 | `0881ce8`, `35d4c6c`, `164edf8`, `dc2ad19`, `37446ca` | A(구현) / 기획은 팀 공동 | 매우 높음 |
+| HB-37 | 2024.05~10 | 오류/경고별 시각 피드백을 보강한 뒤 접근성 앱에서 QR 1~4 bitmask로 카메라 이동 방향을 추론해 화살표·TalkBack 안내·3개 이상 자동 촬영·촬영 복구까지 폐루프로 통합 | `c3871c9`(선행 피드백), `2c0cf19` | A(구현) / 기획은 팀 공동 | 매우 높음 |
+| HB-38 | 2024.10~11 | 저장 음악을 `MusicFile` 단일 JSON 모델로 통합하고 전체/장르별 목록·재생 상태·제목수정/삭제·QR 연동·MP3 다운로드/공유까지 재구성 | `4db36f8`, `1f11d93` | A(구현) / 기획은 팀 공동 | 매우 높음 |
+| HB-39 | 2024.10 | 악기별 volume·진동·교체버튼 표시 설정을 `Setting` 모델로 정리하고 설정/진행도 reset·영속화 UI를 통합 | `4db36f8` | A(구현) / 기획은 팀 공동 | 높음 |
+| HB-40 | 2024.05~11 | 공통 asset 경로와 metadata 계약을 이용해 Cyberpunk·Classic 등 신규 음악을 Java 수정 없이 추가하고 음원/이미지/Lottie 콘텐츠를 통합·유지보수 | `f924c6d`, `35d7e18`, `eb8a47f`, `64a4afb` 외 | A(통합) / 원본 자산은 팀·외부 제작 | 높음 |
+| HB-41 | 2024.12 | 2.0.0 전환에서 pre-v25 설치를 감지해 장르별 구형 저장 음악·block·MP3/cache를 `MusicFile` 구조로 1회 migration하고 version I/O를 `VersionUtil`로 분리 | `36f8253`, `6d66423`, `fbd31c9` | A(구현·디버깅) | 매우 높음 |
+| HB-42 | 2024.12 | 재생 화면 버튼·label의 개별 좌표 Guideline을 행·열 단위 공통 percentage Guideline으로 재구성해 화면 비율 변화에 따라 조작 UI 전체가 함께 확대·축소되도록 보정 | `bfc794e`, `3c5b4e2` | A(구현) / 디자인 원안은 디자이너 | 높음 |
+| HB-43 | 2024.11~2025.01 | 팀원 CameraX 녹화 prototype을 저장 `MusicFile` 선택·음악 동기화·`tempN.mp4` 분할 녹화·오류/이탈 cleanup이 가능한 제품 흐름으로 재구성 | `83d51f6`(팀원 prototype), `d85faeb`, `719732b`(후속 상태 보완) | A(제품화 구현) / 최초 prototype은 팀원 | 매우 높음 |
+| HB-44 | 2024.12~2025.01 | `tempN.mp4` 분할 영상을 FFmpeg concat demuxer로 무재인코딩 결합하고 저장 음악 MP3를 AAC로 mux해 MediaStore/DCIM에 최종 뮤직비디오를 저장 | `d85faeb`, `719732b` | A(구현·후속 동기화 보완) | 매우 높음 |
+| HB-45 | 2025.01 | 저장 음악 재생을 생성 MP3 직접 `MediaPlayer` 재생으로 단순화하고 관리 화면의 영상 제작 진입·전용 음악 선택 흐름·접근성 semantics를 최종 통합 | `719732b`; `a2f2037`,`7a1cb0f`는 후속 UI/tutorial fix | A(구현·통합) | 매우 높음 |
 
 ## 2. 교차검증 후 통합 작업군
 
@@ -129,18 +136,18 @@
 
 | 통합 ID | 통합 작업군 | 포함 세부 작업·추가 근거 | 통합 관점 |
 |---|---|---|---|
-| GROUP-CORE-01 | Android–Python CV/블록 실행 제품화 | HB-E02~E04, HB-01, HB-02, HB-05, HB-08; `8c21546` | 카메라 입력·방향 보정·Chaquopy·Runner 계약·Python 실행 결과를 하나의 Android 실행 흐름으로 연결 |
-| GROUP-AUDIO-01 | 실시간 다중 악기 재생 엔진 | HB-03, HB-04, HB-10, HB-11, HB-23; `61ea93b` | MediaPlayer gap 해결에서 시작해 scheduler phase, pause/resume delay, condition input, countdown까지 하나의 시간축 제어 문제로 통합 |
-| GROUP-UI-01 | 화면 비율 기반 반응형 Android UI | HB-06 → `3889c17` → HB-27 → HB-34 | Play 화면에서 시작한 percentage Guideline 방식을 앱 전반으로 확장하고, Figma 시안을 상대 좌표로 재구현한 뒤 공통 행·열 Guideline으로 보정 |
-| GROUP-ACCESS-01 | TalkBack·촉각·시각장애 사용자 흐름 | HB-14, HB-15, HB-16, HB-19, HB-30; `c2cca66`, `190a583`, `c3871c9`, `e52f941` | 탐색 순서/음성 설명 → 블록 읽기 → 진동 → 별도 접근성 앱 → QR 위치 기반 촬영 안내로 접근성 수준을 단계적으로 확장 |
-| GROUP-MEDIA-01 | 저장 음악·MP3·영상 제작 파이프라인 | HB-20, HB-31, HB-35, HB-36, HB-37; `dbcdde3`, `3889c17` | 재생 상태 저장→MP3 합성→MusicFile 통합→CameraX 분할 녹화→FFmpeg mux→저장 음악 라이브러리/영상 UX로 확장 |
-| GROUP-PROGRESS-01 | 교체 악기·퀘스트·진행도 시스템 | HB-24, HB-25, HB-29 | 다음 마디 교체 상태를 저장 가능한 모델로 만들고, 실제 인식 block 조건과 progress·별·unlock animation까지 연결 |
-| GROUP-CONTENT-01 | 데이터 기반 음악 콘텐츠 확장 | HB-07, HB-09, HB-32 | 음악별 metadata/path convention으로 장르·음원·캐릭터·Lottie를 코드 수정 최소화 구조에 통합 |
-| GROUP-DELIVERY-01 | 대용량 자산·Android 배포 파이프라인 | HB-26A, HB-26 | Play Asset Delivery asset pack과 내부 model materialization → Git LFS → AAB universal APK 추출 자동화의 연속 배포/자산 관리 경험 |
-| GROUP-RELEASE-01 | 저장 데이터 호환·버전 전환 | HB-33 | v25 이전 설치의 구형 저장 음악을 새 MusicFile 구조로 1회 migration하고 version marker/util을 정리 |
-| GROUP-INFERENCE-EXP | Java/TFLite 추론 전환 실험 | HB-17, HB-18 | Python bridge 제거·Java 후처리·전처리 보정·실기기 속도 비교 후 정확도 저하로 rollback한 하나의 실험/판단 사례 |
-| GROUP-BPM-01 | BPM 기능과 콘텐츠 호환 처리 | HB-12, HB-13 | BPM 3단계 재생 기능과 BPM 자산이 없는 음악의 fallback을 하나의 기능군으로 통합; 최종 제거 이유는 미확인 |
-| GROUP-ONBOARD-01 | 실제 기능 재사용형 튜토리얼 | HB-28 | 실제 Camera/Play/센서/저장 기능을 재사용한 단계형 onboarding과 최초 실행 상태·hold-to-skip을 한 경험으로 유지 |
+| GROUP-CORE-01 | Android–Python CV/블록 실행 제품화 | HB-02~E04, HB-07, HB-08, HB-11, HB-14; `8c21546` | 카메라 입력·방향 보정·Chaquopy·Runner 계약·Python 실행 결과를 하나의 Android 실행 흐름으로 연결 |
+| GROUP-AUDIO-01 | 실시간 다중 악기 재생 엔진 | HB-09, HB-10, HB-16, HB-17, HB-29; `61ea93b` | MediaPlayer gap 해결에서 시작해 scheduler phase, pause/resume delay, condition input, countdown까지 하나의 시간축 제어 문제로 통합 |
+| GROUP-UI-01 | 화면 비율 기반 반응형 Android UI | HB-12 → `3889c17` → HB-34 → HB-42 | Play 화면에서 시작한 percentage Guideline 방식을 앱 전반으로 확장하고, Figma 시안을 상대 좌표로 재구현한 뒤 공통 행·열 Guideline으로 보정 |
+| GROUP-ACCESS-01 | TalkBack·촉각·시각장애 사용자 흐름 | HB-20, HB-21, HB-22, HB-25, HB-37; `c2cca66`, `190a583`, `c3871c9`, `e52f941` | 탐색 순서/음성 설명 → 블록 읽기 → 진동 → 별도 접근성 앱 → QR 위치 기반 촬영 안내로 접근성 수준을 단계적으로 확장 |
+| GROUP-MEDIA-01 | 저장 음악·MP3·영상 제작 파이프라인 | HB-26, HB-38, HB-43, HB-44, HB-45; `dbcdde3`, `3889c17` | 재생 상태 저장→MP3 합성→MusicFile 통합→CameraX 분할 녹화→FFmpeg mux→저장 음악 라이브러리/영상 UX로 확장 |
+| GROUP-PROGRESS-01 | 교체 악기·퀘스트·진행도 시스템 | HB-30, HB-31, HB-36 | 다음 마디 교체 상태를 저장 가능한 모델로 만들고, 실제 인식 block 조건과 progress·별·unlock animation까지 연결 |
+| GROUP-CONTENT-01 | 데이터 기반 음악 콘텐츠 확장 | HB-13, HB-15, HB-40 | 음악별 metadata/path convention으로 장르·음원·캐릭터·Lottie를 코드 수정 최소화 구조에 통합 |
+| GROUP-DELIVERY-01 | 대용량 자산·Android 배포 파이프라인 | HB-33, HB-32 | Play Asset Delivery asset pack과 내부 model materialization → Git LFS → AAB universal APK 추출 자동화의 연속 배포/자산 관리 경험 |
+| GROUP-RELEASE-01 | 저장 데이터 호환·버전 전환 | HB-41 | v25 이전 설치의 구형 저장 음악을 새 MusicFile 구조로 1회 migration하고 version marker/util을 정리 |
+| GROUP-INFERENCE-EXP | Java/TFLite 추론 전환 실험 | HB-23, HB-24 | Python bridge 제거·Java 후처리·전처리 보정·실기기 속도 비교 후 정확도 저하로 rollback한 하나의 실험/판단 사례 |
+| GROUP-BPM-01 | BPM 기능과 콘텐츠 호환 처리 | HB-18, HB-19 | BPM 3단계 재생 기능과 BPM 자산이 없는 음악의 fallback을 하나의 기능군으로 통합; 최종 제거 이유는 미확인 |
+| GROUP-ONBOARD-01 | 실제 기능 재사용형 튜토리얼 | HB-35 | 실제 Camera/Play/센서/저장 기능을 재사용한 단계형 onboarding과 최초 실행 상태·hold-to-skip을 한 경험으로 유지 |
 
 통합 원칙:
 - 세부 HB를 삭제하지 않는다. 동일 문제의 시간적 진화를 보존하는 **근거 레이어**로 사용한다.
@@ -159,6 +166,7 @@
 | TEAM-04 | 퀘스트 데이터와 화면의 초기 구현 | `Tinto-Verano`, `34cc098`, `270eb93`, `7523133` | 이후 조건·저장·UI 로직 중 직접 맡은 범위 |
 | TEAM-05 | 영상 녹화 화면 초기 프로토타입 | `Tinto-Verano`, `83d51f6` | 프로토타입을 이어받아 `d85faeb`에서 새로 구현하거나 보완한 범위 |
 | TEAM-06 | 제품 디자인·캐릭터·음원·모델 학습 | 여러 팀원·외부 리소스 | 개발 통합과 원천 제작을 구분할 필요 |
+| TEAM-07 | 그래피툰 QR 연동·block JSON 공유 기능 | `EunbinSeo`, `2e30063`; `QrScanActivity`, Retrofit/OkHttp, `ApiService`, `RetrofitClient` | 개인 HB로 계상하지 않음. 접근성 앱의 바코드 촬영 흐름(HB-27)과는 별개 기능 |
 
 ## 4. 교차검증 이후 정리 순서
 
@@ -182,10 +190,10 @@
 - 전체 8개 브랜치 commit graph 교차검증 완료: **229 unique commits / `nanocode00` 162 commits**.
 - 제품 기준 `app_develop` 199 commits 중 기존 문서에 직접 매핑되지 않은 user non-merge 54개를 역검토했다.
 - 최종 브랜치 밖의 user unique commit 21개도 별도 확인했다.
-- 새 독립 개발작업으로 **HB-26A Play Asset Delivery 자산 분리/내부 materialization**을 추가했다.
+- 새 독립 개발작업으로 **HB-33 Play Asset Delivery 자산 분리/내부 materialization**을 추가했으며, 최종 재검토에서 그 외 개인 독립 작업 누락은 발견되지 않았다.
 - `3889c17`의 앱 전반 percentage Guideline 전환은 별도 성과로 중복 세지 않고 GROUP-UI-01의 중간 단계로 통합했다.
 - `8c21546`, `61ea93b`, `1bce3cf`, `190a583`, `c3871c9`, `e52f941` 등 미참조 핵심 커밋은 기존 HB의 근거·진화 단계에 흡수했다.
-- 상세 추적 단위는 초기 Android `HB-E01~E06`, 제품 작업 `HB-01~HB-37`, 보조 ID `HB-26A`, `HB-31S`로 유지한다.
+- 상세 추적 단위는 초기 Android `HB-01~E06`, 제품 작업 `HB-07~HB-45`, 보조 ID `HB-33`, `HB-39`로 유지한다.
 - 이력서용 상위 단위는 `GROUP-*` 작업군을 기준으로 한다.
 - 다음 단계는 `experiences/hummingblocks.md`에서 **중복 작업을 통합한 4~6개 핵심 경험 구조**를 만드는 것이다.
 - 기존 Draft PR은 계속 draft 상태로 유지하며, `main`에는 반영하지 않는다.
