@@ -42,6 +42,7 @@
 - **실시간 음악 엔진:** 여러 악기 MediaPlayer를 선준비하고 `ScheduledThreadPoolExecutor`의 Prepare/Start phase와 남은 delay를 관리해 마디 전환, pause/resume, BPM, countdown, Lottie 상태를 하나의 시간축으로 동기화했습니다.
 - **접근성 UX:** TalkBack 탐색·상태 announcement·진동을 보강하고, 시각장애 사용자용 촬영 흐름에서 QR 1~4 bitmask로 카메라 이동 방향을 추론해 **방향 안내 → 자동 촬영 → 판정 → 오류/경고 시 재촬영** 폐루프를 구현했습니다.
 - **저장·미디어 확장:** 저장 음악을 self-contained `MusicFile` 모델로 통합하고 FFmpeg MP3 생성, pre-v25 데이터 migration, 저장 음악 기반 CameraX 분할 녹화와 FFmpeg concat/mux·MediaStore 저장까지 제품화했습니다.
+
 제품 후속 누적 성과: 2026.05 회사 사업계획서 기준 **앱 다운로드 1,500+, 키트 1,830개, 자사 판매 약 80개 학교·제품 도달 약 200개 학교**. 개인 개발 기간의 직접 판매 실적과는 구분합니다.  
 수상: 2022 전국 장애·비장애 대학생 창업경진대회 대상, KNU 창업경진대회 대상, 소셜벤처 경연대회 TS청년벤처상·대구광역시장상.
 
