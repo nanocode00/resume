@@ -11,12 +11,12 @@
 
 ## Summary
 
-- **HummingBlocks 제품화**: 공동 창업자·Mobile App Developer로서 실물 코딩 블록의 `Camera → YOLO/OpenCV → 배치 해석 → 음악 실행` Android 파이프라인을 구현하고 Google Play 출시와 2.x 유지보수까지 수행했습니다. Java/TFLite 경로를 별도 브랜치에서 구현해 처리 시간을 **9.1s → 5.4s(-40.7%)**로 줄였지만 정확도가 **90% → 57%(-33%p)**로 하락해 제품 신뢰성을 기준으로 기존 runtime을 유지했습니다.
+- **HummingBlocks 제품화**: 공동 창업자·Mobile App Developer로서 실물 코딩 블록의 `Camera → Python/OpenCV → 실행 상태 → 음악 재생` Android 파이프라인을 구현하고 Google Play 출시와 2.x 유지보수까지 수행했습니다. 별도 Java/TFLite 경로를 구현해 실기기 비교에서 처리 지연을 약 **9.1s → 5.4s**로 줄였으나 정확도 저하를 확인해 기존 runtime을 유지했고, 이후 TalkBack·자동촬영·MusicFile·FFmpeg 영상 제작·데이터 migration까지 확장했습니다.
 - **CNN Accelerator HW/SW 검증**: 3인 팀에서 기존 공개 CNN RTL을 PyTorch Quantization 결과와 정합하고 synthesis-friendly RTL로 수정. ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인하고 OpenROAD ASAP7 synthesis와 physical design final stage까지 진행했습니다. Netlist 정상 파형 확보와 timing closure는 완료하지 못했습니다.
 - **Mallo Voice AI 통합**: 3인 팀 Team Lead / Product & Integration으로 PRD/TRD, Order Engine, Senior-first UI, TTS 파인튜닝과 STT/NLU 추가 학습·검증, runtime/deployment를 연결했습니다. 동일 20문장 GPU 비교에서 **Melo Base 198.5ms, Melo Friendly 204.1ms, Qwen Base 6.91s, Qwen Friendly 28.20s**를 측정해 MeloTTS Friendly를 선택했고, 최종 production TTS는 **mean 0.38s / p95 0.53s / RTF 0.0894**를 기록했습니다.
 - **수상**: 2019 과학기술정보통신부장관상·산업통상자원부장관상, 2021 부총리 겸 교육부장관상, 2022 전국 장애·비장애 대학생 창업경진대회 대상, 2024 임베디드 SW 경진대회 webOS 부문 입선.
 
-> HummingBlocks의 9.1s/5.4s 및 90%/57%는 당시 측정값을 이후 경험기술서에 기록한 수치입니다. Git에는 TFLite 전환 구현과 롤백이 남아 있으나 원본 benchmark spreadsheet는 현재 저장소/Drive 검색에서 확인하지 못했습니다.
+> HummingBlocks의 9.1s/5.4s는 당시 실기기 비교 기록입니다. Git에는 TFLite 전환 구현과 롤백이 남아 있으나 반복 benchmark 원본 표는 현재 확인되지 않아 정밀 평균 수치로 사용하지 않습니다. 정확도 저하 기록은 평가 조건이 확인되지 않아 핵심 정량 성과에서는 제외합니다.
 
 ## Experience
 
@@ -37,16 +37,17 @@
 **2022.03 ~ 2023.10 주요 제품 개발, 2025.01까지 유지보수 · 공동 창업자 / Mobile App Developer**  
 **Android / Java / Python / YOLO / OpenCV / Chaquopy / TensorFlow Lite / CameraX / FFmpeg**
 
-- 실물 코딩 블록을 촬영하면 객체의 종류와 배치를 인식해 음악으로 실행하는 Android 제품에서 Camera/CV 연동, 프로그램 해석, 음악 실행을 구현하고 **2023.10 Google Play 출시** 후 2.x까지 유지보수했습니다.
-- detection box를 좌표 기준으로 정렬·그룹화해 PLAY/LOOP/STAR, 조건, 악기 단계 연산으로 변환하고, **오류 23종·경고 2종**을 실행 전에 검사해 수정 가능한 안내로 연결했습니다.
-- 별도 브랜치에서 Python bridge를 제거한 Java/TFLite inference, NNAPI/GPU/CPU fallback, NMS·좌표 후처리를 구현해 Galaxy S9+ 기준 **9.1s → 5.4s(-40.7%)**로 단축했습니다. 다만 정확도가 **90% → 57%(-33%p)**로 하락해 오인식 비용을 기준으로 기존 Chaquopy/OpenCV DNN 경로를 유지했습니다.
-- 출시 후 ScheduledThreadPool 기반 음악 재생·pause/resume와 BPM, FFmpeg MP3·영상 export, TalkBack·촬영 방향 안내, 진행도·버전 migration을 추가했습니다.
-
+- **Android/CV 제품화:** 초기 Android 화면·카메라·센서부터 Chaquopy 기반 Python/OpenCV 연동, Camera→Runner→Play E2E 흐름과 `SUCCESS / ERROR / WARNING` 결과 계약까지 구현해 **2023.10 Google Play 출시** 기반을 만들었습니다.
+- **추론 최적화 실험:** 별도 브랜치에서 Python bridge를 제거하고 Java/TFLite inference, NMS·좌표 후처리, NNAPI/GPU/CPU fallback을 직접 구현했습니다. 여러 Galaxy S9+의 기기별 1회 비교 기록에서 처리 시간이 **약 9.1s → 5.4s**로 줄었지만 정확도 저하가 확인돼 제품 신뢰성을 우선해 기존 Chaquopy/OpenCV 경로로 원복했습니다.
+- **실시간 음악 엔진:** 여러 악기 MediaPlayer를 선준비하고 `ScheduledThreadPoolExecutor`의 Prepare/Start phase와 남은 delay를 관리해 마디 전환, pause/resume, BPM, countdown, Lottie 상태를 하나의 시간축으로 동기화했습니다.
+- **접근성 UX:** TalkBack 탐색·상태 announcement·진동을 보강하고, 시각장애 사용자용 촬영 흐름에서 QR 1~4 bitmask로 카메라 이동 방향을 추론해 **방향 안내 → 자동 촬영 → 판정 → 오류/경고 시 재촬영** 폐루프를 구현했습니다.
+- **저장·미디어 확장:** 저장 음악을 self-contained `MusicFile` 모델로 통합하고 FFmpeg MP3 생성, pre-v25 데이터 migration, 저장 음악 기반 CameraX 분할 녹화와 FFmpeg concat/mux·MediaStore 저장까지 제품화했습니다.
 제품 후속 누적 성과: 2026.05 회사 사업계획서 기준 **앱 다운로드 1,500+, 키트 1,830개, 자사 판매 약 80개 학교·제품 도달 약 200개 학교**. 개인 개발 기간의 직접 판매 실적과는 구분합니다.  
 수상: 2022 전국 장애·비장애 대학생 창업경진대회 대상, KNU 창업경진대회 대상, 소셜벤처 경연대회 TS청년벤처상·대구광역시장상.
 
 Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblocks  
 상세: [experiences/hummingblocks.md](experiences/hummingblocks.md)
+
 
 ### CNN Accelerator — PyTorch Quantization에서 OpenROAD까지
 
