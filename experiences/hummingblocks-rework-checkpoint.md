@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-37, HB-31S 확인 완료  
-> 다음 확인 대상: 전체 개발 작업 인벤토리 교차검증 및 이력서용 핵심 경험 선별
+> 상태: 초기 Android HB-E01~E06, HB-01~HB-37, HB-26A·HB-31S 복원 및 전체 commit graph 교차검증 완료  
+> 다음 단계: 통합 작업군 기준으로 `experiences/hummingblocks.md` 핵심 경험 4~6개 재구성
 
 ## 0. 작업 단위 복원 원칙
 
@@ -452,6 +452,36 @@
 - `7a1cb0f`은 HB-28 튜토리얼 overlay에 새 `영상 촬영` 버튼과 `저장된 음악으로 영상을 만들 수 있어요` 설명을 추가하고 해당 tutorial step에서만 show/hide하도록 맞춘 후속 교육 UI 수정이다. HB-37 핵심 구현보다는 새 기능을 기존 튜토리얼에 반영한 integration fix로 본다.
 - 따라서 HB-37은 `MusicFile 재구성 재생 → 실제 생성 MP3 직접 재생`으로 저장 결과물의 source of truth를 단순화하고, **저장 음악 관리 화면에서 바로 영상 제작으로 이어지는 UX와 별도 음악 선택 화면의 역할 분리**를 마무리한 작업으로 정리한다.
 
+### 교차검증 결과 — 2026-09-19
+
+- GitHub REST commit collection으로 8개 브랜치의 전체 history를 다시 열거했다: **229 unique commits**, `nanocode00` 작성 **162 commits**.
+- `app_develop` 199 commits에서 기존 checkpoint/inventory에 직접 매핑되지 않은 user non-merge 54개를 역검토했고, 최종 브랜치에 없는 다른 브랜치 user unique commit 21개도 확인했다.
+- 추가 독립 작업: **HB-26A — Play Asset Delivery 기반 대용량 음악/모델 asset pack 분리**.
+  - `a7003ee`: `assetPacks = [":musics", ":weights"]`, 두 pack 모두 install-time delivery.
+  - YOLO weight/cfg는 Loading에서 `files/weights`로 복사하고 Python `init_block(imgPath, weightPath, cfgPath)`에 실제 파일 경로를 넘겼다.
+  - HB-26의 Git LFS/AAB packaging과는 다른 2023년 배포·런타임 자산 구조 작업이다.
+- 누락됐던 반응형 UI 중간 단계: `3889c17`(2024-02)은 Main/Select/Play/SavedMusic/Setting/Loading에 percentage Guideline을 대규모 확대 적용했다. 새 ID로 중복 계상하지 않고 **HB-06 → 3889c17 → HB-27 → HB-34**의 한 작업군으로 묶는다.
+- `8c21546`은 HB-05/HB-08의 Java `Runner` SUCCESS/ERROR/WARNING 계약과 Camera→Play 통합 근거로 흡수했다.
+- `61ea93b`은 HB-10의 별도 `MusicPlayer`, ScheduledThreadPoolExecutor, Prepare/Start phase, pause/resume delay 복원의 핵심 근거로 흡수했다.
+- `3889c17`·`c2cca66`·`190a583`은 HB-15가 단순 인식 목록에서 scope/괄호를 갖는 block reading 화면과 TalkBack 설명으로 발전한 근거로 흡수했다.
+- `c3871c9`은 오류/경고별 image+message feedback의 선행 단계로 HB-30 접근성 촬영 복구 흐름에 연결했다.
+- `e52f941`, `197bb19`의 Button semantics/pressed-state 접근성 보완은 HB-14의 장기 접근성 개선 흐름에 흡수했다.
+- `dbcdde3`, `9119e23`, asset 교체·dialog polish·revert 커밋 등은 기존 SavedMusic/UI/content 작업의 maintenance 단계로 분류하고 독립 성과로 중복 계상하지 않는다.
+- `app_develop_bpm`, `app_develop_tflite` 등 비최종 브랜치 고유 커밋도 대조했지만 TFLite 실험(HB-17~18), LFS/배포(HB-26), 콘텐츠/MP3 작업의 병렬 SHA 또는 미채택 시도 외에 추가 핵심 기능은 발견하지 못했다.
+
+통합 작업군:
+- CORE: HB-E02~E04 + HB-01/02/05/08
+- AUDIO: HB-03/04/10/11/23
+- UI: HB-06 + `3889c17` + HB-27/34
+- ACCESSIBILITY: HB-14/15/16/19/30
+- SAVED MEDIA: HB-20/31/35/36/37
+- PROGRESSION: HB-24/25/29
+- CONTENT: HB-07/09/32
+- DELIVERY: HB-26A/26
+- RELEASE COMPATIBILITY: HB-33
+- INFERENCE EXPERIMENT: HB-17/18
+- BPM: HB-12/13
+- ONBOARDING: HB-28
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **BPM 기능 제거 사유:** 구현 완료와 이후 제거 사실은 확인됐지만 제품 판단 이유는 미확인으로 유지한다.
@@ -459,33 +489,24 @@
 
 ## 4. 다음 진행 위치
 
-HB-E01~E05, HB-01~HB-37 및 HB-31S의 개별 개발 작업 복원은 완료했다.
+개별 개발작업 발굴과 전체 commit graph 교차검증은 완료했다.
 
-다음 단계는 **전체 개발 작업 인벤토리 교차검증 및 이력서용 핵심 경험 선별**이다.
+다음은 **`experiences/hummingblocks.md`를 통합 작업군 기준으로 다시 구성**한다.
 
-확인할 내용:
-- 서로 중복된 작업(HB-06/HB-27/HB-34 반응형 UI, HB-20/HB-31/HB-37 저장 음악)을 이력서 문장에서는 어떻게 묶을지
-- 팀 기획/디자이너·외부 제작 asset/팀원 prototype과 개인 구현 경계를 최종 점검
-- 구현됐지만 롤백된 TFLite/BPM 같은 실험과 최종 제품 기능을 구분
-- 정량 수치가 검증된 항목만 남기고 불명확한 숫자는 제거 또는 조건을 명시
-- `experiences/hummingblocks.md`와 `resume.md`에 넣을 4~6개의 가장 강한 문제 해결 사례 선별
+목표:
+- HB 번호를 그대로 나열하지 않고 4~6개의 강한 문제 해결 사례로 압축
+- 같은 문제의 여러 개선 커밋은 하나의 시간적 진화로 표현
+- 팀 기획/디자인/외부 asset과 개인 구현 경계를 유지
+- 정량 근거가 검증된 결과만 사용
+- TFLite처럼 미채택 실험은 `실험→검증→rollback 판단`으로 별도 표현
 
-HB-37 확정:
-- 저장 음악 재생을 MusicPlayer의 section 재구성 방식에서 생성 MP3 직접 MediaPlayer 재생으로 단순화
-- 카드 duration/progress를 실제 MP3 기준으로 표시
-- 제목 변경 시 MP3 재합성 대신 JSON 저장 + MP3 rename
-- 저장 음악 카드에 영상 제작 popup을 추가해 현재 곡으로 RecordActivity 직접 진입
-- 영상 제작 popup에서 기존 Graphytoon QR 경로와 직접 영상 촬영 경로를 통합
-- SelectMusicActivity는 전역 영상 제작 진입 시 저장 음악 선택·미리듣기 전용 화면으로 역할 축소
-- `a2f2037`은 popup 위치 보정, `7a1cb0f`은 새 영상 제작 기능을 튜토리얼에 반영한 후속 fix
+현재 미확인으로 남길 것:
+- HB-17~18 정확도 `약 90% → 57%`의 평가 데이터셋·샘플 수·집계 방식
+- 속도 비교 원본 측정표/로그의 잔존 여부
+- BPM 기능 최종 제거의 제품 판단 이유
+- `2c0cf19`에 함께 들어간 Classifier.py 호출 방식 변경의 직접적인 문제/성능 목적
 
-현재 남은 미확인:
-- HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
-- 속도 비교의 원본 측정표/로그가 남아 있는지 여부
-- BPM 기능 제거의 제품 판단 이유
-- `2c0cf19`에 함께 포함된 Classifier.py 리팩터링의 직접적인 문제/성능 개선 목적
-
-이 미확인 항목은 사실 확인이 되기 전까지 이력서의 확정 성과 문장에 넣지 않거나 제한적으로 표현한다.
+이 항목들은 확인되기 전까지 확정 성과 문장에 과장해 넣지 않는다.
 
 ---
 
