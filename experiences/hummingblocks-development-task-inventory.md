@@ -107,7 +107,7 @@
 | HB-32 | 2024.05~11 | 공통 asset 경로와 metadata 계약을 이용해 Cyberpunk·Classic 등 신규 음악을 Java 수정 없이 추가하고 음원/이미지/Lottie 콘텐츠를 통합·유지보수 | `f924c6d`, `35d7e18`, `eb8a47f`, `64a4afb` 외 | A(통합) / 원본 자산은 팀·외부 제작 | 높음 |
 | HB-33 | 2024.12 | 2.0.0 전환에서 pre-v25 설치를 감지해 장르별 구형 저장 음악·block·MP3/cache를 `MusicFile` 구조로 1회 migration하고 version I/O를 `VersionUtil`로 분리 | `36f8253`, `6d66423`, `fbd31c9` | A(구현·디버깅) | 매우 높음 |
 | HB-34 | 2024.12 | 재생 화면 버튼·label의 개별 좌표 Guideline을 행·열 단위 공통 percentage Guideline으로 재구성해 화면 비율 변화에 따라 조작 UI 전체가 함께 확대·축소되도록 보정 | `bfc794e`, `3c5b4e2` | A(구현) / 디자인 원안은 디자이너 | 높음 |
-| HB-35 | 2024.12 | CameraX 기반 영상 녹화 화면과 녹화 상태 제어 구현 | `d85faeb` | A | 매우 높음 |
+| HB-35 | 2024.11~2025.01 | 팀원 CameraX 녹화 prototype을 저장 `MusicFile` 선택·음악 동기화·`tempN.mp4` 분할 녹화·오류/이탈 cleanup이 가능한 제품 흐름으로 재구성 | `83d51f6`(팀원 prototype), `d85faeb`, `719732b`(후속 상태 보완) | A(제품화 구현) / 최초 prototype은 팀원 | 매우 높음 |
 | HB-36 | 2024.12~2025.01 | FFmpeg로 녹화 영상과 저장 음악을 결합하는 뮤직비디오 생성 흐름 구현 | `d85faeb`, `719732b` | A | 매우 높음 |
 | HB-37 | 2025.01 | 저장 음악 선택·재생·삭제·제목 변경과 영상 제작 UX를 통합 개선 | `719732b`, `a2f2037`, `7a1cb0f` | A | 높음 |
 
