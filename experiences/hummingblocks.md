@@ -1,207 +1,200 @@
 # HummingBlocks
 
-## 채용용 경험 요약
+> 이 문서는 허밍블럭스 프로젝트의 개발 경험을 정리한 기준 문서다. 2026-09-19 기준 `nanocode00/nemo_codeblock`의 전체 8개 브랜치 commit graph를 교차검증해 복원한 `HB-01~HB-45` 티켓을 근거로 작성했다. 포트폴리오·이력서 문장은 이 문서에서 필요한 경험만 다시 선별한다.
 
-시각장애 학습자를 출발점으로 일반·특수교육 환경에서 함께 사용할 수 있도록, 실물 코딩 블록의 AI 인식 결과를 실행 가능한 프로그램과 음악으로 변환하는 Android 제품을 개발했습니다. 공동 창업자이자 Mobile App Developer로서 Camera/CV 연동, 블록 배치 해석, 음악 실행, 접근성, 저장·내보내기, 출시 후 데이터 호환성까지 제품 파이프라인을 맡았습니다.
-
-## Project at a glance
+## 1. 프로젝트 개요
 
 | 항목 | 내용 |
 |---|---|
-| 기간 | 2022.03 ~ 2023.10 주요 제품 개발, 2025.01까지 유지보수 커밋 확인 |
-| 팀/역할 | 네모감성 공동 창업자 · Mobile App Developer |
-| 제품 | 실물 블록을 촬영해 순차·반복·조건·함수·연산 규칙을 음악으로 실행하는 Android 교육제품 |
-| 담당 | Android 앱, Camera/CV integration, detection 후처리, 프로그램 해석, 음악 실행, 접근성, 저장·migration |
-| 기술 | Android, Java, Python, YOLO, OpenCV DNN, Chaquopy, TensorFlow Lite, CameraX, FFmpeg |
-| 출시 | Google Play, 2023.10.31 |
+| 프로젝트 | HummingBlocks(허밍블럭스) |
+| 제품 | 실물 코딩 블록을 촬영해 블록 배치를 프로그램으로 해석하고 음악으로 실행하는 Android 교육 제품 |
+| 사용자 | 시각장애 학습자를 출발점으로 일반·특수교육 환경까지 확장 |
+| 역할 | 네모감성 공동 창업자 · Mobile App Developer |
+| 개발 흐름 | Android 초기 구현 → Python/CV 제품 통합 → 음악 실행·접근성 → Google Play 출시 → 저장·퀘스트·영상·migration 확장 |
+| 주요 기술 | Android, Java, Python, Chaquopy, OpenCV DNN, YOLO/Darknet, TensorFlow Lite, CameraX, ML Kit Barcode, FFmpeg, ConstraintLayout |
+| 저장소 | https://github.com/nanocode00/nemo_codeblock |
+| 출시 기록 | Google Play 2023-10-31 |
 
-Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblocks  
-Code: https://github.com/nanocode00/nemo_codeblock
+허밍블럭스는 화면 안에서 블록을 조작하는 앱이 아니라, 사용자가 실제 블록을 배치한 뒤 카메라로 촬영하면 앱이 배치를 읽고 음악 실행 규칙으로 변환하는 제품이다. PLAY·LOOP·STAR, 좌/우 조건, 악기 단계 증가·감소·초기화 등의 블록 규칙은 팀 회의에서 주로 의견을 내며 설계했고, 초기 Python 인터프리터 구현·테스트는 다른 팀원이 담당했다. 이후 Android 제품의 화면·카메라·센서·Python 연동·재생·접근성·저장·배포 흐름을 구현하고 유지보수했다.
 
-## 제품과 사용자
+## 2. 기여 범위와 경계
 
-허밍블럭스는 화면 안에서만 조작하는 코딩교육 대신, 형태와 점자로 구분할 수 있는 실물 블록을 연결하고 카메라로 촬영해 음악을 만드는 제품입니다. 초기 개발 문서와 2023년 현장 기록에는 시각장애 학습자가 명시되어 있으며, 이후 일반 초·중등과 특수교육 환경을 함께 포괄하는 제품으로 확장됐습니다.
+### 직접 구현·제품화한 범위
 
-사용자는 시작, 반복, 조건, 함수, 연산, 악기·단계 블록을 배치합니다. 앱은 사진에서 블록을 검출한 뒤 배치 순서를 프로그램으로 해석하고, 드럼·브라스·기타·피아노·베이스 트랙의 실행 계획으로 변환합니다. 따라서 검출 정확도뿐 아니라 **블록 간 관계를 올바르게 해석하고 잘못된 프로그램을 실행 전에 설명하는 것**이 제품 품질의 핵심이었습니다.
+- 초기 Android Activity 흐름, 카메라 preview/촬영, 이미지 파일화와 방향 보정, 중력센서 입력을 구현했다.
+- 기존 Python CV·블록 실행 자산을 Android 안에서 재사용하기 위해 Chaquopy를 연결하고 Camera → Python → Runner → Play의 제품 흐름을 통합했다.
+- 초기 통합 후 드러난 실행기 오류를 정리해 Java `Runner`의 `SUCCESS / ERROR / WARNING` 결과 계약과 사용자 오류 안내 구조를 보강했다.
+- 여러 악기의 동시 재생, 마디 전환, pause/resume, BPM, 진행도와 countdown을 Android 재생 스케줄러에 통합했다.
+- TalkBack 탐색 순서와 상태 announcement, 진동, 인식 결과 확인, 시각장애 사용자용 자동촬영·방향 안내 흐름을 구현했다.
+- Figma 시안을 `ConstraintLayout` percentage Guideline과 `0dp` constraint로 변환해 화면 비율에 따라 전체 UI가 함께 늘고 줄도록 구현했다.
+- 교체 악기·퀘스트·진행도·설정 상태를 저장 모델과 연결하고, 음악 콘텐츠를 metadata/asset 규격으로 확장했다.
+- 저장 음악을 `MusicFile` 중심 구조로 재설계하고 FFmpeg 기반 MP3 생성, CameraX 분할 녹화, 영상 concat·audio mux, 구버전 데이터 migration까지 연결했다.
+- Python bridge 제거를 목표로 Java/TFLite 추론 경로를 별도 브랜치에서 구현·검증한 뒤 정확도 문제로 제품 적용을 철회했다.
+- 대용량 음악/YOLO 자산의 Play Asset Delivery 분리, Git LFS 관리, AAB → universal APK 추출 자동화를 구성했다.
 
-## 내가 맡은 범위
+### 팀 또는 외부 기여로 구분하는 범위
 
-### 직접 담당한 영역
+- 2022~2023 초기 Python/Tkinter·PyQt·pygame 프로토타입과 최초 Python 인터프리터 코드는 다른 팀원이 작성했다.
+- 초기 OpenCV DNN 추론, NMS, bounding box 정렬 코드도 다른 팀원이 구현했다. Android 통합과 후속 실행 계약·제품 흐름을 담당했으며, Java/TFLite 실험에서는 추론·NMS·좌표 후처리를 직접 Java로 옮겼다.
+- YOLO 모델 학습 전체와 모델 품질 개선 자체를 개인 구현으로 주장하지 않는다. 앱 연동·실사용 문제 전달·데이터 라벨링 등 확인 가능한 범위만 구분한다.
+- 캐릭터·배경·무대 원본 디자인은 디자이너, 음원 원본은 외부 제작이며, 개인 기여는 Android asset 규격화와 metadata/path 연결, 화면·재생 통합이다.
+- 영상 녹화의 최초 CameraX prototype은 팀원이 작성했다. 저장 음악·분할 녹화·상태 관리·FFmpeg 후처리까지 제품화한 부분을 개인 구현으로 구분한다.
+- Retrofit/OkHttp 기반 그래피툰 QR/block JSON 공유 네트워크 기능은 `EunbinSeo` 구현(`2e30063`)이다. 접근성 앱의 바코드 촬영 흐름과는 별개이며 개인 HB 티켓으로 계상하지 않는다.
 
-- Android 앱의 화면 흐름과 Camera/CV inference 연동
-- 검출된 class와 bounding box를 순서·행·열 구조로 바꾸는 후처리
-- PLAY/LOOP/STAR, 조건 분기, 악기 단계 연산을 실행 상태로 변환하는 로직
-- 여러 악기 트랙의 스케줄링, BPM, pause/resume, 진행 표시
-- TalkBack, 접근성 탐색 순서, 촬영 방향 안내, 진동·설정
-- 음악 저장·공유, MP3 생성, CameraX 영상 녹화, 영상·음원 결합
-- 진행도 JSON과 버전 migration을 통한 기존 사용자 데이터 호환
-- YOLO 학습 데이터 라벨링과 현장 인식 문제를 AI 담당자에게 전달
+## 3. 제품 파이프라인
 
-### 팀 기여로 구분하는 영역
+제품의 mainline은 최종적으로 다음 흐름을 사용했다.
 
-- YOLO 모델 학습 전체와 모델 품질 개선
-- 실물 블록의 산업 디자인·금형·제조
-- UI 디자인 원본과 음악 콘텐츠 제작
-- 회사의 영업·교육 운영 및 개발 이후 누적 판매 성과
+1. Android 카메라가 실물 블록 배치를 촬영하고 기기 방향에 맞춰 입력 이미지를 보정한다.
+2. 촬영 이미지를 앱 cache에 저장하고 Chaquopy를 통해 Python/OpenCV DNN 경로로 전달한다.
+3. Python 측 CV·블록 처리 결과를 Android가 받아 `Runner`의 실행/오류/경고 계약으로 변환한다.
+4. `PlayActivity`와 `MusicPlayer`가 마디별 악기 level·조건·교체 상태를 실제 음원 재생으로 변환한다.
+5. TalkBack·진동·화면 상태·인식 결과 화면이 실행 과정과 오류를 사용자에게 설명한다.
+6. 완성한 음악은 `MusicFile` JSON과 MP3로 저장하고, 필요하면 CameraX로 촬영한 영상과 FFmpeg로 결합한다.
+7. 버전 구조가 바뀐 뒤에도 기존 저장 음악은 migration을 거쳐 새 `MusicFile` 포맷으로 이전한다.
 
-## 제품 파이프라인
+## 4. 개발 경험
 
-1. `CameraActivity`가 블록 배치를 촬영하고 입력 경로를 준비합니다.
-2. 제품 브랜치에서는 Chaquopy를 통해 Python `Classifier.py`를 호출합니다.
-3. OpenCV DNN이 Darknet weight/cfg로 416×416 입력을 추론하고 confidence filtering과 NMS를 수행합니다.
-4. bounding box를 x/y 좌표 기준으로 정렬·그룹화해 블록의 공간 구조를 만듭니다.
-5. Java `Runner`가 class ID 묶음을 PLAY/LOOP/STAR와 조건·연산 규칙으로 해석하고 유효성을 검사합니다.
-6. `MusicInfo`와 `MusicPlayer`가 실행 계획을 악기 트랙, BPM, 진행 상태로 변환해 재생합니다.
-7. 완성된 결과는 JSON·MP3로 저장하거나 CameraX 영상과 결합할 수 있습니다.
+### 4.1 Android/CV 제품화 — 프로토타입을 실제 모바일 흐름으로 연결
 
-## Engineering Case 1 — 검출 결과를 실행 가능한 프로그램으로 변환
+초기 Android 앱은 `Loading → Main → 장르 선택 → 촬영 → 재생` 흐름으로 구성했다. 카메라와 중력센서는 각각 별도 테스트 모듈에서 먼저 검증한 뒤 본 앱에 합쳤다. 촬영 bitmap은 당시 사용 자세에 맞춰 회전하고 cache JPEG로 저장해 파일 경로를 다음 단계로 넘겼으며, 이후 기기 방향이 달라지면 고정 90° 보정 때문에 CV 입력이 틀어지는 문제를 확인해 중력센서와 이후 `OrientationEventListener` 기반으로 0/90/180/270° 방향을 처리했다. (`HB-01~HB-08`)
 
-### 문제
+기존 Python 자산을 모두 Java로 다시 쓰거나 외부 서버에 보내는 대신, Android 내부에서 Python을 실행하는 Chaquopy를 선택했다. Java → Python 함수 호출 PoC를 거쳐 촬영 이미지 → Python CV/블록 실행 → Android 결과 처리 → `PlayActivity` 음악 재생까지 E2E 흐름을 연결했다. 초기 Python 실행 코드의 Android 이식은 팀원이 먼저 담당했고, 실제 앱 통합 이후 드러난 버그와 예외 처리 부족을 정리하면서 `Runner.java + block_runner.py` 구조와 `SUCCESS / ERROR / WARNING` 결과 계약을 보강했다. 최종 코드 기준으로 오류 23종과 경고 2종을 구분해 사용자에게 설명하는 구조로 발전했다. (`HB-07`, `HB-11`, `HB-14`)
 
-YOLO 출력은 각 블록의 class, confidence, bounding box일 뿐입니다. 한 사진 안의 여러 블록을 어떤 순서로 읽고, 어느 제어 블록에 속하는지, 어떤 악기를 몇 단계로 실행할지 결정하는 별도 도메인 로직이 필요했습니다.
+### 4.2 음악 실행 엔진 — 여러 악기의 시간축을 Android에서 안정적으로 제어
 
-### 구현
+한 마디에서 여러 악기를 동시에 재생하면서 다음 마디로 끊김 없이 넘어가야 했고, 초기에 `MediaPlayer` 생성 지연 때문에 마디 전환 시 체감되는 gap이 생겼다. 다음 마디용 MediaPlayer를 미리 준비해 두 묶음을 교차 사용하는 구조로 바꾸고, pause/resume에서는 현재 재생 위치뿐 아니라 예약된 다음 작업까지 함께 복원하도록 했다. 이후 오래된 `Timer/TimerTask`를 `ScheduledThreadPoolExecutor`와 `ScheduledFuture`로 교체하고 `Prepare → Start` phase를 명시적으로 분리했다. (`HB-09`, `HB-10`, `HB-16`)
 
-- 검출 box의 평균 너비·높이를 기준으로 x/y 방향의 가까운 블록을 그룹화했습니다.
-- x축 순서와 그룹 내부 y축 순서를 조합해 블록의 읽기 순서를 구성했습니다.
-- 시작 시 한 번 실행하는 PLAY, 반복 실행하는 LOOP, 재사용 가능한 STAR 구역을 분리했습니다.
-- 좌·우 기울기 조건과 ELSE, 악기·STAR 단계의 증가·감소·유지·초기화를 상태 변화로 해석했습니다.
-- 실행 전에 중복 제어 블록, 초기화 전 연산, STAR 정의 오류, IF 없는 ELSE 등을 검사했습니다.
+장르 확장에서는 `장르 × 악기 × 레벨` 음원을 매핑했고, 3단계 BPM 기능에서는 playback speed를 억지로 변경하는 대신 BPM별 제작 음원과 `60000 / BPM × beat 수`로 계산한 마디 길이를 scheduler에 함께 적용했다. BPM 기능은 실제 구현됐지만 이후 제품에서 제거됐으며 제거 이유는 현재 근거만으로 확정하지 않는다. 재생 상태와 Lottie 애니메이션을 pause/resume에 맞춰 동기화하고, 첫 음악 시작 전 2.5초 준비 구간을 3·2·1 countdown으로 표시하면서 pause 시 남은 countdown도 복원했다. (`HB-13`, `HB-18`, `HB-19`, `HB-28`, `HB-29`)
 
-현재 제품 코드에는 **오류 코드 23종과 경고 메시지 2종**이 UI 리소스와 함께 정의되어 있습니다. 기존 문서의 `22가지 예외`는 집계 기준이 확인되지 않아 사용하지 않습니다.
+### 4.3 접근성 — TalkBack 보강에서 자동 촬영 폐루프까지
 
-### 의미
+TalkBack 사용 시 화면의 시각적 배치 순서와 실제 탐색 순서가 맞지 않거나, 처리 중인 버튼까지 계속 focus되는 문제가 있었다. `contentDescription`, `importantForAccessibility`, `accessibilityTraversalBefore/After`, `TYPE_ANNOUNCEMENT`를 사용해 사용자가 실제로 조작 가능한 요소만 탐색하도록 하고, 촬영 처리 중에는 `로딩중입니다` 같은 동적 상태를 직접 음성으로 알렸다. 인식된 블록은 별도 결과 화면에서 사람이 읽는 label로 보여주고, 이후 PLAY/LOOP/STAR와 조건 scope·괄호가 보이는 코드형 구조와 TalkBack 설명으로 확장했다. 진동 피드백과 사용자 설정도 같은 접근성 흐름에 포함했다. (`HB-17`, `HB-20~HB-22`)
 
-모델을 Android에 붙이는 데서 끝나지 않고, 비정형 vision 출력을 사용자가 이해할 수 있는 코딩 규칙과 결정적 실행 상태로 변환했습니다. 인식 실패와 문법 오류도 단순 크래시가 아니라 사용자가 블록 배치를 수정할 수 있는 안내로 연결했습니다.
+2024년에는 시각장애 사용자용 앱을 별도 모듈로 유지하면서 촬영 UX를 다시 설계했다. QR 1~4의 검출 상태를 bitmask로 만들고 특정 QR 3개 이상이 보이면 자동 촬영하도록 했으며, 아직 촬영 조건이 아니면 현재 보이는 QR 조합을 좌/우/상/하 이동 방향으로 변환했다. 같은 상태를 화살표·문구와 TalkBack announcement에 동시에 반영하고, 반복 안내를 throttle했다. 자동 촬영 후 CV가 오류/경고를 반환하면 결과 다이얼로그를 보여준 뒤 다시 camera preview로 복구해 `QR 분석 → 방향 안내 → 자동 촬영 → 판정 → 재촬영`이 한 화면에서 닫힌 루프로 동작하게 했다. (`HB-25`, `HB-27`, `HB-37`)
 
-## Engineering Case 2 — 모바일 추론 최적화와 미채택 결정
+### 4.4 반응형 UI — 기기별 분기가 아니라 상대 좌표 체계로 전환
 
-### 상황과 가설
+초기에는 특정 화면에서 고정 dp와 margin 중심 배치가 깨지는 문제가 있어 Play 화면부터 9:16 기준 콘텐츠 영역과 percentage Guideline을 사용했다. 이후 이 방식을 앱 전반으로 넓혔고, 2024년 대규모 UI 개편에서는 디자이너가 Figma에 만든 시안을 기준으로 각 위치와 크기를 360×740 좌표계의 비율로 다시 계산했다. `ConstraintLayout` 안에 percentage `Guideline`을 두고 View를 그 사이 `0dp` constraint로 묶어 화면 비율에 따라 컴포넌트 전체가 함께 확대·축소되도록 구현했다. (`HB-12`, `HB-34`)
 
-제품 mainline은 `Android Java → Chaquopy → Python/OpenCV DNN → Darknet weights/cfg` 경로였습니다. 당시 Galaxy S9+ 측정 기록에서 촬영 후 평균 처리 시간이 9.1초였고, Python bridge를 제거한 Java/TensorFlow Lite 경로가 지연을 줄일 수 있다고 판단했습니다.
+텍스트는 `autoSizeTextType`을 적용하고, 기본 auto-size 적용이 어려운 EditText는 별도 유틸리티로 계산된 textSize를 반영했다. 후속 작업에서는 버튼마다 흩어진 Guideline을 행·열 단위 공통 기준선으로 묶어 버튼과 label이 동일한 상대 좌표계를 공유하게 했고, 튜토리얼 overlay도 실제 화면과 같은 Guideline 구조로 함께 수정했다. 특정 tablet/Z Flip 전용 layout을 만드는 방식이 아니라 같은 상대 배치 체계를 유지한 것이 핵심이다. (`HB-35`, `HB-42`)
 
-### 실험 구현
+### 4.5 진행도·교체·콘텐츠 — 기능 상태를 데이터 모델로 연결
 
-mainline을 바로 교체하지 않고 `app_develop_tflite` 브랜치에서 다음을 실제로 구현했습니다.
+악기 교체 기능은 단순 토글이 아니라 현재 선택 상태를 다음 마디의 MediaPlayer 준비 시점에 적용하도록 만들었다. `replace_data`로 기존 5개 악기 중 교체 대상을 지정하고, `next_replace`를 다음 마디 준비 단계에 전달했다. 초기 구현에서 교체 음원 인덱스와 원래 악기 level 인덱스가 섞이는 문제를 분리해 수정하고, 동일 원본 악기를 여러 교체 버튼이 가리키는 경우의 상호 배제도 처리했다. 이후 UI 선택 → 다음 마디 음원 → 캐릭터/Lottie → 저장 JSON → SavedMusic 재생 → FFmpeg MP3까지 같은 교체 상태가 이어지도록 통합했다. (`HB-30`)
 
-- Chaquopy/Python runtime 제거 및 TensorFlow Lite 2.9 연동
-- 416×416 bitmap을 RGB float buffer로 변환
-- `Interpreter.runForMultipleInputsOutputs()` 기반 추론
-- Java confidence filtering, class별 NMS, IoU 계산
-- bounding box 정렬·그룹화와 프로그램 해석을 Java로 이식
-- NNAPI → GPU delegate → 4-thread CPU fallback
-- 촬영 bitmap의 비율 유지, 중앙 정렬, 좌우 padding 전처리 보정
+퀘스트 진행도는 음악별 3개 boolean 배열에서 `tutorial_done + 음악별 정수 quest_progress` 구조로 바꿔 순차 해금 상태를 직접 표현했다. 음악별 JSON에 정의된 block 조건을 실제 인식 결과와 비교해 퀘스트를 완료하고, 별 표시·교체 기능 해금·unlock animation으로 연결했다. 설정 역시 악기별 volume·진동·교체 버튼 표시를 `Setting` 모델 하나로 묶고 reset·영속화 UI를 연결했다. (`HB-31`, `HB-36`, `HB-39`)
 
-`7cdc9e1`과 `fc771fd`에 전환과 전처리 보정이 남아 있으며, 같은 날 제품 브랜치의 `1bb3f7c`에서 TFLite 코드를 제거하고 Chaquopy/Python 경로를 복원했습니다. 실험 브랜치는 mainline에 병합되지 않은 상태로 남아 있습니다.
+콘텐츠 확장에서는 음악마다 Java `switch`를 추가하지 않고 `music_info.json`, `values.json`, label/genre metadata와 공통 asset 경로 규격을 사용했다. Cyberpunk·Classic 같은 신규 음악은 Java 코드 변경 없이 metadata 등록과 규격화된 MP3·이미지·Lottie 추가만으로 기존 `MusicInfo`/Select/Play/MusicPlayer 흐름을 재사용했다. 원본 asset 제작이 아니라 이런 데이터 계약에 맞춰 Android에 통합하고 유지보수한 경험으로 구분한다. (`HB-40`)
 
-### 결과와 판단
+### 4.6 저장·미디어 파이프라인 — 실행 상태를 재사용 가능한 결과물로 변환
 
-당시 기록값은 다음과 같습니다.
+처음에는 사용자가 만든 음악의 마디별 `[악기 level + BPM]` 상태를 JSON으로 저장했고, 이를 이용해 원본 음원을 다시 조합하는 방식으로 MP3를 생성했다. 각 마디의 여러 악기는 FFmpeg `amix`, 마디 간 연결은 `concat`을 사용했으며, 무음 마디에는 `empty.mp3`를 넣어 시간 길이를 유지했다. 즉 화면 출력을 녹음한 것이 아니라 구조화된 실행 상태에서 결과 오디오를 재생성했다. (`HB-26`)
 
-| 항목 | 기존 경로 | TFLite 경로 | 변화 |
-|---|---:|---:|---:|
-| 평균 처리 시간 | 9.1s | 5.4s | -40.7% |
-| 인식 정확도 | 90% | 57% | -33%p |
+이후 저장 데이터를 `MusicFile` 단일 도메인 모델로 재설계했다. 과거의 `장르별 JSON + 별도 _block.json + 파생 MP3` 구조를 `files/music/<title>.json` 하나에 title·genre·creation date·levels·replaces·blocks를 모두 담는 self-contained 구조로 바꾸고, 전체/장르별 목록·재생·삭제·제목 수정·MP3 다운로드/공유를 이 모델 중심으로 통합했다. 외부 그래피툰 연동에 필요한 JSON도 `MusicFile.createJSON()`에서 만들도록 데이터 책임을 옮겼지만 네트워크/QR 공유 구현 자체는 팀 기능이다. (`HB-38`)
 
-속도는 개선됐지만 잘못 읽은 블록이 다른 프로그램과 음악으로 이어지는 제품에서는 정확도 저하 비용이 더 컸습니다. 따라서 빠른 구현을 채택하는 대신, 사용자 결과의 신뢰성을 우선해 기존 runtime을 유지했습니다.
+2.0.0 전환에서는 `version.json`이 없는 기존 설치를 감지해 과거 장르별 저장 음악과 `_block.json`을 새 `MusicFile`로 한 번 변환하고, 구형 weight cache와 파생 MP3를 정리한 뒤 최신 asset과 MP3를 다시 생성했다. 범용 버전별 migration framework가 아니라 pre-v25 설치를 새 구조로 옮기는 일회성 호환 레이어였고, 실제 변환 과정에서 file name·block nesting·loop·MP3 path 문제를 연속으로 수정했다. (`HB-41`)
 
-> 위 성능·정확도 수치는 당시 실험 결과를 이후 경험기술서에 남긴 값입니다. Git으로 구현과 롤백은 검증되지만 원본 benchmark spreadsheet, 데이터셋, 산출 방식은 아직 확인되지 않았으므로 상세 면접에서는 `당시 기록값`이라고 구분합니다.
+영상 기능에서는 팀원의 단일 CameraX 녹화 prototype을 저장 음악 중심 제품 흐름으로 다시 만들었다. `MusicFile`에서 선택한 MP3를 타임라인으로 사용하고 `temp1.mp4`, `temp2.mp4`처럼 여러 segment를 촬영하면서 음악도 같은 시점에 pause/resume했다. 최종화할 때 FFmpeg concat demuxer로 영상 stream을 무재인코딩 결합하고, 저장 음악 MP3를 AAC audio로 mux한 뒤 `MediaStore/DCIM/HummingBlocks`에 저장했다. 작업용 temp/concat 파일은 완료 후 정리했다. (`HB-43`, `HB-44`)
 
-## Engineering Case 3 — 음악 실행과 콘텐츠 생성
+마지막에는 저장 음악 재생 자체도 `MusicFile`을 다시 실행해 합성하는 방식에서 이미 생성된 MP3를 Android `MediaPlayer`로 직접 재생하는 방식으로 단순화했다. 재생·공유·영상 제작이 동일한 MP3 결과물을 source of truth로 사용하게 하고, SavedMusic 화면에서 바로 현재 음악으로 영상 제작에 진입하도록 UX를 연결했다. (`HB-45`)
 
-### 실시간 음악 실행
+### 4.7 추론·배포 실험 — 성능을 높이되 제품 기준으로 되돌릴 수 있게 검증
 
-2023년 7월 `7d823b7`에서 `ScheduledThreadPoolExecutor`와 `ScheduledFuture`를 이용한 재생 흐름을 구성했습니다. 두 MediaPlayer 그룹을 교대로 prepare/start해 여러 악기 트랙을 이어 재생하고, pause 시 예약 작업을 취소한 뒤 현재 phase와 남은 delay를 저장해 resume 시점에 재예약했습니다. 이후 BPM에 따라 section 길이와 전체 진행률을 계산하도록 확장했습니다.
+제품 mainline은 `Android Java → Chaquopy → Python/OpenCV DNN → Darknet weight/cfg`였다. Python bridge 지연을 줄이기 위해 별도 `app_develop_tflite` 브랜치에서 Chaquopy와 Python 의존성을 제거하고 Java/TensorFlow Lite 경로를 직접 구현했다. 416×416 입력 tensor, confidence filtering, class별 NMS, IoU, bounding box 정렬·그룹화를 Java로 옮기고 NNAPI → GPU delegate → CPU thread fallback도 구성했다. 이후 aspect ratio를 유지하는 scale + padding 전처리까지 보정했다. (`HB-23`, `HB-24`)
 
-### 저장과 내보내기
+실기기 비교 당시 기록은 Galaxy S9+ 여러 대에서 기존 경로와 TFLite 경로를 기기별 1회 실행해 약 `9.1초 → 5.4초`로 지연이 줄었다. 반면 당시 남은 정확도 기록은 약 `90% → 57%`였고, 정확도 측정 데이터셋·샘플 수·집계 방식은 현재 확인되지 않는다. 속도 이점만으로 제품 경로를 바꾸지 않고 TFLite 변경을 원복해 Chaquopy/OpenCV mainline을 유지했다. 이 수치는 정밀 benchmark가 아니라 당시 기록값으로만 사용한다.
 
-- 2024년 5월: 한 section의 악기 트랙을 FFmpeg `amix`로 병합하고 section 결과를 `concat`해 MP3 생성
-- 2024년 12월: CameraX VideoCapture로 구간 영상을 녹화하고 임시 영상을 concat한 뒤 완성 음악을 mux
-- 2025년 1월: 저장 음악 재생 상태, 영상 제작 진입, 중단·정리 흐름 개선
+대용량 자산도 별도 문제였다. 2023년에는 음악과 YOLO 자산을 install-time Play Asset Delivery의 `:musics`/`:weights` asset pack으로 분리하고, Python/OpenCV가 실제 파일 경로를 필요로 하는 weight/cfg는 내부 `files/weights`로 materialize해 넘겼다. 2024년에는 약 257MB YOLO weight와 bundletool을 Git LFS로 관리하고 AAB에서 universal APK를 추출하는 batch script를 추가했다. (`HB-33`, `HB-32`)
 
-이로써 블록 인식 결과가 일회성 재생에 그치지 않고 사용자가 보관·공유하는 음악과 영상 콘텐츠로 이어졌습니다.
+## 5. 시간순 요약
 
-## Engineering Case 4 — 출시 이후 접근성과 데이터 호환성
-
-### 접근성
-
-- TalkBack announcement와 접근성 탐색 순서 설정
-- 로딩·촬영 상태에서 불필요한 요소의 focus 제어
-- 블록이 화면 밖에 있으면 좌·우·상·하 카메라 이동 방향을 화면과 음성으로 안내
-- 진동 설정과 BPM 버튼의 접근 가능 상태 관리
-- 시각장애인용 별도 앱 모듈의 촬영·선택·재생 흐름 개선
-
-2023년 과거 사례 폴더에는 시각장애인 1인 테스트와 서울맹학교 사용 기록이, 2024년 APK 폴더에는 스크린리더 최적화·자동촬영·시각장애인용 업데이트 결과물이 남아 있습니다.
-
-### 데이터와 버전 호환
-
-- `progress.json`에 튜토리얼 완료 여부와 음악별 퀘스트 진행도를 저장
-- `version.json`으로 설치된 데이터 버전을 확인
-- 구버전 음악·block JSON을 신규 구조로 변환
-- 교체가 필요한 weight/music asset을 갱신하고 MP3를 재생성
-
-출시 후 기능 구조가 바뀌어도 기존 사용자의 저장 음악과 진행 상태를 잃지 않도록 migration 경로를 구현했습니다.
-
-## 개발 타임라인
-
-| 시기 | 변경 | 근거 |
+| 시기 | 주요 변화 | 티켓 |
 |---|---|---|
-| 2023.07 | 음악 재생 스케줄링, pause/resume, 진행 표시 | `7d823b7` |
-| 2023.09~10 | BPM, TalkBack, 접근성 순서, 진동·설정 | `5a8fcad`, `44037d8`, `7a06422`, `28468a6` |
-| 2023.10.31 | Google Play 출시 | 회사 사업계획서의 출시 기록 |
-| 2023.11 | Java/TFLite 전환·전처리 보정·롤백 | `7cdc9e1`, `fc771fd`, `1bb3f7c` |
-| 2024.05 | MP3 생성·공유 | `ce30682` |
-| 2024.07 | 진행도 저장 구조와 퀘스트 흐름 개편 | `28bee75` |
-| 2024.10 | 시각장애인용 촬영·재생 흐름 업데이트 | `2c0cf19` |
-| 2024.12 | 데이터·asset 버전 migration | `36f8253`, `6d66423`, `fbd31c9` |
-| 2024.12~2025.01 | CameraX 녹화, 영상 concat·음악 mux, 저장 음악 개선 | `d85faeb`, `719732b` |
+| 2023.03 이전 | 초기 Android 화면·카메라·센서·장르 선택 구조와 테스트 모듈 | HB-01~HB-06 |
+| 2023.03~06 | Chaquopy 연동, 촬영 방향 보정, Camera→Python→Play 통합, Runner 오류 계약 | HB-07~HB-14 |
+| 2023.06~10 | 음악 테마, scheduler 재설계, BPM, 결과 시각화, TalkBack·진동 | HB-15~HB-22 |
+| 2023.10~11 | PAD asset pack, Java/TFLite 전환 실험과 원복 | HB-23~HB-24, HB-33 |
+| 2024.04~07 | 접근성 앱 분리, MP3 생성, 바코드 흐름 수정, Lottie/countdown, 교체·진행도 | HB-25~HB-31 |
+| 2024.08~10 | Git LFS/배포, Figma 기반 responsive UI, 튜토리얼, 퀘스트, 접근성 자동촬영 | HB-32, HB-34~HB-37 |
+| 2024.10~12 | MusicFile·Setting·콘텐츠 규격, 2.0 migration, Play UI 재정렬 | HB-38~HB-42 |
+| 2024.11~2025.01 | CameraX 분할 녹화, FFmpeg 영상 합성, 저장 음악/영상 UX 최종 통합 | HB-43~HB-45 |
 
-## 결과와 성과
+## 6. 결과와 검증 가능한 수치
 
-### 개발 기간의 직접 결과
+- Android에서 Camera → Python/OpenCV → 실행 상태 → 음악 재생으로 이어지는 제품 흐름을 구현하고 Google Play 출시 이후 기능 확장과 데이터 호환 유지보수까지 이어갔다.
+- 최종 코드의 실행 검증 체계는 오류 23종과 경고 2종을 구분해 사용자에게 안내한다.
+- TFLite 전환 실험의 당시 실기기 기록은 처리 시간 약 9.1초 → 5.4초였다. 여러 Galaxy S9+에서 각 버전을 기기별 1회 비교한 기록이므로 반복 평균 benchmark로 표현하지 않는다.
+- TFLite 정확도 약 90% → 57% 기록은 평가 데이터셋·샘플 수·집계 방식이 확인되지 않아 조건 없는 정량 성과로 사용하지 않는다.
+- 제품은 2023-10-31 Google Play 출시 기록이 있고, 프로젝트 팀은 2022년 창업·소셜벤처 경진대회 수상 기록을 보유한다.
+- 이후 회사 자료의 다운로드·판매·학교 보급·CES 성과는 제품의 후속 누적 성과이며 개인 개발 성과와 분리해 사용한다.
 
-- Android 앱의 Camera → CV → 프로그램 해석 → 음악 실행 파이프라인 구현
-- 2023.10.31 Google Play 출시 후 2.x 기능과 기존 사용자 데이터 호환성 유지
-- 2022 제1회 전국 장애·비장애 대학생 창업경진대회 대상: 상장에 김재훈을 포함한 4인 팀 명시
-- 2022 KNU 창업경진대회 대상: 상장에 김재훈을 포함한 3인 팀 명시
-- 2022 소셜벤처 경연대회 TS청년벤처상·대구광역시장상: 네모감성 팀 수상
+## 7. 표현 시 주의할 점
 
-### 개발 이후 제품의 후속 누적 성과
+- 초기 Python 인터프리터와 최초 OpenCV DNN/NMS/정렬 코드를 직접 구현했다고 쓰지 않는다.
+- Android mainline runtime을 `PyTorch native` 또는 `TFLite`라고 설명하지 않는다. 최종 제품 경로는 Chaquopy + Python/OpenCV DNN + Darknet weight/cfg이며 TFLite는 미채택 실험이다.
+- Figma/UI 원안을 직접 디자인했다고 쓰지 않는다. 디자인을 Android percentage Guideline 기반 responsive layout으로 변환·구현했다고 표현한다.
+- 음원·캐릭터·배경 원본 제작을 개인 작업으로 쓰지 않는다. asset 규격화, metadata 연결, Android 통합을 개인 기여로 쓴다.
+- CameraX 녹화의 최초 prototype을 개인 구현으로 쓰지 않는다. 저장 음악 기반 분할 녹화와 상태 관리, FFmpeg 후처리 제품화를 개인 기여로 구분한다.
+- 그래피툰 QR 네트워크 공유를 개인 구현으로 쓰지 않는다. `MusicFile`에서 외부 연동용 데이터 구조를 정리한 부분과 네트워크 기능을 구분한다.
+- BPM 제거 이유와 TFLite 정확도 평가 조건은 확인되지 않았으므로 추정하지 않는다.
 
-2026년 5월 회사 사업계획서 기준 수치로, 개인의 직접 판매 실적과 구분합니다.
+## 8. HB 티켓 인덱스
 
-- 누적 앱 다운로드 1,500+
-- 누적 키트 판매 1,830개
-- 자사 판매 기관 약 80개 학교
-- 제품 도달 기관 약 200개 학교
-- 2025 CES Innovation Awards Honoree 등 후속 제품 성과
+아래 45개 티켓은 상세 근거를 추적하기 위한 개발 단위다. 본문에서는 같은 문제를 여러 번 개선한 티켓을 하나의 개발 흐름으로 통합했다.
 
-## 근거 수준과 주의할 표현
+| 티켓 | 시기 | 작업 | 통합 영역 |
+|---|---|---|---|
+| HB-01 | 2023.03 이전 | Loading → Main → 장르 선택 → 촬영 → 재생으로 이어지는 초기 Android 화면 구조와 Activity 전환 설계 | Android/CV 제품화 |
+| HB-02 | 2023.03 이전 | 카메라 권한 요청, `SurfaceView` preview, 촬영 callback을 연결한 카메라 프로토타입 구현 | Android/CV 제품화 |
+| HB-03 | 2023.03 이전 | 촬영 bitmap을 90도 회전해 cache JPEG로 저장하고 재생 화면에 파일 경로로 전달 | Android/CV 제품화 |
+| HB-04 | 2023.03 이전 | 중력센서 값을 각도로 변환해 좌·우·중립 상태를 판단하고 지휘자·화살표 UI에 반영 | Android/CV 제품화 |
+| HB-05 | 2023.03 이전 | RecyclerView와 ViewBinding으로 음악 장르 선택 상태를 관리하고 메인 화면에 결과 반영 | Android/CV 제품화 |
+| HB-06 | 2023.03 이전 | 카메라·중력센서 기능을 별도 테스트 모듈에서 검증한 뒤 본 앱에 통합 | Android/CV 제품화 |
+| HB-07 | 2023.03 | Android에서 Python 코드를 실행하기 위한 Chaquopy 연동 및 빌드 구성 | Android/CV 제품화 |
+| HB-08 | 2023.04~06 | 카메라 촬영 방향 보정 및 촬영 화면 흐름 개편 | Android/CV 제품화 |
+| HB-09 | 2023.04 | 여러 악기 음원을 동시에 실행하기 위한 MediaPlayer 재생 구조 실험 | 음악 실행 엔진 |
+| HB-10 | 2023.04 | 음악 실행 중 일시정지·재개·정지 상태 처리 | 음악 실행 엔진 |
+| HB-11 | 2023.04~07 | CV 인식 결과를 `Runner`의 SUCCESS/ERROR/WARNING 계약과 블록 실행 상태로 변환해 Camera→Play 재생 흐름에 연결 | Android/CV 제품화 |
+| HB-12 | 2023.04 | 화면비가 다른 기기에서 재생 화면이 깨지는 문제를 9:16 비율과 percentage Guideline으로 개선 | 반응형 UI·온보딩 |
+| HB-13 | 2023.05 | 단일 음원 구성을 여러 음악 장르로 확장하고 장르별 음원을 매핑 | 음악 실행 엔진 |
+| HB-14 | 2023.05~06 | 팀원이 이식한 Python 블록 실행 코드를 실제 Android 흐름에 맞춰 리팩터링하고 Java `Runner` 결과 계약·오류/경고 enum을 정리 | Android/CV 제품화 |
+| HB-15 | 2023.06 | 음악 장르에 맞춰 캐릭터·무대·악기 UI를 변경하고 새로운 촬영 화면을 통합 | 음악 실행 엔진 |
+| HB-16 | 2023.07~09 | 음악 재생을 별도 `MusicPlayer`로 캡슐화하고 `ScheduledThreadPoolExecutor`의 Prepare/Start phase와 pause/resume delay 복원 구조로 개편 | 음악 실행 엔진 |
+| HB-17 | 2023.07 | 재생 진행도와 인식된 블록 입력을 화면에 시각화 | 접근성·결과 가시화 |
+| HB-18 | 2023.09~10 | 3단계 BPM 음원 선택과 `beats × 60000/BPM` 기반 마디 길이 계산을 재생 scheduler에 통합 | 음악 실행 엔진 |
+| HB-19 | 2023.10 | BPM 메타데이터가 없는 음악도 재생할 수 있도록 호환 처리 | 음악 실행 엔진 |
+| HB-20 | 2023.10~2025.01 | TalkBack 설명·탐색 순서·처리중 focus 제어를 시작으로 화면 전반의 Button semantics와 접근성 상태 안내를 지속 보강 | 접근성·결과 가시화 |
+| HB-21 | 2023.10~2024.04 | 인식 블록을 사람이 읽는 label로 보여주고 이후 PLAY/LOOP/STAR·조건 scope와 괄호를 갖는 코드형 구조 및 TalkBack용 설명까지 확장 | 접근성·결과 가시화 |
+| HB-22 | 2023.10 | 진동 피드백·설정 화면·BPM 설정 등 사용자 제어 기능 추가 | 접근성·결과 가시화 |
+| HB-23 | 2023.11 | Python bridge를 제거하고 Java/TensorFlow Lite 추론 경로와 후처리를 구현 | 추론·배포 실험 |
+| HB-24 | 2023.11 | TFLite 전처리의 이미지 비율·padding을 보정하고 정확도 저하로 제품 경로를 원복 | 추론·배포 실험 |
+| HB-25 | 2024.04 | 시각장애 사용자용 앱을 별도 Android 모듈로 분리 | 접근성·결과 가시화 |
+| HB-26 | 2024.05 | 여러 악기 음원을 합성해 MP3로 추출하고 저장 음악 흐름에 연결 | 저장·미디어 파이프라인 |
+| HB-27 | 2024.05~07 | QR/바코드 촬영 흐름의 권한·화면 전환 오류 수정과 선택 화면 UI 개선 | 접근성·결과 가시화 |
+| HB-28 | 2024.07 | 재생 pause/resume 시 악기·지휘자 Lottie 애니메이션 상태를 음악 재생 상태와 동기화 | 음악 실행 엔진 |
+| HB-29 | 2024.07 | 첫 음악 시작 전 2.5초 준비 구간을 3·2·1 countdown으로 시각화하고 pause/resume 시 남은 countdown을 복원 | 음악 실행 엔진 |
+| HB-30 | 2024.07 | 다음 마디부터 기존 악기를 교체 음원으로 바꾸고 UI·캐릭터·저장 JSON·SavedMusic·MP3까지 상태를 일관되게 유지 | 진행도·교체·콘텐츠 |
+| HB-31 | 2024.07 | 음악별 3개 boolean 진행도를 전역 `Progress`의 순차 단계 정수로 재설계하고 lock/unlock·퀘스트 안내 UI와 즉시 영속화를 연결 | 진행도·교체·콘텐츠 |
+| HB-32 | 2024.08 | 약 257MB YOLO weight와 bundletool을 Git LFS로 관리하고 AAB→universal APK 추출을 batch script로 자동화 | 추론·배포 실험 |
+| HB-33 | 2023.10 | 음악·YOLO 모델 자산을 install-time Play Asset Delivery `:musics`/`:weights` pack으로 분리하고 weight/cfg를 내부 파일로 materialize해 Python/OpenCV에 실제 경로 전달 | 추론·배포 실험 |
+| HB-34 | 2024.08 | 2024.02 앱 전반의 percentage layout(`3889c17`)을 기반으로 디자이너 Figma 좌표·비율을 다시 계산해 Main/Select/Play/Loading·다이얼로그를 360×740 Guideline·auto-size UI로 전면 구현 | 반응형 UI·온보딩 |
+| HB-35 | 2024.09~12 | 첫 사용자용 튜토리얼과 시작 안내 팝업 구현·개선 | 반응형 UI·온보딩 |
+| HB-36 | 2024.08~09 | 음악별 JSON block 조건을 실제 인식 결과와 비교해 퀘스트를 순차 완료하고 별 표시·교체 기능 해금·unlock animation까지 연결 | 진행도·교체·콘텐츠 |
+| HB-37 | 2024.05~10 | 오류/경고별 시각 피드백을 보강한 뒤 접근성 앱에서 QR 1~4 bitmask로 카메라 이동 방향을 추론해 화살표·TalkBack 안내·3개 이상 자동 촬영·촬영 복구까지 폐루프로 통합 | 접근성·결과 가시화 |
+| HB-38 | 2024.10~11 | 저장 음악을 `MusicFile` 단일 JSON 모델로 통합하고 전체/장르별 목록·재생 상태·제목수정/삭제·QR 연동·MP3 다운로드/공유까지 재구성 | 저장·미디어 파이프라인 |
+| HB-39 | 2024.10 | 악기별 volume·진동·교체버튼 표시 설정을 `Setting` 모델로 정리하고 설정/진행도 reset·영속화 UI를 통합 | 진행도·교체·콘텐츠 |
+| HB-40 | 2024.05~11 | 공통 asset 경로와 metadata 계약을 이용해 Cyberpunk·Classic 등 신규 음악을 Java 수정 없이 추가하고 음원/이미지/Lottie 콘텐츠를 통합·유지보수 | 진행도·교체·콘텐츠 |
+| HB-41 | 2024.12 | 2.0.0 전환에서 pre-v25 설치를 감지해 장르별 구형 저장 음악·block·MP3/cache를 `MusicFile` 구조로 1회 migration하고 version I/O를 `VersionUtil`로 분리 | 저장·미디어 파이프라인 |
+| HB-42 | 2024.12 | 재생 화면 버튼·label의 개별 좌표 Guideline을 행·열 단위 공통 percentage Guideline으로 재구성해 화면 비율 변화에 따라 조작 UI 전체가 함께 확대·축소되도록 보정 | 반응형 UI·온보딩 |
+| HB-43 | 2024.11~2025.01 | 팀원 CameraX 녹화 prototype을 저장 `MusicFile` 선택·음악 동기화·`tempN.mp4` 분할 녹화·오류/이탈 cleanup이 가능한 제품 흐름으로 재구성 | 저장·미디어 파이프라인 |
+| HB-44 | 2024.12~2025.01 | `tempN.mp4` 분할 영상을 FFmpeg concat demuxer로 무재인코딩 결합하고 저장 음악 MP3를 AAC로 mux해 MediaStore/DCIM에 최종 뮤직비디오를 저장 | 저장·미디어 파이프라인 |
+| HB-45 | 2025.01 | 저장 음악 재생을 생성 MP3 직접 `MediaPlayer` 재생으로 단순화하고 관리 화면의 영상 제작 진입·전용 음악 선택 흐름·접근성 semantics를 최종 통합 | 저장·미디어 파이프라인 |
 
-| 주장 | 근거 | 사용 원칙 |
-|---|---|---|
-| Android/CV·음악·접근성·migration 구현 | 코드와 `nanocode00` 커밋 | 직접 기여로 표현 가능 |
-| Co-founder · Mobile App Developer | 본인 졸업 포트폴리오·자기소개 자료 | 역할명으로 사용 가능 |
-| 9.1s → 5.4s, 90% → 57% | 이후 경험기술서의 당시 기록 | 원본 benchmark 부재를 인지하고 사용 |
-| 오류 23종·경고 2종 | `Runner.java`, 한국어 UI 리소스 | `22가지 예외` 대신 현재 코드 기준 사용 |
-| YOLO 모델 개선 | 팀의 AI 담당 영역 | 라벨링·현장 피드백·앱 연동만 직접 기여로 표현 |
-| 1,830개·약 200개 학교 | 2026.05 회사 사업계획서 | 제품의 후속 누적 성과로만 표현 |
+## 9. 근거 문서
 
-Android runtime을 `PyTorch native`라고 설명하지 않습니다. 제품 mainline은 Chaquopy + Python/OpenCV DNN + Darknet weight/cfg 구조이며, TensorFlow Lite는 별도 브랜치에서 구현 후 미채택한 실험입니다.
+- `experiences/hummingblocks-development-task-inventory.md`: 전체 브랜치/커밋 교차검증과 45개 티켓 원장
+- `experiences/hummingblocks-rework-checkpoint.md`: 티켓별 문제·구현·검증 상세 복원 기록
+- `nanocode00/nemo_codeblock`: 실제 코드와 commit graph
 
-## 이력서용 핵심 bullet 후보
-
-- 공동 창업자·Mobile App Developer로서 실물 코딩 블록의 `Camera → YOLO/OpenCV → 배치 해석 → 음악 실행` Android 파이프라인을 구현하고 Google Play 출시와 2.x 유지보수까지 수행
-- 검출 box를 순서·반복·조건·함수·연산으로 변환하고 오류 23종·경고 2종을 실행 전에 안내하는 도메인 후처리 구현
-- Java/TFLite inference·NMS·좌표 후처리를 별도 브랜치에 이식해 Galaxy S9+ 기준 9.1s → 5.4s로 단축했으나 정확도 90% → 57% 저하를 확인해 제품 신뢰성을 기준으로 기존 runtime 유지
-- 출시 후 음악 스케줄링과 BPM, FFmpeg MP3·영상 export, TalkBack·촬영 안내, 진행도·버전 migration까지 확장
-
-## 예상 면접 질문
-
-- bounding box를 어떤 기준으로 행·열과 실행 순서로 묶었는가?
-- PLAY/LOOP/STAR와 조건·연산을 어떤 상태 구조로 해석했는가?
-- 오류 23종과 경고 2종은 어디에서 검사하고 어떻게 사용자에게 보여주는가?
-- TFLite 전환에서 정확도가 떨어진 원인을 당시 어떻게 추적했는가?
-- pause/resume 시 예약된 음악과 남은 시간을 어떻게 복구했는가?
-- 데이터 migration 중 구버전 JSON과 생성된 MP3를 어떻게 다뤘는가?
-- 시각장애 사용자 테스트가 Camera와 TalkBack UX에 어떤 변경으로 이어졌는가?
+이 문서를 HummingBlocks의 사실 기준 원본으로 두고, 다음 단계의 포트폴리오·이력서는 여기서 직무와 메시지에 맞는 경험만 압축해 사용한다.
