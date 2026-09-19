@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-32, HB-31S 확인 완료  
-> 다음 확인 대상: HB-33 앱 버전별 저장 데이터 migration과 migration 모듈 분리
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-33, HB-31S 확인 완료  
+> 다음 확인 대상: HB-34 재생 조작 UI의 공통 percentage Guideline 재배치
 
 ## 0. 작업 단위 복원 원칙
 
@@ -370,6 +370,23 @@
 - 이미지·캐릭터·Lottie·음원의 원본 제작은 디자이너/외부 제작자 등 팀 내외 역할이 섞여 있었고, 사용자 확인상 음원 원본은 외부 제작, 캐릭터/배경/stage 원본은 디자이너가 담당했다. 재훈님은 Android asset 구조 편입, metadata/path 연결, 필요한 inactive/grayscale variant 보완, 실제 화면·재생과의 통합을 담당한 것으로 표현한다.
 - 따라서 HB-32는 `새 콘텐츠마다 코드 추가`가 아니라 **metadata 등록 + 공통 디렉터리 규격에 asset 배치 → 기존 MusicInfo/Select/Play/MusicPlayer가 자동 재사용**되는 구조를 실제 여러 장르 추가·교체 과정에서 운영한 경험으로 정리한다.
 
+### HB-33 — 2.0.0 전환 시 기존 설치 데이터를 감지해 저장 음악·캐시를 새 구조로 1회 migration
+
+- 2024-12-01 `36f8253`에서 앱 버전을 `1.3.0(versionCode 22) → 2.0.0(versionCode 25)`로 올리면서 `version.json`과 `VersionUtil`을 도입했다. 이 구현은 저장된 version code별 migration 체인을 순차 실행하는 범용 프레임워크라기보다, **v25 이전 설치를 한 번 식별해 새 저장 구조로 옮긴 뒤 version marker를 남기는 호환 레이어**에 가깝다.
+- 시작 시 `version.json`이 있으면 저장 version을 읽어 로그만 남기고 별도 migration을 실행하지 않는다. `version.json`이 없고 `setting.json`이 있으면 기존 설치(`pre_v25`), 둘 다 없으면 신규 설치로 판정했다. 즉 실제 migration 분기는 저장 version 숫자가 아니라 `version.json`/`setting.json`의 존재 여부로 이루어졌다.
+- 기존 설치에서는 먼저 `manage_music_file_v25()`로 과거 저장 음악을 새 HB-31 `MusicFile` 구조로 옮기고, 이전 weight cache를 삭제해 뒤의 Loading 단계에서 최신 asset의 `nemo_best.weights`와 `nemo.cfg`를 다시 복사하도록 했다. 완료 후 현재 version code를 `version.json`에 기록했다.
+- 음악 migration은 모든 `MusicInfo`의 기존 장르별 내부 디렉터리를 순회하면서 과거 `bpm0/1/2` 캐시 폴더를 제거하고, 저장 JSON과 `_block.json`을 읽어 앱 공통 `files/music/<name>.json` 위치의 `MusicFile`로 다시 저장했다. 기존 장르 폴더에 남아 있던 파생 MP3도 삭제하고 새 MusicFile을 기준으로 MP3를 다시 합성했다.
+- converter가 읽는 과거 음악 본문은 각 마디를 5개 악기 level 배열로 보고 `int[5]`로 옮겼으며, 새 포맷에 추가된 3개 replace 상태는 기본 `false`로 초기화했다. 생성일은 기존 JSON 파일의 `lastModified()`를 이용해 보존했다.
+- 별도 `_block.json`이 있으면 block code를 하나의 `ArrayList<Integer>`로 평탄화해 MusicFile의 `blocks`에 저장한 뒤 기존 block 파일을 삭제했다. 이로써 `장르별 저장 JSON + 별도 block JSON + 별도 MP3`를 `전역 music 디렉터리의 self-contained MusicFile JSON + 재생성 가능한 MP3` 구조로 전환했다.
+- 이 migration은 모든 역사적 개발 스키마를 자동 변환하는 로직은 아니다. 코드상 과거 음악 JSON의 각 section을 배열로 읽고 replace를 false로 초기화하므로, 당시 실제 배포 사용자 데이터의 구형 형식을 v25 포맷으로 올리는 일회성 변환에 초점이 맞춰져 있다. 저장 version 숫자별 `if (v < n)` 체인은 존재하지 않는다.
+- 설정 데이터는 기존 key를 하나씩 새 key로 매핑하지 않고 pre-v25 경로에서 현재 `Setting` 기본 상태를 `setting.json`에 다시 저장한 뒤 로드한다. `progress.json`도 전용 migration 함수 없이 기존 `Progress.load()`를 시도하고 실패하면 현재 구조로 다시 저장하는 기존 fallback을 사용한다. 따라서 HB-33의 가장 강한 migration 근거는 저장 음악/asset cache 쪽이다.
+- 최초 `36f8253` 구현에는 실제 migration 과정에서 문제가 있었다. `bpm0~2` 삭제 loop가 `j++`가 아니라 `i++`로 작성돼 있었고, 새 MusicFile title에 `.json` 확장자가 포함됐으며, `_block.json`을 1차원 배열로 가정했고, MP3 output path에도 `.mp3` 확장자가 빠져 있었다.
+- 약 1시간 뒤 `6d66423`에서 이 문제들을 연속 수정했다. 삭제 loop를 정상화하고, title에는 확장자를 제거한 `fileName`을 넣었으며, block JSON의 중첩 배열을 이중 loop로 평탄화하고, AudioUtil 출력 경로에 `.mp3`를 붙였다. 또한 기존 설치 migration이 끝난 뒤 `version.json`을 실제로 저장하도록 흐름을 보완했다.
+- 이 수정 이후 migration 순서는 `MusicInfo 초기화 → pre-v25 여부 판정 → 저장 음악 변환 → old weight cache 삭제 → version marker 저장 → Setting/Progress load fallback → 최신 weight asset 재복사`가 된다.
+- 2024-12-04 `fbd31c9`의 커밋 메시지는 `version modulize`이지만 **새 Gradle module/package를 만든 것은 아니다.** LoadingActivity에 직접 있던 version JSON 읽기/쓰기 코드를 `VersionUtil.read_version_file()`과 `save_version()`으로 추출해 역할을 분리한 리팩터링이다.
+- `VersionUtil.read_version_file()`은 파싱 실패 시 `-1`을 반환하고, `save_version()`은 PackageManager에서 현재 versionCode를 읽어 `{ "version": ... }` 형태로 저장한다. 다만 LoadingActivity는 이미 version file이 존재하는 경우 이 값으로 추가 migration 여부를 판단하지 않고 로그만 남긴다.
+- 따라서 HB-33은 **대규모 저장 구조 변경이 기존 설치 데이터를 바로 깨뜨리지 않도록 pre-v25 사용자 데이터를 새 MusicFile 구조로 실제 변환하고, 변환 중 발견된 데이터 형태/파일명/출력 문제를 수정한 호환 작업**으로 정리한다. `앱 버전별 migration 모듈`이나 `별도 migration module`이라고 과장하지 않는다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **Main/Home 등 다른 화면의 기기별 비율 대응:** HB-06과 별도 작업. 태블릿에서 버튼이 너무 작아지고 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 나중에 발견해 추가 대응했다. 정확한 시점과 적용 화면을 커밋으로 다시 복원한다.
@@ -378,23 +395,24 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-33 — 앱 버전별 저장 데이터 migration과 migration 모듈 분리**다.
+다음 작업은 **HB-34 — 재생 조작 버튼 위치·크기를 공통 percentage Guideline으로 재배치**다.
 
-`36f8253`, `6d66423`, `fbd31c9`을 중심으로 다음을 확인한다.
+`bfc794e`, `3c5b4e2`를 중심으로 다음을 확인한다.
 
-- 기존 사용자의 `storage.json` version을 어떤 기준으로 읽고 migration 순서를 결정했는지
-- setting/progress/saved music의 schema 변경을 버전별로 어떻게 변환했는지
-- migration 실패/중간 버전/신규 설치를 어떻게 구분했는지
-- migration 코드가 처음 앱 내부에 있었다가 왜 별도 module/package로 분리됐는지
-- 저장 음악의 장르별 경로→통합 경로, 기존 level/replace/block 구조→MusicFile 포맷 전환이 HB-31과 어떻게 연결되는지
+- PlayActivity의 어떤 조작 버튼이 기기별로 깨졌는지
+- 개별 margin/dp 배치에서 공통 Guideline 기준으로 무엇을 바꿨는지
+- 태블릿/Z Flip 펼침 화면 대응으로 기억한 작업과 직접 연결되는지
+- 일반 앱과 접근성 앱 양쪽에 같은 방식이 적용됐는지
+- HB-06/HB-27의 percentage layout 접근과 무엇이 다른 후속 보완인지
 
-HB-32 확정:
-- Cyberpunk/Classic 추가 시 Java 코드 변경 없이 metadata + 규격화 asset만 추가
-- MusicInfo가 id 기반 path convention으로 preview/image/Lottie/MP3를 동적 로딩
-- replace 지원 여부에 따라 기본 5악기와 replace/quest 자산 요구를 조건화
-- Bossa Nova `empty.mp3` 보완 및 Classic MP3 교체처럼 asset-only maintenance 가능
-- 원본 음원/디자인 제작은 외부·디자이너, 개인 기여는 Android asset 통합·metadata/path 연결·보완 리소스와 동작 검증
-- BPM별 디렉터리는 이후 단일 mp3 구조로 정리되어 콘텐츠 계약이 단순화됨
+HB-33 확정:
+- 2.0.0(versionCode 25)에서 `version.json` marker를 새로 도입
+- version file 부재 + setting file 존재를 pre-v25 기존 설치로 판정
+- 장르별 구형 저장 음악/별도 block/MP3/cache를 HB-31 MusicFile 기반 구조로 1회 변환
+- old bpm cache와 weight cache를 제거하고 최신 asset을 다시 생성/복사
+- 초기 migration의 loop/title/block shape/MP3 extension 오류를 `6d66423`에서 즉시 수정
+- `fbd31c9`는 별도 Gradle 모듈 생성이 아니라 version I/O를 VersionUtil로 추출한 코드 모듈화
+- 저장 version 숫자별 순차 migration framework는 아니므로 그렇게 표현하지 않음
 
 역할 원칙:
 - 제품·UX 기획은 특별히 개인 기획이라고 확인된 항목을 제외하면 대체로 팀 내부 논의 결과로 취급
