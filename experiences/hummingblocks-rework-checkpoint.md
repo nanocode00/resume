@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-34, HB-31S 확인 완료  
-> 다음 확인 대상: HB-35 CameraX 동영상 녹화와 recording state
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-35, HB-31S 확인 완료  
+> 다음 확인 대상: HB-36 분할 녹화 영상과 저장 음악 MP3의 FFmpeg 합성·갤러리 저장
 
 ## 0. 작업 단위 복원 원칙
 
@@ -399,6 +399,24 @@
 - 코드상 `activity_play.xml`과 tutorial overlay 모두 360×740 기준 ratio와 다수의 percentage Guideline을 유지하며, 별도의 tablet/Z Flip 전용 layout resource나 runtime device 분기 없이 같은 상대 배치 체계를 사용한다.
 - 따라서 HB-34는 `특정 기기 대응`보다는 **재생 화면의 버튼·텍스트를 공통 상대 좌표 체계로 묶어, 화면 비율 변화에도 전체 조작 UI의 크기와 간격 관계가 함께 유지되도록 보정한 작업**으로 정리한다.
 
+### HB-35 — 팀원 녹화 prototype을 저장 음악 기반 분할 CameraX 녹화 기능으로 제품화
+
+- 최초 영상 녹화 prototype은 2024-11-29 팀원 `Tinto-Verano`의 `83d51f6`이다. 당시 `RecordActivity`는 CameraX `VideoCapture<Recorder>`로 `temporary.mp4` 하나를 녹화하고, 테스트용 `R.raw.summer`를 MediaPlayer로 동시에 재생한 뒤 별도 audio/video 합성 함수를 호출하는 실험 단계였다. 따라서 영상 녹화 아이디어와 최초 prototype 자체를 재훈님 개인 구현으로 주장하지 않는다.
+- 2024-12-30 재훈님의 `d85faeb`(`Update 2.2.0 - recording video`)에서 RecordActivity를 실제 제품 저장 음악 흐름에 맞게 크게 다시 작성했다. 앱 버전은 `2.1.0(code27) → 2.2.0(code28)`으로 올리고 CameraX `camera-video` dependency를 명시적으로 추가했다.
+- SelectActivity의 `영상 촬영` 진입은 바로 RecordActivity를 여는 대신 `SelectMusicActivity`로 연결됐다. 사용자는 기존 HB-31 `MusicFile` 저장 목록에서 곡을 선택·미리듣기하고, 선택 완료 시 `MUSIC_TITLE` extra로 RecordActivity에 전달한다. 필요한 MP3가 없으면 `FFmpegUtil.saveMp3FromMusicFile()`로 먼저 생성한다.
+- RecordActivity는 전달받은 title로 `files/music/<title>.json`을 `MusicFile`로 로드하고, `files/music/<title>.mp3`를 MediaPlayer로 연다. 즉 고정 테스트 음원이 아니라 **사용자가 블록으로 만든 저장 음악을 영상 촬영의 타임라인/배경음 기준으로 사용**하도록 바뀌었다.
+- MusicFile의 section count만큼 진행률 divider를 동적으로 생성하고, MediaPlayer 진행 위치를 20ms 주기로 읽어 progress bar를 갱신했다. 재생 곡의 마디 구조와 영상 촬영 진행을 같은 화면에서 확인하도록 한 UI다.
+- CameraX는 `Preview + VideoCapture<Recorder>`를 lifecycle에 bind하고 `Quality.HIGHEST`를 선택했다. 전/후면 전환 시 `cameraFacing`을 바꿔 `unbindAll() → bindToLifecycle()`로 다시 구성했다.
+- 녹화 상태는 `Recording recording`, `video_count`, `currentVideoFile`로 관리했다. `recording == null`이면 시작, 아니면 정지라는 명확한 state로 record button을 토글하고, 녹화 중에는 전/후면 전환 버튼을 숨겨 카메라 재바인딩과 active recording이 충돌하지 않도록 했다.
+- 첫 녹화를 시작할 때 output base name을 timestamp로 정하고 finish 버튼을 표시한다. 각 녹화 구간은 `temp1.mp4`, `temp2.mp4`, ...처럼 앱 내부 `files/videos`에 저장되므로 사용자가 중간에 stop한 뒤 다시 record를 눌러 **여러 segment로 이어서 촬영**할 수 있다.
+- `VideoRecordEvent.Start`에서 저장 음악 MediaPlayer를 시작하고 progress scheduler를 돌리며 record icon을 stop 상태로 바꾼다. `stopRecording()`에서는 Recording을 close하고 음악을 pause하므로, 다음 녹화를 시작하면 같은 MediaPlayer의 현재 위치에서 이어 재생된다. 영상 segment의 분할 지점과 저장 음악의 pause/resume 지점을 맞추는 구조다.
+- MediaPlayer가 곡 끝까지 재생되면 `OnCompletionListener`가 `finishRecording()`을 호출해 자동 종료한다. 사용자가 별도 finish 버튼을 눌러 중간에 최종화를 시작할 수도 있다.
+- 녹화 finalize event에 오류가 있으면 현재 녹화를 정리하고 오류 Toast를 띄우며 생성된 `temp1...tempN.mp4`를 삭제한다. 정상 finalize에서는 segment 번호를 유지해 이후 합성 단계에서 순서대로 사용할 수 있게 한다.
+- 마이크 음성은 녹음하지 않는다. 기존 prototype에 남아 있던 `RECORD_AUDIO`/외부 storage permission을 manifest에서 제거했고 `prepareRecording(...).withAudioEnabled()`도 사용하지 않는다. 영상은 무음 segment로 녹화하고 저장 음악 MP3는 이후 HB-36에서 별도로 합성한다.
+- lifecycle에서도 `onPause()` 시 active Recording이 있으면 stop하고, `onDestroy()`에서 MediaPlayer를 release한다. 이후 `719732b`에서는 뒤로가기를 눌렀을 때 이미 녹화한 segment가 있으면 즉시 화면을 닫지 않고 `녹화 중단` 확인 다이얼로그를 띄우고, Activity 종료 시 남은 temp segment를 삭제하도록 정리해 abandoned recording 파일을 남기지 않게 보완했다.
+- `719732b`에서는 finish 시 MediaPlayer를 `stop→prepare`하지 않고 `pause→seekTo(0)`으로 정리하고, 합성 중 top loading layer를 표시하는 등 최종화 중 UI state도 보완했다. 이 중 **임시 segment/녹화 세션 상태 관리**는 HB-35 후속 보완으로, 실제 concat/audio merge는 HB-36으로 분리한다.
+- 결과적으로 HB-35는 `저장 음악 선택 → MusicFile/MP3 로드 → CameraX VideoCapture → 음악과 동기화된 start/pause → tempN 분할 녹화 → 오류·이탈 시 segment 정리`를 만든 작업이다. 최초 prototype 작성은 팀원, 재훈님 기여는 이 prototype을 실제 앱 데이터·UI·상태 흐름과 연결해 제품 기능으로 재구성한 부분으로 표현한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **BPM 기능 제거 사유:** 구현 완료와 이후 제거 사실은 확인됐지만 제품 판단 이유는 미확인으로 유지한다.
@@ -406,27 +424,27 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-35 — CameraX 동영상 녹화와 recording state 관리**다.
+다음 작업은 **HB-36 — 분할 녹화 영상과 저장 음악 MP3의 FFmpeg 합성·갤러리 저장**이다.
 
-`d85faeb`를 중심으로 다음을 확인한다.
+`d85faeb`, `719732b`의 `FFmpegUtil`과 `RecordActivity.finishRecording()`을 중심으로 다음을 확인한다.
 
-- 기존 사진 촬영 CameraX pipeline에 VideoCapture/Recorder를 어떻게 추가했는지
-- 녹화 시작·진행·종료 상태를 어떤 변수/콜백으로 관리했는지
-- 촬영 결과와 음악 재생/저장 흐름을 어떻게 연결하려 했는지
-- 권한·파일 경로·Lifecycle 관리는 어떻게 처리했는지
-- 같은 커밋의 HB-36 FFmpeg 음악 영상 합성과 어디서 작업 단위를 나눌지
+- `temp1...tempN.mp4`를 어떤 concat list/FFmpeg 명령으로 하나로 합쳤는지
+- 무음 concat video와 저장 음악 MP3를 어떤 stream mapping/codec 옵션으로 합쳤는지
+- 영상 길이와 음악 길이 차이를 어떻게 처리했는지
+- 내부 임시 파일과 최종 결과물을 어떻게 정리했는지
+- MediaStore를 통해 DCIM/HummingBlocks로 저장하는 과정
+- `719732b`에서 FFmpeg 합성 로직을 어떤 이유로/어떻게 수정했는지
 
-HB-34 확정:
-- 특정 기기별 layout 분기가 아니라 percentage Guideline 기반 상대 배치
-- 개별 버튼별 Guideline을 행·열 단위 공통 Guideline으로 묶어 위치·크기 관계를 일관되게 유지
-- 버튼과 label을 같은 상대 좌표 체계에 연결해 화면 비율에 따라 함께 확대·축소
-- Main 복귀/설정 버튼 크기 및 위치를 다시 계산해 비율 값으로 반영
-- 실제 Play 화면과 tutorial overlay의 좌표 체계를 동시에 수정
-
-반응형 UI 역할 정리:
-- Figma 원안은 디자이너 제작
-- 재훈님은 Figma상의 위치·크기를 계산해 ConstraintLayout percentage Guideline으로 변환·구현
-- 화면 크기별 별도 레이아웃을 만드는 것이 아니라, 하나의 상대 좌표 체계에서 컴포넌트 전체가 함께 늘고 줄도록 구성
+HB-35 확정:
+- 최초 RecordActivity prototype은 팀원 Tinto-Verano 구현
+- 재훈님은 저장 MusicFile 선택→RecordActivity 흐름으로 제품화
+- 고정 테스트 음원 대신 사용자가 저장한 MP3를 녹화 타임라인으로 사용
+- CameraX Preview + VideoCapture<Recorder>, Quality.HIGHEST, 전/후면 전환
+- `Recording` null 여부와 `video_count`로 start/stop 및 여러 temp segment 관리
+- 음악 pause/resume 지점과 영상 segment 분할을 동기화
+- 곡 종료 또는 finish 버튼으로 녹화 세션 최종화
+- mic audio는 녹음하지 않고 영상과 MP3 합성을 후단 HB-36으로 분리
+- 오류/뒤로가기/Activity 종료 시 temp segment 정리
 
 남은 미확인:
 - HB-17~18의 `약 90% → 57%` 정확도 평가 데이터셋·샘플 수·집계 방식
