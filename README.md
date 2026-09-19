@@ -22,7 +22,9 @@
 │   ├── hci-stock-service.md
 │   └── computer-vision.md
 ├── guides/
-│   └── cover-letter-writing.md       # 자소서 작성 원칙
+│   ├── commit-based-experience-reconstruction.md # Git/자료 기반 경험 복원 방법론
+│   ├── resume-experience-writing.md             # 이력서·경험기술서 작성 원칙
+│   └── cover-letter-writing.md                  # 자소서 작성 원칙
 └── cover-letters/
     └── README.md                      # 기존 자소서 아카이브 인덱스
 ```
@@ -32,7 +34,8 @@
 - `resume.md`는 지원 직무에 맞춰 내용을 덜어내기 전의 **마스터 이력서**로 관리합니다.
 - 프로젝트의 세부 사실, 문제 상황, 선택 이유, 수치와 성과는 `experiences/`에 보존합니다.
 - `experiences/career-timeline.md`에는 이력서에서 빠진 학습과 제작 경험도 연대기 형태로 남깁니다.
-- 자소서를 쓸 때는 `experiences/`에서 필요한 경험을 골라 사용하고, 작성 규칙은 `guides/cover-letter-writing.md`를 따릅니다.
+- 오래된 프로젝트를 다시 정리할 때는 `guides/commit-based-experience-reconstruction.md`의 `commit graph → 작업 원장 → 누락 역검증 → canonical 문서 → 포트폴리오 선별` 절차를 따릅니다.
+- 이력서·경험기술서로 압축할 때는 `guides/resume-experience-writing.md`, 자소서를 쓸 때는 `guides/cover-letter-writing.md`를 따릅니다.
 - 실제 제출했던 자소서는 회사별로 `cover-letters/`에 보관합니다.
 - 공개 저장소이므로 전화번호, 개인 이메일, 주소 등 불필요한 개인정보는 커밋하지 않습니다.
 
