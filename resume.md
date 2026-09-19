@@ -11,12 +11,12 @@
 
 ## Summary
 
-- **HummingBlocks 제품화**: 시각장애인 대상 AI 코딩교육 앱의 Android 개발과 CV 후처리, 출시·운영을 담당. Galaxy S9+에서 TFLite 전환 시 처리 시간을 **9.1s → 5.4s(-40.7%)**로 줄였지만 인식 정확도가 **90% → 57%(-33%p)**로 하락해 제품 특성상 더 느린 기존 Chaquopy/Python 경로를 유지했습니다. 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**, 2026년 5월 사업계획서 기준 제품 후속 누적 **키트 1,830개 판매·교육기관 200곳**을 기록했습니다.
+- **HummingBlocks 제품화**: 공동 창업자·Mobile App Developer로서 실물 코딩 블록의 `Camera → Python/OpenCV → 실행 상태 → 음악 재생` Android 파이프라인을 구현하고 Google Play 출시와 2.x 유지보수까지 수행했습니다. 별도 Java/TFLite 경로를 구현해 실기기 비교에서 처리 지연을 약 **9.1s → 5.4s**로 줄였으나 정확도 저하를 확인해 기존 runtime을 유지했고, 이후 TalkBack·자동촬영·MusicFile·FFmpeg 영상 제작·데이터 migration까지 확장했습니다.
 - **CNN Accelerator HW/SW 검증**: 3인 팀에서 기존 공개 CNN RTL을 PyTorch Quantization 결과와 정합하고 synthesis-friendly RTL로 수정. ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인하고 OpenROAD ASAP7 synthesis와 physical design final stage까지 진행했습니다. Netlist 정상 파형 확보와 timing closure는 완료하지 못했습니다.
 - **Mallo Voice AI 통합**: 3인 팀 Team Lead / Product & Integration으로 PRD/TRD, Order Engine, Senior-first UI, TTS 파인튜닝과 STT/NLU 추가 학습·검증, runtime/deployment를 연결했습니다. 동일 20문장 GPU 비교에서 **Melo Base 198.5ms, Melo Friendly 204.1ms, Qwen Base 6.91s, Qwen Friendly 28.20s**를 측정해 MeloTTS Friendly를 선택했고, 최종 production TTS는 **mean 0.38s / p95 0.53s / RTF 0.0894**를 기록했습니다.
 - **수상**: 2019 과학기술정보통신부장관상·산업통상자원부장관상, 2021 부총리 겸 교육부장관상, 2022 전국 장애·비장애 대학생 창업경진대회 대상, 2024 임베디드 SW 경진대회 webOS 부문 입선.
 
-> HummingBlocks의 9.1s/5.4s 및 90%/57%는 당시 측정값을 이후 경험기술서에 기록한 수치입니다. Git에는 TFLite 전환 구현과 timing 계측 코드는 남아 있으나 원본 benchmark spreadsheet는 현재 저장소/Drive 검색에서 아직 확인하지 못했습니다. 1,830개 판매와 200개 교육기관은 제품의 2026년 후속 누적 실적이며, 개인 개발 기간의 직접 판매 실적으로 표현하지 않습니다.
+> HummingBlocks의 9.1s/5.4s는 당시 실기기 비교 기록입니다. Git에는 TFLite 전환 구현과 롤백이 남아 있으나 반복 benchmark 원본 표는 현재 확인되지 않아 정밀 평균 수치로 사용하지 않습니다. 정확도 저하 기록은 평가 조건이 확인되지 않아 핵심 정량 성과에서는 제외합니다.
 
 ## Experience
 
@@ -32,28 +32,23 @@
 
 ## Main Projects
 
-### HummingBlocks — 시각장애인 코딩교육 앱/키트
+### HummingBlocks — AI 음악코딩 Android 제품
 
-**2022.03 ~ 2023.10 주요 제품 개발, 출시 후 유지보수 지속 · 네모감성 창업팀 · Android/CV Integration 담당**  
-**Android / Java / Python / YOLO / Chaquopy / TensorFlow Lite / OpenCV / FFmpeg**
+**2022.03 ~ 2023.10 주요 제품 개발, 2025.01까지 유지보수 · 공동 창업자 / Mobile App Developer**  
+**Android / Java / Python / YOLO / OpenCV / Chaquopy / TensorFlow Lite / CameraX / FFmpeg**
 
-- **상황**: 실물 코딩 블록을 촬영하면 AI가 블록 종류와 배치를 인식하고 음악 실행 규칙으로 변환하는 교육 제품을 개발했습니다.
-- **문제**: Android에서 Python 기반 CV runtime의 평균 처리 시간이 Galaxy S9+ 기준 **9.1초**로 길었습니다.
-- **판단**: Python bridge를 제거하고 TFLite를 Java에서 직접 실행하면 지연을 줄일 수 있다고 보고 별도 branch에서 실제 전환을 구현했습니다.
-- **조치**: Chaquopy/Python 경로를 제거하고 TFLite Interpreter, NNAPI/GPU/CPU fallback, Java confidence filtering·NMS·좌표 정렬/그룹화 후처리까지 이식했습니다. 이후 416×416 입력의 crop/scale/border 계산도 다시 조정하며 전처리를 보정했습니다.
-- **결과**: 평균 처리 시간은 **5.4초로 약 40.7% 단축**됐지만 정확도가 **90% → 57%, 33%p 하락**했습니다. 블록을 잘못 읽으면 음악 실행 자체가 달라지는 제품 특성을 고려해 TFLite 전환을 철회하고 기존 runtime을 유지했습니다.
+- **Android/CV 제품화:** 초기 Android 화면·카메라·센서부터 Chaquopy 기반 Python/OpenCV 연동, Camera→Runner→Play E2E 흐름과 `SUCCESS / ERROR / WARNING` 결과 계약까지 구현해 **2023.10 Google Play 출시** 기반을 만들었습니다.
+- **추론 최적화 실험:** 별도 브랜치에서 Python bridge를 제거하고 Java/TFLite inference, NMS·좌표 후처리, NNAPI/GPU/CPU fallback을 직접 구현했습니다. 여러 Galaxy S9+의 기기별 1회 비교 기록에서 처리 시간이 **약 9.1s → 5.4s**로 줄었지만 정확도 저하가 확인돼 제품 신뢰성을 우선해 기존 Chaquopy/OpenCV 경로로 원복했습니다.
+- **실시간 음악 엔진:** 여러 악기 MediaPlayer를 선준비하고 `ScheduledThreadPoolExecutor`의 Prepare/Start phase와 남은 delay를 관리해 마디 전환, pause/resume, BPM, countdown, Lottie 상태를 하나의 시간축으로 동기화했습니다.
+- **접근성 UX:** TalkBack 탐색·상태 announcement·진동을 보강하고, 시각장애 사용자용 촬영 흐름에서 QR 1~4 bitmask로 카메라 이동 방향을 추론해 **방향 안내 → 자동 촬영 → 판정 → 오류/경고 시 재촬영** 폐루프를 구현했습니다.
+- **저장·미디어 확장:** 저장 음악을 self-contained `MusicFile` 모델로 통합하고 FFmpeg MP3 생성, pre-v25 데이터 migration, 저장 음악 기반 CameraX 분할 녹화와 FFmpeg concat/mux·MediaStore 저장까지 제품화했습니다.
 
-추가 결과:
-
-- 검출 결과를 블록 순서·반복·방향·BPM 등 음악 실행 규칙으로 변환하고 정상 실행이 어려운 **22가지 예외 상황** 처리
-- Google Play 출시 후 2.x 버전까지 데이터 migration, MP3/MP4 export, TalkBack·촬영 접근성 기능 등을 지속 개선
-- 현재 Google Play 공개 페이지 기준 **1K+ 다운로드**
-- 무료 Android 앱 + 유료 블록 키트 형태로 제품 운영
-- 2026년 5월 회사 사업계획서 기준 제품 후속 누적 **키트 1,830개 판매, 교육기관 200곳**
-- 전국 장애·비장애 대학생 창업경진대회 대상
+제품 후속 누적 성과: 2026.05 회사 사업계획서 기준 **앱 다운로드 1,500+, 키트 1,830개, 자사 판매 약 80개 학교·제품 도달 약 200개 학교**. 개인 개발 기간의 직접 판매 실적과는 구분합니다.  
+수상: 2022 전국 장애·비장애 대학생 창업경진대회 대상, KNU 창업경진대회 대상, 소셜벤처 경연대회 TS청년벤처상·대구광역시장상.
 
 Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblocks  
 상세: [experiences/hummingblocks.md](experiences/hummingblocks.md)
+
 
 ### CNN Accelerator — PyTorch Quantization에서 OpenROAD까지
 
