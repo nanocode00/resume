@@ -1,8 +1,8 @@
 # 허밍블럭스 이력서 재정리 작업 체크포인트
 
 > 최종 갱신: 2026-09-19  
-> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-31, HB-31S 확인 완료  
-> 다음 확인 대상: HB-32 장르·음악·캐릭터 콘텐츠 확장 구조
+> 상태: 초기 Android 작업 HB-E01~E05 및 HB-01~HB-32, HB-31S 확인 완료  
+> 다음 확인 대상: HB-33 앱 버전별 저장 데이터 migration과 migration 모듈 분리
 
 ## 0. 작업 단위 복원 원칙
 
@@ -355,6 +355,21 @@
 - Activity가 pause될 때 Setting 전체를 `setting.json`에 저장하고, SeekBar 변경은 배열의 대응 index에 바로 반영한다. 따라서 설정 UI와 영속 상태를 `Setting` 정적 모델 하나를 통해 동기화하는 구조로 정리됐다.
 - UI 디자인/기능 기획은 팀 내부 논의와 디자인 산출물을 바탕으로 한 것으로 보고, 개인 기여는 상태 모델 정리·Android UI 연결·초기화/영속화 구현으로 표현한다.
 
+### HB-32 — 규격화된 asset·metadata 계약으로 신규 음악 콘텐츠를 코드 수정 없이 확장
+
+- HB-32의 핵심은 음악/캐릭터 원본을 직접 제작했다는 것이 아니라, 팀·외부 제작자가 만든 음원·이미지·Lottie를 앱이 기대하는 공통 asset 규격에 맞춰 통합하고 메타데이터를 등록해 **새 콘텐츠를 Java 코드 변경 없이 추가할 수 있게 운영한 작업**이다.
+- 2024-05-26 `f924c6d`의 Cyberpunk 추가에서 일반 앱 Java 코드는 변경되지 않았다. `music/cyberpunk/` 아래 MP3, active/inactive 캐릭터 이미지, conductor 방향 이미지, background/stage/preview, 6개 Lottie와 `values.json`을 추가하고 전역 `music_info.json`, `genres.json`, `label.json`에 id·순번·한/영 label을 등록하는 것만으로 새 음악이 앱에 들어갔다.
+- 당시 `MusicInfo`는 `music_info.json`의 `id/enabled/bpm_available`를 순회해 `music_list`를 만들고, 각 id를 기준으로 `music/<id>/values.json`, `image/...`, `lottie/...`, `preview.mp3`, 악기별 MP3 경로를 동적으로 조합했다. 따라서 `switch(genre)`나 장르별 Java 상수를 추가하지 않아도 디렉터리/파일명 계약만 맞으면 같은 UI·재생 로직을 재사용했다.
+- Cyberpunk 추가 시 전역 metadata 기준 음악 ID는 pop, jazz, funk, dance, bossa_nova, rock, cyberpunk, airplane, little_star, birthday, arirang, carol의 12개였다. 이 커밋에서는 `genres.json`에 cyberpunk=12를, `label.json`에 `CYBERPUNK/사이버펑크`를 추가하고 앱 버전을 `1.2.0(code19) → 1.2.1(code20)`으로 올렸다.
+- 2024-08-02 `35d7e18`은 Bossa Nova 음원 세트를 `mp3/<instrument>/<instrument><level>.mp3` 규격으로 갱신하고 `empty.mp3`가 필요하다는 점을 커밋 메시지에 명시한 콘텐츠 maintenance다. 소리가 없는 마디도 동일한 measure scheduler/FFmpeg 저장 파이프라인에서 길이를 유지하려면 empty asset이 필요했으므로 콘텐츠 패키지에도 빈 트랙이 계약의 일부였다.
+- 이후 MusicInfo 구조는 BPM 3종을 제거하고 `values.json`의 단일 `bpm`, 선택적으로 `replace` mapping을 읽는 형태로 발전했다. `replace_available=true`인 음악은 기본 5개 악기 외 `replace0~2`의 MP3·이미지·Lottie·quest data를 추가로 갖고, false인 음악은 기본 자산만으로 동작하도록 같은 MusicInfo가 조건 분기했다.
+- 2024-11-23 `eb8a47f`의 Classic 추가는 이 데이터 기반 구조가 실제로 유지된 사례다. 이 커밋도 Java 코드를 전혀 수정하지 않고 `music_info.json`, `genres.json`, `label.json`, `classic/values.json`과 규격화된 asset만 추가했다.
+- Classic은 `replace_available=false`, `beats=24`, `bpm=150`으로 등록됐고, 19개 image asset, 6개 Lottie, 5개 악기×4단계의 20개 연주 MP3 + `empty.mp3` + `preview.mp3` 등 총 22개 MP3를 동일 디렉터리 규격으로 넣었다. metadata에서는 classic을 13번째 genre code로 추가하고 한/영 label `클래식/CLASSIC`을 등록했다.
+- 바로 다음 날 `64a4afb`에서는 Classic의 brass 1~3단계와 guitar 1~3단계 MP3 6개를 교체했다. 코드 변경 없이 음원 자산만 갈아끼워 콘텐츠 품질을 수정할 수 있었음을 보여주는 maintenance 사례로 기록한다. 교체 사유나 음질 평가 방식은 코드/커밋만으로 확정하지 않는다.
+- 2024-10 `4db36f8`에서는 여러 replace 지원 음악의 MP3 파일이 공통 `music/<id>/mp3/{drum,brass,guitar,piano,bass,replace0,replace1,replace2}` 구조로 대량 정리돼 있었다. 같은 시기 `file_structure.txt`에도 과거 `bpm0/1/2` 디렉터리를 단일 `mp3` 구조로 통합하는 migration 메모가 남아 있다. 이는 신규 콘텐츠 자체보다 **콘텐츠 디렉터리 계약을 단순화한 인프라 정리**로 본다.
+- 이미지·캐릭터·Lottie·음원의 원본 제작은 디자이너/외부 제작자 등 팀 내외 역할이 섞여 있었고, 사용자 확인상 음원 원본은 외부 제작, 캐릭터/배경/stage 원본은 디자이너가 담당했다. 재훈님은 Android asset 구조 편입, metadata/path 연결, 필요한 inactive/grayscale variant 보완, 실제 화면·재생과의 통합을 담당한 것으로 표현한다.
+- 따라서 HB-32는 `새 콘텐츠마다 코드 추가`가 아니라 **metadata 등록 + 공통 디렉터리 규격에 asset 배치 → 기존 MusicInfo/Select/Play/MusicPlayer가 자동 재사용**되는 구조를 실제 여러 장르 추가·교체 과정에서 운영한 경험으로 정리한다.
+
 ## 3. 별도로 다시 확인할 후속 작업
 
 - **Main/Home 등 다른 화면의 기기별 비율 대응:** HB-06과 별도 작업. 태블릿에서 버튼이 너무 작아지고 Z Flip 펼침 화면에서 텍스트·버튼 영역이 어색해지는 문제를 나중에 발견해 추가 대응했다. 정확한 시점과 적용 화면을 커밋으로 다시 복원한다.
@@ -363,29 +378,23 @@
 
 ## 4. 다음 진행 위치
 
-다음 작업은 **HB-32 — 장르·음악·캐릭터 콘텐츠 확장 구조**다.
+다음 작업은 **HB-33 — 앱 버전별 저장 데이터 migration과 migration 모듈 분리**다.
 
-`f924c6d`, `35d7e18`, `eb8a47f`, `64a4afb`와 관련 자산/metadata 변경을 중심으로 다음을 확인한다.
+`36f8253`, `6d66423`, `fbd31c9`을 중심으로 다음을 확인한다.
 
-- 초기 pop 중심 구조가 여러 장르/곡으로 늘어날 때 MusicInfo와 asset 경로가 어떻게 일반화됐는지
-- 새 콘텐츠를 추가할 때 코드 수정이 필요한 부분과 JSON/asset 추가만으로 가능한 부분
-- 일반 음악 장르와 동요/전통음악 등 콘텐츠 유형이 같은 구조를 공유했는지
-- 캐릭터·배경·Lottie·MP3 원본 제작과 Android 통합 역할을 구분
-- `4db36f8`에 대량 음악 asset 변경이 함께 포함된 이유가 콘텐츠 확장인지 파일 구조 변경인지
+- 기존 사용자의 `storage.json` version을 어떤 기준으로 읽고 migration 순서를 결정했는지
+- setting/progress/saved music의 schema 변경을 버전별로 어떻게 변환했는지
+- migration 실패/중간 버전/신규 설치를 어떻게 구분했는지
+- migration 코드가 처음 앱 내부에 있었다가 왜 별도 module/package로 분리됐는지
+- 저장 음악의 장르별 경로→통합 경로, 기존 level/replace/block 구조→MusicFile 포맷 전환이 HB-31과 어떻게 연결되는지
 
-HB-31 확정:
-- `MusicFile` 도메인 객체와 self-contained 단일 JSON 저장 포맷 도입
-- 제목·생성일·장르·마디별 level/replace·block을 한 파일에 통합
-- 저장 음악 전체/장르별 RecyclerView 목록과 동일 MusicPlayer 기반 장르 전환 재생
-- 재생 카드 progress/time/icon 상태를 MusicPlayer callback과 동기화
-- 삭제·제목 수정·외부 QR용 JSON·MP3 다운로드/공유를 MusicFile 중심으로 연결
-- MP3가 없으면 MusicFile에서 FFmpeg 합성을 on-demand 수행
-- `d32fc8e`는 HB-31에서 제외하고 접근성 앱 후속 작업으로 재분류
-
-HB-31S 확정:
-- Setting key/state 이름 정리 및 reset/sync 구조 도입
-- 5개 악기 volume + vibration + replace 표시 상태를 Setting 모델과 UI에 연결
-- 설정 초기화와 Progress 진행도 초기화를 설정 화면에서 영속화
+HB-32 확정:
+- Cyberpunk/Classic 추가 시 Java 코드 변경 없이 metadata + 규격화 asset만 추가
+- MusicInfo가 id 기반 path convention으로 preview/image/Lottie/MP3를 동적 로딩
+- replace 지원 여부에 따라 기본 5악기와 replace/quest 자산 요구를 조건화
+- Bossa Nova `empty.mp3` 보완 및 Classic MP3 교체처럼 asset-only maintenance 가능
+- 원본 음원/디자인 제작은 외부·디자이너, 개인 기여는 Android asset 통합·metadata/path 연결·보완 리소스와 동작 검증
+- BPM별 디렉터리는 이후 단일 mp3 구조로 정리되어 콘텐츠 계약이 단순화됨
 
 역할 원칙:
 - 제품·UX 기획은 특별히 개인 기획이라고 확인된 항목을 제외하면 대체로 팀 내부 논의 결과로 취급
