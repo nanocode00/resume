@@ -31,6 +31,7 @@
 | 2026-06 | SK하이닉스 Product Engineering | 작성중 | [2026-06-sk-hynix-product-engineering.md](2026-06-sk-hynix-product-engineering.md) |
 | 2026-06~07 | 바텍 네트웍스 / 레이언스 SW개발(이미징 솔루션) | 작성중 | [2026-06-vatech-networks-imaging-sw.md](2026-06-vatech-networks-imaging-sw.md) |
 | 2026-08 | 회사 미분류 / Solution SW | 작성중 | [2026-08-unclassified-solution-sw.md](2026-08-unclassified-solution-sw.md) |
+| 2026-09 | 한화시스템 방산부문 / 레이다 SW | 작성완료 | [2026-09-hanwha-systems-radar-sw.md](2026-09-hanwha-systems-radar-sw.md) |
 
 > `작성완료`와 `작성중`은 당시 Notion 데이터베이스에 남아 있던 상태값입니다. 이번 아카이브에서는 사용자가 더 이상 수정하지 않기로 한 현재 시점을 기준으로 각 문항의 최신 후보를 보관본으로 취급합니다.
 
