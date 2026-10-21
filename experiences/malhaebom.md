@@ -8,7 +8,7 @@
 
 - **기간:** 2026-09-18 ~ 2026-10-08 (프로젝트 본 일정). 10월 10~12일 저장소·배포 동기화 및 종료 정리는 별도 후속 작업.
 - **팀:** 곽호준·김재훈·서정현, 3인 ([팀 README](https://github.com/aihuman-7th/proj2-3/blob/main/README.md)).
-- **개인 기여, 직접 기록 확인:** 합성 평가셋 30건 사람 기준 검토·ground truth 교정; 인증된 채용공고 원문 분석 E2E 재현 및 보안 처리; 체크포인트/평가 근거 정합화와 PR 협업.
+- **개인 기여, 직접 기록 확인:** 합성 평가셋 30건 사람 기준 검토·ground truth 교정; 인증된 채용공고 원문 분석 E2E 재현 및 보안 처리; **Prompt 템플릿 변수 검증 취약점과 MCP/Agent E2E 테스트의 거짓 양성·음성 검출 리뷰, 신뢰 경계 문서화**; 체크포인트/평가 근거 정합화와 PR 협업.
 - **개인 기여, 추가 귀속 검증 중:** 다수 모델 후보 평가 실행과 기본 후보 선정, Prompt/Skill 평가 설계·실행, Whisper Medium QLoRA 실험, API/Agent 통합 검증. 프로젝트 산출물이 존재하지만 단계별 커밋·학습 실행 주체를 더 확인해야 한다.
 - **프로젝트 기술:** React·TypeScript·Vite, FastAPI·Pydantic, Docker Compose, Supabase, FastMCP, OpenRouter, Langfuse, Whisper/CTranslate2, Cloud Run·Vercel.
 - **범위:** 말해봄 Mk.2는 RAG·벡터 DB·LangGraph를 사용하지 않았다. 추후 의료 RAG 프로젝트와 혼동하지 않는다.
@@ -42,6 +42,16 @@
 **결과:** `NCS 선택 → 외부 공고 추천 3개 → 원문 조회 → requirement 5개 추출 → quote validation 통과 → 인증 사용자 목록에 저장 → 요구사항 2개 선택 → 연습 세션 생성` 경로 성공을 redacted 기록으로 남겼다. **브라우저 클릭 UI E2E, 운영 배포에서의 동일 검증, PlayMCP 복구를 완료한 것은 아니다.**
 
 근거: [2026-10-01 개인 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1400_job-source-authenticated-e2e.md).
+
+### 검증된 추가 사례. AI Agent 계약 및 검증 하네스 리뷰 — 개인 기여 확인
+
+**문제:** Prompt·Skill·MCP·서버 책임을 분리해도, 검증 하네스가 실제 API 계약을 잘못 가정하거나 템플릿의 미지원 변수를 통과시키면 **정상 응답을 실패 처리하거나 저장되지 않은 요청을 성공으로 오인**할 수 있다.
+
+**판단·조치:** [PR #119](https://github.com/aihuman-7th/proj2-3/pull/119)의 코드 리뷰에서 `{{SKILL_TEXT}}`·`{{skill_text }}` 같은 잘못된 템플릿 슬롯이 정규식 검사를 우회해 system prompt에 남는 문제를 지적하고 미지원 변수 거절 및 회귀 검사를 요청했다. [PR #116](https://github.com/aihuman-7th/proj2-3/pull/116)에서는 하네스가 실제 코칭 응답에 없는 필드·헤더를 전제해 정상 응답을 실패로 처리하는 문제와, 반대로 **HTTP 200만 확인하고 실제 DB 저장 성공을 주장하는 문제**를 연속 수정 요청으로 지적했다. [PR #123](https://github.com/aihuman-7th/proj2-3/pull/123)에 사용자 입력·외부 공고·MCP 반환값·LLM 출력의 신뢰 경계 및 서버 검증 원칙을 문서로 정리했다.
+
+**결과:** 템플릿의 불허 변수/재치환을 차단하는 코드·회귀 테스트가 팀 PR에 반영됐고, D6 검증 하네스의 역할은 실제 확인 가능한 **Agent HTTP 계약 확인**으로 바로잡았다. DB persistence 확인은 별도 수동 SQL 증거로 구분해 테스트 결과를 과장하지 않도록 했다. **주요 구현 커밋의 작성자는 팀원(분리 PR #119 곽호준, D6 검증 PR #116 서정현)**이며, 나의 확인된 기여는 **구체적 결함 발견·검토 기준 제시·변경 요청·신뢰 경계 정리**다. PR #119의 백엔드 526개 테스트는 팀의 코드 변경 검증 결과이며 개인 단독 구현 실적이 아니다.
+
+근거: [PR #119 코드 리뷰](https://github.com/aihuman-7th/proj2-3/pull/119#discussion_r4139564132) · [PR #116 수정 요청과 최종 승인](https://github.com/aihuman-7th/proj2-3/pull/116) · [신뢰 경계 문서](https://github.com/aihuman-7th/proj2-3/blob/main/docs/TRUST_BOUNDARY.md).
 
 ### 3. LLM 후보 비교에서 형식 안정성·지연·비용 분리 — 프로젝트 실험 확인, 개인 실행 범위 재확인 필요
 
