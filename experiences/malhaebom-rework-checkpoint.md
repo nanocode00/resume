@@ -26,7 +26,7 @@
 | ID | 작업 | 현재 증거 | 귀속 | 다음 확인 |
 | --- | --- | --- | --- | --- |
 | MB-01 | 문제 정의·경쟁 비교·프로젝트 범위 고정 | PR #59·#60, 9/23 Worklog, D2, 10/1 Worklog | **A(문서 작업 지시·검토)/T(기획 원형)** | **1차 확인 완료** — 공개자료 조사와 직접 사용은 분리; 초기 기획 주도권은 추가 미확인 |
-| MB-02 | Agent의 Prompt·Skill·MCP·서버 정책 분리 | ARCHITECTURE, AGENT_REPORT, 코드 | T/B | 초기 baseline, 모듈별 개인 diff 및 팀 역할 |
+| MB-02 | Agent의 Prompt·Skill·MCP·서버 정책 분리 | PR #119의 직접 인라인 리뷰, PR #116의 3차 수정요청, PR #123 신뢰 경계 문서; 실제 코드 및 테스트 | **A(검토·신뢰 경계 문서) / T(주요 코드 구현)** | **검증 완료** — 핵심 구현 PR 작성은 팀원; 검증 계약 결함 지적과 문서화는 개인 귀속 |
 | MB-03 | OpenRouter 모델 다양성 탐색·Final Four | EVAL_REPORT §9~13, 9/21 실험 | T/B | runner 구현/실행자, 본인 의사결정, 원본 재현 설정 |
 | MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | reviewer-assignment, 9/30 offline regrade | **A** | 검토표·수정 반영 커밋 연결만 추가 |
 | MB-05 | Prompt/Skill A/B 및 회귀 대응 | 10/2 30건, 10/6 Skill smoke | T/B | 직접 만든 harness/실험 실행과 팀 검토·프롬프트 작성 분리 |
@@ -67,6 +67,40 @@
 **강조 정도: 보조 사례.** 엔지니어링 관점의 ‘사용자 문제 → 좁은 범위 → 모델/서버 신뢰 경계 → 검증 조건’ 설정 역량을 보여 주지만, 단독 주력 경험으로는 제품 효과 실측과 개인 코드 귀속이 약하다. MB-02(Agent 신뢰 경계), MB-05(평가·회귀)와 연결해 **왜 모델 제어·평가 정책을 그렇게 만들었는가**라는 배경으로 활용한다.
 
 **1차 판정:** 문서화·정합화에 대한 개인 실행/의사결정 **확인**; 초기 프로젝트 기획 원형/경쟁사 실사용을 개인 성과로 표현하는 것은 **보류**. 추가 복원은 PR #59/#60 및 위 Worklog를 이미 근거로 연결했으므로 MB-02로 이동.
+
+---
+
+## 3-2. MB-02 — Prompt·Skill·MCP·서버 정책 분리 (검증 완료: 2026-10-21)
+
+### 구현 구조의 사실 관계 — 팀 전체 시스템
+
+- [AGENT_REPORT 4·5장](https://github.com/aihuman-7th/proj2-3/blob/main/docs/AGENT_REPORT.md)과 코드 대조: `prompts/`는 모델의 역할·출력 형식·입력 취급, `skills/`는 면접 유형별 기준·근거 인용·보류 규칙, `backend/app/services/coaching_runtime.py`는 provider 요청·재시도·관측 연결, 서버 출력 검증은 `backend/services/llm.py` 및 Pydantic 계약, `mcp_server/server.py`는 권한 제한 읽기 도구.
+- `backend/app/services/prompt_templates.py`가 프롬프트 파일을 읽을 때 폴더 경계·빈 템플릿을 검사하고 `{{skill_text}}` 슬롯 정확히 1개 및 알려진 변수만 허용해 **삽입된 Skill 본문을 재치환하지 않음**을 현재 코드에서 확인했다.
+- `backend/app/services/coaching_prompt.py`는 신규 버전의 템플릿·Skill 조합과 v3/v4/v4.1 재현 빌더를 분리한다. 템플릿과 과거 Skill snapshot을 함께 보존해야 완전 재현 가능하다는 한계까지 문서화됨.
+- `mcp_context_gateway.py`가 내부 stdio FastMCP의 `get_question`, `get_practice_attempt`, `get_job_context` 세 도구를 통해 서버가 허용한 문맥을 읽으며, 별도 HTTP `/mcp`는 네 개의 읽기 도구와 인증·capability scope를 제공한다. **임의 tool을 자유 선택하는 에이전트/쓰기 가능한 MCP와 혼동 금지.**
+- `docs/TRUST_BOUNDARY.md`: 사용자 입력·외부 공고·MCP 데이터·LLM 응답을 시스템 지시와 분리하고 출처, 사용자 소유권, 허용 ID, 원문 quote를 서버에서 확인한다. Langfuse에는 비식별 metadata만 전달한다. 실패·재시도·계약 검증을 코칭의 의미 품질 보증과 구분한다.
+
+### PR 및 리뷰로 확인한 개인 기여
+
+1. **PR #119 — Prompt·Skill 분리 구현은 곽호준 작성, 김재훈은 구체적 결함을 리뷰로 발견.** [PR](https://github.com/aihuman-7th/proj2-3/pull/119) · [직접 리뷰](https://github.com/aihuman-7th/proj2-3/pull/119#pullrequestreview-5359976796) · [인라인](https://github.com/aihuman-7th/proj2-3/pull/119#discussion_r4139564132).
+   - 2026-09-30 `nanocode00`이 정규식 `[a-z_]+`에 맞지 않는 **`{{SKILL_TEXT}}`·`{{skill_text }}` 같은 오타 슬롯이 검증을 우회해 모델 system prompt에 남는 문제**를 특정하고, 모든 미지원·미완성 슬롯을 거절하는 검증과 회귀 테스트를 요청했다.
+   - 후속 커밋이 parser를 전체 `{{...}}` 검증으로 보강. PR 기록에는 분리 경계 10개·백엔드 전체 526개 통과가 남았다. 이 테스트 실행/패치 적용은 팀 구현 기록이며 **김재훈이 직접 코드를 수정했다고 주장하지 않는다**.
+   - 초기 코멘트 후 승인에서는 미실행 Docker/실제 Langfuse 검증을 통과 근거로 사용하지 않도록 명시하고 후속 이슈 #121을 언급했다. 승인 자체는 리뷰 이후 패치 구현의 소유권과 다르다.
+2. **PR #116 — MCP/Agent D6 증거 하네스는 서정현 작성, 김재훈은 3차에 걸쳐 검증 계약 결함을 지적.** [PR](https://github.com/aihuman-7th/proj2-3/pull/116) · [리뷰 내역](https://github.com/aihuman-7th/proj2-3/pull/116).
+   - 첫 검토에서 실제 `CoachingResponse`에 없는 `coaching_run_id`·`mcp_evidence/mcp_tools`와 미제공 `X-Trace-Id`를 하네스가 전제해 **정상 200 응답도 실패로 판단**할 수 있음을 지적했다.
+   - 후속 검토에서 반대로 `HTTP 200 + ok/needs_more_info`만으로는 **DB `coaching_runs` 저장 완료·해당 revision 연결을 보장하지 못한다**는 거짓 양성 위험과 체크포인트 중복 상태를 지적했다.
+   - 구현 담당이 PR 목적을 인증 Agent 응답 계약으로 좁히고 DB 저장은 별도 수동 SQL 증거로 분리한 뒤 승인했다. **테스트의 주장과 실제 관측 범위를 일치시킨 품질 리뷰**로 개인 기여 확인.
+3. **PR #123 — 신뢰 경계 문서와 공식 체크포인트 증거 연결은 김재훈 계정 커밋.** [PR](https://github.com/aihuman-7th/proj2-3/pull/123) 첫 커밋에 `docs/TRUST_BOUNDARY.md`, `docs/research/DOMAIN_SOURCE_REGISTER.md`, 체크포인트 정합화가 포함. 후속에 D4 사람 검토 커밋 일부가 revert·분리됐으므로 **이 PR 자체를 D4 검토 완료의 근거로 재사용하지 않는다**. 신뢰 경계 명시와 출처/이용조건 정리는 개인 작업으로 기록 가능.
+4. **PR #142 — stdio MCP 장애시 `503 + mcp_error + retryable` 코드·테스트는 서정현 작성, 김재훈이 검증 후 승인.** [PR](https://github.com/aihuman-7th/proj2-3/pull/142) 리뷰에서 서버·클라이언트 `mcp_error` 타입 불일치를 후속 수정 대상으로 지적. 코딩 소유권은 팀원.
+5. 별도 D6 실행/권한 검증 코드도 [PR #117](https://github.com/aihuman-7th/proj2-3/pull/117), 저장 검증은 [PR #122](https://github.com/aihuman-7th/proj2-3/pull/122)에서 **서정현 작성** 확인. [9/21 코칭 런타임 보강 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-21_0934_coaching-runtime-hardening.md)는 작업자 Codex 표기, 당시 로컬 243 tests 성공·운영 추가 검증 보류. 커밋/PR 개인 귀속은 이 문서만으로 확정하지 않는다.
+
+### 검증 수준과 채용용 해석
+
+- 확인된 구조/테스트는 **소스·로컬 단위/통합 테스트 근거**. Prompt·Skill 분리 PR에서는 Python 3.13 격리 환경에서 **525개, 리뷰 수정 뒤 526개 백엔드 테스트** 기록; 같은 원 작업 폴더의 547개는 미커밋 변경이 더 섞인 환경이라 PR 수치로 혼용하지 않는다.
+- 이것만으로 **운영 배포/실제 사용자 E2E·Langfuse production·코칭 의미 품질 향상**이 확인됐다고 주장하지 않는다. 나중의 운영 확인이나 Prompt A/B 결과는 MB-09/MB-10/MB-05에서 별도 추적.
+- **개인 기여 강도:** 코어 구현 전반의 단독 개발자는 아니지만 **Prompt 계약 검증 허점 식별, 잘못된 E2E pass/fail 기준 바로잡기, 서버/모델/외부 도구 신뢰 경계 정리**가 강한 개인 경험으로 귀속됨. 단순 PR 승인 수보다 *무슨 문제가 어떻게 잘못 검증되고 있었으며 어떤 기준으로 수정시켰는지*가 채용 활용 가치가 높다.
+
+**1차 판정:** MB-02는 **개인 기술 리뷰·검증 판단·신뢰 경계 문서화 A 확인**, **Prompt/Skill/MCP/서버 코어 구현 T(팀 소유)**. 검증 완료. MB-03에서는 모델 선정 하네스 구현/실행 귀속을 새로 조사한다.
 
 ---
 
