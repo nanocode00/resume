@@ -130,6 +130,24 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 근거: [PoC #33](https://github.com/aihuman-7th/proj1-d/pull/33) · [CPU Base #63](https://github.com/aihuman-7th/proj1-d/pull/63) · [동일 문장 GPU 4후보 #71](https://github.com/aihuman-7th/proj1-d/pull/71) · [G_2800 후보 #152](https://github.com/aihuman-7th/proj1-d/pull/152) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md) · [MA-04 검증 원장](mallo-rework-checkpoint.md).
 
+## 3-5. MA-05 — 한국어 수사 정규화·Adaptive TTS 3단계와 지연 비용 분석 (검증 완료)
+
+**상황:** MeloTTS Friendly를 키오스크 안내 모델 후보로 선정했지만, 사용자가 메뉴·수량·가격을 정확히 알아듣는 데에는 **음성 합성 모델 자체뿐 아니라 입력 문장과 속도·분절 정책**도 중요했다. 명시적으로 '천천히'·'다시 말해 주세요'를 요청하면 Adaptive Level 0→1→2로 조절하는 기능을 개선해야 했다.
+
+**문제:** `5,200원`을 '오, 이백원'으로 오독하고 비표준 pause 기호 `...`/`/`가 클릭음·왜곡 발화를 만드는 사례가 발견됐다. Level 1과 Level 2는 초기 `speed=0.85`가 동일했고 20개 주문 안내 평가 문장 중 **17개는 L1/L2 변환 텍스트까지 동일**해 단계 구별이 약했다. 속도와 쉼을 늘릴 때 **실제 생성 지연의 추가 비용**도 분리 측정되지 않았다.
+
+**판단:** **한국어 발화 정규화와 음향 모델을 분리**하고, 주문 금액은 한자어 수사(`5,200원→오천이백원`), 수량은 고유어 수사(`3잔→세 잔`), 비표준 분절 기호는 쉼표·마침표로 치환한다. Level 0은 1.0× 기본 문장, Level 1은 **0.85×·절 경계 쉼표**, Level 2는 **0.75×·메뉴/수량/금액 단문 분절**로 차별화한다. 사용자 청음/코드 검증과 지연 실측을 구분하고, **동일 checkpoint에서 Level 0/1만 교차 반복 측정**해 정책 적용 비용을 추정한다.
+
+**조치:** 개인 [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97)(8/19)로 세 Level 비교 HTML 생성 도구와 MeloTTS `HParams.spk2id` 조회 오류 방어, 음성 산출물 경로 정리를 수행했다. 당시 Level 2 속도도 0.85×였다는 초기 한계를 [PR #116](https://github.com/aihuman-7th/proj1-d/pull/116)(8/20)에서 수정했다. `korean_normalizer.py`로 금액·수량·기호를 정규화하고, `AdaptiveTextTransformer`에서 **메뉴 추가/삭제·수량/온도 변경·확인·합계·결제 안내**까지 L1 쉼/ L2 단문 분절 패턴을 확장했다. MeloTTS Level 2 속도를 **0.75×**로 차별화하고 신규 Level v2 청음 쇼케이스·회귀 테스트를 추가했다. 당시에 **저장소 전체 테스트 509개 통과**, 팀원 윤태현 승인으로 병합됐다.
+
+개인 [PR #150](https://github.com/aihuman-7th/proj1-d/pull/150)(8/21)에는 **MeloTTS Friendly `G_3600`·RTX 5070 Ti·동일 주문 20문장·Level별 5회·교차 순서·Level당 warm-up 1회** 측정기를 작성했다. 통계 대상 **Level 0/1 각각 100회, 총 200회 합성 성공**, 실패 시 비교를 유보하고 원인을 저장하는 테스트를 구성했다. 당시 **전체 547 tests 통과**, 동료 승인을 받았다.
+
+**결과:** 금액 읽기·기호의 실제 청음 문제에 대응하고 **L0 1.0× / L1 0.85× / L2 0.75×**의 구별되는 문장·속도 정책을 구현했다. 200회 L0/L1 합성 실측에서 **L0 평균 169.4ms → L1 210.1ms(+40.7ms)**, **p95 307.2 → 362.0ms(+54.8ms)**, 평균 RTF **0.0383 → 0.0391**을 얻어 속도 조절에도 RTF 1.0 미만임을 확인했다. 이는 **합성 구간의 대가**이지 첫 소리 재생 지연·전체 주문 E2E 개선·외부 고령 참가자 이해도 향상이 아니다.
+
+**귀속·검증 경계:** [#116](https://github.com/aihuman-7th/proj1-d/pull/116)의 **청음 결과는 블라인드 MOS/사용자 조사 없이 수행한 개발자 확인**이며 숫자 모든 경계값의 정확성을 보장하지 않는다. 리뷰에서 `10001` 경계 문제를 제기했지만 병합 당시 변환 구현을 정적으로 보면 `만 일`로 조합되는 구조여서 **검증하지 않은 결함으로 단정하지 않는다**. `4개→네 잔`은 **docstring 오타**이고 실제 수량 테스트는 `2개→두 개`와 일치한다. [#150](https://github.com/aihuman-7th/proj1-d/pull/150)은 **`G_3600`에서 Level 0/1만** 테스트했으므로 MA-04 선정 후보 `G_2800`의 Level별 추가 비용이나 Level 2 속도 비용으로 일반화하지 않는다. #97/#116/#150의 **391+509+547은 각 PR의 전체 테스트 개수**로, 신규 테스트 수나 누적 1,447건 성과로 합산하지 않는다.
+
+근거: [Level 쇼케이스 #97](https://github.com/aihuman-7th/proj1-d/pull/97) · [한국어 발화 정책 수정 #116](https://github.com/aihuman-7th/proj1-d/pull/116) · [교차 지연 실측 #150](https://github.com/aihuman-7th/proj1-d/pull/150) · [MA-05 검증 원장](mallo-rework-checkpoint.md).
+
 ## 4. STT fine-tuning/선정에도 직접 참여
 
 공식 STT Lead는 별도로 있었지만 후반 통합 단계에서 학습 자산을 직접 받아 추가 실험과 production selection을 수행했습니다.
