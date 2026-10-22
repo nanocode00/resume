@@ -143,6 +143,22 @@
 
 근거: [학습·선정 계보](https://github.com/aihuman-7th/proj2-3/blob/main/docs/stt-finetuning-lineage.md) · [C1/C2 실험](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-22_aihub71592-domain-adaptation.md) · [실사용 평가](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-27_real-user-recording-eval.md) · [model×beam 평가](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-28_real-user-model-beam-matrix.md).
 
+### 7. 인증 사용자 WAV/STT·코칭·재답변 E2E와 STT 서비스 지연 측정 — 개인 기여 확인
+
+**상황:** 말해봄은 음성 답변을 비동기 업로드·STT/VAD로 전사한 뒤 사용자가 원문을 확정하고, LLM Agent로 코칭을 받아 다시 답변하고 비교하는 서비스였다. 개별 구성요소 테스트만으로는 **로그인 사용자 관점의 연속 실행과 사용자 체감 대기시간**을 보장할 수 없었다.
+
+**문제:** Docker와 로컬 Supabase 인증·Storage·migration이 서로 맞지 않으면 **LLM 출력만 성공해도 최종 DB 저장은 실패**할 수 있었다. 실제 답변의 `needs_more_info`를 HTTP 실패로 해석하거나, 재답변 후 비교 화면만 보고 음성 개선을 주장할 위험도 있었다. STT 단일 추론 RTF와 **업로드부터 analysis job terminal까지의 전체 지연**도 달랐다.
+
+**판단:** 실제 사용자 JWT로 **WAV 업로드 → 분석 완료 → 전사문 확정 → 코칭·DB 저장 → 재답변 비교**의 기능 경로를 검증하는 작업과, **업로드·VAD·STT·저장·polling 전체 지연을 분리 측정하는 실험**을 각각 수행해야 한다고 판단했다. 1·2차에 같은 WAV를 사용했으므로 **내용 코칭 판정 차이만 확인**하고 전달력 개선 효과는 주장하지 않는다. Cloud Run 임시 benchmark의 mock/local 저장소를 Hosted Supabase 운영 E2E로 취급하지 않는다.
+
+**조치:** 사용자 계정 [PR #47](https://github.com/aihuman-7th/proj2-3/pull/47)과 Antigravity 협업 실험에서 곽호준 작성 로컬 인증 수정 [#42](https://github.com/aihuman-7th/proj2-3/pull/42)를 반영해 Docker `Frontend:18080 / API:8000`와 로컬 Supabase에서 **7초 음성 업로드·STT/VAD → 확정 revision → 실제 MCP/LLM 코칭 → `coaching_runs` 저장** 경로를 검증했다. 개인 [PR #115](https://github.com/aihuman-7th/proj2-3/pull/115)에서는 로컬 로그인 UI의 **정상·경계·인젝션** 세 사례에 대한 전사 확정→코칭 결과를 확인하고, 부족한 개인 행동·선택 이유·공고 연결을 보완한 **2차 답변 저장 및 1차/2차 내용 비교 카드**를 점검했다. 개인 [PR #104](https://github.com/aihuman-7th/proj2-3/pull/104)에는 인증 `/analysis-jobs` 파일 업로드→202→terminal polling/RTF·단계별 VAD/STT/hint/persist timing을 계측하는 benchmark를 구현해 로컬 CPU와 Cloud Run CPU를 비교했다. [#106](https://github.com/aihuman-7th/proj2-3/pull/106)에는 CPU-only PyTorch·사전 포함된 Whisper 모델의 별도 컨테이너와 **고정 모델 revision/image label**을 추가했다.
+
+**결과:** 로컬 인증 사용자 경로에서 공고·세션→WAV→전사 확정→Agent·DB 저장을 통과했고, 다른 실험에서 정상·경계·인젝션 **3종 코칭 및 재답변 비교**를 확인했다. 2차 답변에서 개인 행동·선택 이유 기준은 1차보다 충족으로 나타났지만, **동일 WAV를 사용해 전달력 속도 319음절/분·긴 침묵 0·반복 0**은 동일했다. 별도 로컬 Docker CPU/int8 **10회 측정**에서 전체 분석 E2E **p50 3.670초/p95 3.825초**로, STT 구간 p50 **3.370초**가 대기시간 대부분을 차지했다. Cloud Run mock/local storage benchmark에서 2/4/8 vCPU 전체 E2E p50은 각각 **21.082/10.717/7.988초**였고, CPU-only 이미지 최적화 후 크기는 **3.444→1.934GB**, build time은 **589.1→266.6초**로 줄었다.
+
+**개인 기여·한계:** 모델 선정 실험은 MB-03, Agent 상태·MCP·DB 검증은 MB-07, 모델 파인튜닝과 1인 STT 정확도는 MB-08로 분리한다. 이번 경험의 고유 기여는 **인증 사용자의 음성 파일 기반 연속 흐름 검증과 upload→terminal 대기시간 분석**이다. 원본 기록에는 **실제 마이크로 실시간 녹음한 E2E 또는 Hosted Supabase/RLS를 포함한 배포 전체 STT E2E**가 확인되지 않는다. Cloud Run은 benchmark 전용 mock/local storage이며, 위 이미지 축소·속도 측정은 **모델 revision 고정 이전** 이미지 결과라 새 고정 이미지를 재측정했다고 쓰지 않는다. 프런트·STT 파이프라인 전부를 독자 구현했다고 주장하지 않는다.
+
+근거: [로컬 Docker 인증 흐름](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-21_2315_local-supabase-candidate-integration-e2e.md) · [실제 사용자 3종·재답변 비교](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1632_d6-agent-live-e2e.md) · [분석 E2E benchmark](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-28_analysis-e2e-benchmark.md).
+
 ## 기타 경험과 후속 검증
 
 - 실제 서비스는 운영 배포·소개 페이지, OAuth, 코칭 API, 답변 revision, MCP 조회, Langfuse trace, 이력서 PDF 지원 기능까지 확장됐다. **팀 전체 제품 범위**와 해당 시점의 운영 확인을 먼저 적고 개인 코드 기여를 나중에 연결한다.
