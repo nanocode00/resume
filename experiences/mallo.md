@@ -103,53 +103,32 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 원본: [계약 PR #23](https://github.com/aihuman-7th/proj1-d/pull/23) · [엔진 PR #55](https://github.com/aihuman-7th/proj1-d/pull/55) · [초기 병합 코드](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/src/domain/conversation.py) · [검증 원장 MA-02](mallo-rework-checkpoint.md).
 
-## 3. TTS 모델 비교와 fine-tuning
+## 3. MA-04 — 동일 20문장 TTS 평가·MeloTTS 친절체 적응 및 체크포인트 선정 (검증 완료)
 
-### 초기 baseline 비교
+**상황:** 고령 사용자의 음성 주문 키오스크에서 메뉴·수량·가격 안내를 **빠르게**, 동시에 **안정적이고 친절한 어조**로 전달할 모델이 필요했다. 처음에는 실모델 비교 근거가 부족해 기본 TTS의 자연스러움과 응답 지연을 함께 검증해야 했다.
 
-20개 카페 주문 문장을 CPU 환경에서 동일하게 합성한 초기 benchmark:
+**문제:** CPU에서 MeloTTS와 Qwen3-TTS를 실행한 결과 지연 격차가 컸고, RTX GPU에서 다시 측정해도 Qwen 계열은 긴 생성 시간이 필요했다. 친절체 Fine-tuning이 수행됐다는 사실만으로 **대기 시간 단축이나 실제 고령 사용자의 이해도 상승**을 주장할 수 없고, 최초 `G_2000`와 나중의 사용성 테스트 후보 `G_2800`도 서로 다른 체크포인트였다.
 
-- MeloTTS Baseline: **mean 1.92s, RTF 0.3939**
-- Qwen3-TTS 0.6B Baseline: **mean 22.31s, RTF 3.9254**
+**판단:** 20개 고정 카페 안내 문장을 기준으로 **CPU 사전학습 모델 비교 → Melo 친절체 적응 → RTX 5070 Ti에서 4후보 GPU 비교 → 후속 checkpoint 선택·재검증** 순서를 나누기로 했다. 단순 '최신 모델'보다 대화형 서비스의 **합성 지연·RTF와 친절체 지향 청감**을 함께 평가한다. 학습 loss는 후보 선정 근거이지 독립적인 청취 품질 점수가 아니다.
 
-초기 단계부터 MeloTTS가 interactive serving에 훨씬 유리했습니다.
+**조치:** 개인 [PR #33](https://github.com/aihuman-7th/proj1-d/pull/33)에서 AI Hub 데이터 선정·학습 분할/누수 방지·평가/라이선스 조건을 PoC로 규격화했다. [PR #63](https://github.com/aihuman-7th/proj1-d/pull/63)에서 **동일 20문장 CPU Baseline**의 MeloTTS **1.9223초·RTF 0.3939**, Qwen3-TTS **22.3092초·RTF 3.9254**를 측정하고 재현용 합성/평가 코드를 마련했다.
 
-### AI Hub 친절체 adaptation
+[PR #71](https://github.com/aihuman-7th/proj1-d/pull/71)에서는 AI Hub 71349의 **10번 화자·30분·299개 음성/텍스트 쌍**을 전처리해 MeloTTS 사전학습 가중치에서 **2,000 step warm-start Fine-tuning**한 `G_2000.pth`를 평가했다. Qwen3-TTS 0.6B 친절체 연구/10 epoch 학습도 별도로 기록하고, **RTX 5070 Ti에서 동일 20문장·4개 모델**을 비교해 모델을 선정했다.
 
-AI Hub 71349 감성/발화스타일 데이터의 10번 화자를 이용해 약 30분 adaptation package를 만들고 MeloTTS Korean VITS2를 fine-tuning했습니다.
+| GPU 모델 | 평균 전체 음성 합성 지연 | 평균 RTF |
+| --- | ---: | ---: |
+| MeloTTS Base | **0.1985초** | 0.0403 |
+| **MeloTTS Friendly `G_2000`** | **0.2041초** | **0.0485** |
+| Qwen3-TTS Base 0.6B | 6.9075초 | 1.4620 |
+| Qwen3-TTS Friendly 0.6B | 28.1953초 | 1.5732 |
 
-`G_2000` 실험:
+그 뒤 [PR #152](https://github.com/aihuman-7th/proj1-d/pull/152)에서 TensorBoard 학습 기록과 보존 checkpoint를 재검토했다. 저장되지 않은 step **2850**의 loss는 더 낮았지만 보존된 후속 checkpoint 중에는 **`G_2800`이 `G_3600`보다 Generator loss가 낮아**, 실제 사용성 테스트용 후보를 `G_2800`으로 변경했다. 동일 20문장 GPU 재합성에서 **20/20 유효 44.1kHz WAV, 평균 0.1951초·RTF 0.0428**를 확인하고 통합·평가 스크립트의 기본 체크포인트를 맞췄다.
 
-- paired audio-text: 299개
-- batch size: 4
-- lr: 1e-4
-- pretrained: `myshell-ai/MeloTTS-Korean`
-- 2,000 steps까지 학습
+**결과:** MeloTTS Friendly `G_2000`은 RTX GPU에서 **평균 합성 204.1ms·RTF 0.0485**로 대화형 키오스크에 적합한 지연 범위를 유지하면서 원하는 친절체 방향을 추구할 수 있어 **PoC 우선 모델**로 선정했다. Baseline **198.5ms→204.1ms(+5.6ms, 약 2.8% 느려짐)**이므로 '파인튜닝으로 합성이 빨라졌다'고 쓰지 않는다. 후속 `G_2800`은 **20문장 자동 합성/지연 재검증이 된 사용성 테스트 후보**로 고정됐다. 관련 PR은 개인 `nanocode00` 명의로 작성·병합됐으며, 당시 저장소 전체 테스트 **#63 269개 / #71 306개 / #152 550개 통과**를 각각 기록했다(신규 테스트 수나 누적 합산이 아님).
 
-Qwen3-TTS 0.6B도 비교용으로 10 epoch SFT를 진행해 `calm_friendly` voice를 구성했습니다.
+**검증·귀속 경계:** 이 숫자는 모델 한 문장의 **전체 WAV 합성 지연**이지 브라우저의 **첫 음성 재생 시작 시점**이나 음성 주문 전체 E2E가 아니다. 동일 GPU의 Melo Base/Friendly 품질 개선은 평가자 블라인드 MOS/SIM으로 증명되지 않았고, 샘플레이트 44.1kHz도 사용자 체감 명료도의 증거는 아니다. [TTS 사용성 테스트 인계](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tts-usability-test-handoff.md)는 당시 **DRAFT·외부 참가자 0명·개선 전후 0건**으로 기록돼 있어 테스트 완료/고령자 이해도 개선을 주장할 수 없다. 이와 별도로 `G_3600` Level 0/1 **200회 지연 비교(PR #150)**와 마지막 서비스 **평균 0.38초·p95 0.53초·RTF 0.0894**는 서로 다른 설정/목적의 측정이므로 `G_2000` 20문장 비교와 같은 실험으로 합산하지 않는다. 모델 체크포인트의 AI Hub 라이선스도 공개 사용 확정으로 해석하지 않는다. Qwen의 후속 Double Shift 원인 진단/재학습은 최초 GPU 비교 스냅샷과 별도로 기록하며, **TTS Level 0~2 및 문장/금액 발화 변환은 MA-05**에서 검증한다.
 
-### 동일 20문장 GPU 비교
-
-| Model | Mean latency | Mean RTF | 판단 |
-|---|---:|---:|---|
-| MeloTTS Baseline | 0.1985s | 0.0403 | 매우 빠름, baseline tone |
-| **MeloTTS Friendly** | **0.2041s** | **0.0485** | **선정** |
-| Qwen3-TTS Baseline | 6.9075s | 1.4620 | real-time 부적합 |
-| Qwen3-TTS Friendly | 28.1953s | 1.5732 | tone adaptation은 됐지만 latency 과다 |
-
-따라서 `최신/큰 모델`이라는 이유로 Qwen을 선택하지 않고, **친절체 tone을 적용하면서도 0.2초 수준 생성 지연을 유지한 MeloTTS Friendly**를 선택했습니다.
-
-### fine-tuning 전후를 어떻게 표현할 것인가
-
-동일 GPU/20문장 controlled comparison에서:
-
-- Melo Baseline: 198.5ms
-- Melo Friendly: 204.1ms
-- latency 차이: **+5.6ms, 약 +2.8%**
-
-즉 fine-tuning의 성과를 `속도 개선`이라고 표현하지 않습니다. 속도는 거의 유지하면서 친절한 tone을 적용한 trade-off입니다. 음질/친절성은 청음 비교와 showcase로 검증했지만 정량 MOS 같은 수치는 확보하지 않았습니다.
-
-이후 학습을 더 진행해 최종 production에는 `G_2800.pth`를 사용했습니다. 최종 정량 문서의 production benchmark는 mean **0.38s**, p95 **0.53s**, RTF **0.0894**입니다. `G_2000` 20문장 GPU 비교와 `G_2800` production benchmark는 측정 목적/환경이 다른 별도 결과이므로 직접 성능 향상률로 비교하지 않습니다.
+근거: [PoC #33](https://github.com/aihuman-7th/proj1-d/pull/33) · [CPU Base #63](https://github.com/aihuman-7th/proj1-d/pull/63) · [동일 문장 GPU 4후보 #71](https://github.com/aihuman-7th/proj1-d/pull/71) · [G_2800 후보 #152](https://github.com/aihuman-7th/proj1-d/pull/152) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md) · [MA-04 검증 원장](mallo-rework-checkpoint.md).
 
 ## 4. STT fine-tuning/선정에도 직접 참여
 
