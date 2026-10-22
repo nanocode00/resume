@@ -27,7 +27,7 @@
 | --- | --- | --- | --- | --- |
 | MB-01 | 문제 정의·경쟁 비교·프로젝트 범위 고정 | PR #59·#60, 9/23 Worklog, D2, 10/1 Worklog | **A(문서 작업 지시·검토)/T(기획 원형)** | **1차 확인 완료** — 공개자료 조사와 직접 사용은 분리; 초기 기획 주도권은 추가 미확인 |
 | MB-02 | Agent의 Prompt·Skill·MCP·서버 정책 분리 | PR #119의 직접 인라인 리뷰, PR #116의 3차 수정요청, PR #123 신뢰 경계 문서; 실제 코드 및 테스트 | **A(검토·신뢰 경계 문서) / T(주요 코드 구현)** | **검증 완료** — 핵심 구현 PR 작성은 팀원; 검증 계약 결함 지적과 문서화는 개인 귀속 |
-| MB-03 | OpenRouter 모델 다양성 탐색·Final Four | EVAL_REPORT §9~13, 9/21 실험 | T/B | runner 구현/실행자, 본인 의사결정, 원본 재현 설정 |
+| MB-03 | OpenRouter 다양성 탐색·Final Four·서비스 후보 선정 | 사용자 커밋 PR #36/#37/#40/#41/#47, 팀원 리뷰, 실험·서비스 E2E Worklog | **A(실험 구현·운영 및 후보 선정 흐름) / T(기존 평가 기반)** | **검증 완료** — Codex/Antigravity 보조 개발을 명시; 계약·비용·E2E 근거의 모집단 분리 |
 | MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | reviewer-assignment, 9/30 offline regrade | **A** | 검토표·수정 반영 커밋 연결만 추가 |
 | MB-05 | Prompt/Skill A/B 및 회귀 대응 | 10/2 30건, 10/6 Skill smoke | T/B | 직접 만든 harness/실험 실행과 팀 검토·프롬프트 작성 분리 |
 | MB-06 | 로그인 사용자 공고 원문 분석 E2E | 10/1 14:00 김재훈 Worklog, 토큰 0600 검증 | **A** | 해당 PR 번호·diff, 반복 재현 여부 확인 |
@@ -101,6 +101,46 @@
 - **개인 기여 강도:** 코어 구현 전반의 단독 개발자는 아니지만 **Prompt 계약 검증 허점 식별, 잘못된 E2E pass/fail 기준 바로잡기, 서버/모델/외부 도구 신뢰 경계 정리**가 강한 개인 경험으로 귀속됨. 단순 PR 승인 수보다 *무슨 문제가 어떻게 잘못 검증되고 있었으며 어떤 기준으로 수정시켰는지*가 채용 활용 가치가 높다.
 
 **1차 판정:** MB-02는 **개인 기술 리뷰·검증 판단·신뢰 경계 문서화 A 확인**, **Prompt/Skill/MCP/서버 코어 구현 T(팀 소유)**. 검증 완료. MB-03에서는 모델 선정 하네스 구현/실행 귀속을 새로 조사한다.
+
+---
+
+## 3-3. MB-03 — LLM 후보 평가와 기본 모델 선정 (검증 완료: 2026-10-22)
+
+### 누가 무엇을 했는가 — Git 커밋 및 리뷰 귀속
+
+| 근거 PR | 커밋 작성자·내용 | 개인 귀속 판단 |
+| --- | --- | --- |
+| [#19 초기 모델 평가 하네스](https://github.com/aihuman-7th/proj2-3/pull/19) | **SJeongHyeon**: 기존 `run_model_comparison` 기반·실험 평가 하네스 | **팀원 구현**, 내 단독 제작으로 주장 금지 |
+| [#36 다양성 평가 core](https://github.com/aihuman-7th/proj2-3/pull/36) | **nanocode00**: `evals/openrouter_diversity.py`, 관련 테스트 | **내 작업 흐름 귀속 확인** |
+| [#37 다양성 평가 CLI/Spec](https://github.com/aihuman-7th/proj2-3/pull/37) | **nanocode00**: `run_openrouter_diversity.py`, AC·재현 문서 | **내 작업 흐름 귀속 확인** |
+| [#40 Final Four 재현](https://github.com/aihuman-7th/proj2-3/pull/40) | **nanocode00**: 4종 runner, blind 자료 생성·집계 CLI | **내 작업 흐름 귀속 확인** |
+| [#41 평가 이력·선정 근거](https://github.com/aihuman-7th/proj2-3/pull/41) | **nanocode00**: `EVAL_REPORT`, `DECISIONS`, `CURRENT_STATE` 정합화 | **내 판단·재현 기록 정리** |
+| [#43 모델 채팅 probe](https://github.com/aihuman-7th/proj2-3/pull/43), [#45 확장 평가](https://github.com/aihuman-7th/proj2-3/pull/45) | **SJeongHyeon**: 별도 모델 probe·평가 확장 | **팀원 기여**, 구분 |
+| [#47 두 후보 코칭 서비스 통합](https://github.com/aihuman-7th/proj2-3/pull/47) | **nanocode00**: 서비스 하네스, 모델별 API 경로 테스트, OpenRouter 호환성 보완·결과 비교·기본 환경 설정 | **내 작업 흐름 귀속 확인**, 코드/실험에는 Codex·Antigravity 보조를 사용 |
+
+**커밋 계정의 의미:** #36/#37/#40/#41/#47이 사용자 명의이며, 문서상 9/21 다양성 및 1차 서비스 실험의 작업자는 Codex, 같은 날 Docker·로컬 Supabase 실험은 Antigravity다. 따라서 **AI 코딩 도구를 사용해 평가 조건·실험·수정·PR을 주도적으로 수행한 경험**으로 기술한다. 본인이 모든 라인을 수작업으로 작성했다고 주장하지 않는다.
+
+### 문제 → 접근 → 실행 → 결과
+
+1. **문제:** 모델 선택을 출력 계약 하나나 정성적 선호만으로 결정할 수 없고, OpenRouter 모델의 실제 접근 가능성·스키마 호환성·비용·지연·서비스 통합 안정성이 서로 다르다. 과거 6종 평가·Basic/Premium 실패 복구 실험은 **다른 목적과 조건**이므로 직접 한 표로 합치지 않는다.
+2. **실험 설계:** 기존 Dataset v2 합성 30건·Prompt v3·고정 Skill/criteria·strict JSON Schema/서버 validator를 재사용. 인증된 모델 목록에서 text→text 및 `response_format` 지원 모델을 추리고 developer 다양성에 따라 선정한 뒤, 정상/경계/실패 유도 **3건 preflight → PASS 모델만 30건 본평가**를 진행. 재시도 상한·atomic JSON 저장·중단 후 재개·모델 기본 생성 설정과 `--live` 없는 dry-run을 둠.
+3. **OpenRouter diversity 결과:** 283개 발견, 214개 적격. 1차 **30모델 preflight → 15 PASS → 450건**, 이어서 신규 10모델 preflight → 7 PASS → 210건. 누적 **40개 preflight / 22개 PASS / 22×30=660건 본평가**, 알려진 provider 비용 합계 **$10.2759357145**, 비용 없는 호출 **80개**. 따라서 $10.28은 *관측된 비용의 합*이지 청구 최종 총액이 아니다. 사람 semantic 평가는 **미수행(null)**.
+4. **Final Four 별도 재측정(2026-09-21):** 같은 시점 고정 Dataset·Prompt·Schema·model-default 생성 설정으로 4×30=**120건을 새로 실행**. Flash Lite **30/30**, p50 **3.41s**, $0.10706534; Gemini 3.8 Flash **30/30**, **12.60s**, $0.34932900; Luna **29/30**, **9.36s**, $0.03914948; Terra **10/30**, **1.18s**, 비용 **≥$0.10570740**. Terra 20건은 provider/schema/integration 단계 실패로 raw/usage가 없어 의미상 실패나 알려진 비용 0으로 해석 금지. 1차 후보는 Flash Lite와 Luna. 사람 blind semantic 검토는 준비만 했고 이 단계에서 완료하지 않음.
+5. **실서비스 호출 경로 분리 검증:** 독립 FastAPI harness에서는 정상·경계·실패 유도 각 1건에서 두 모델 모두 3/3 계약 통과(Flash Lite p50 3.37s, Luna 13.41s). 다음 **Docker+로컬 Supabase·stdio MCP·DB 경로**에서 Flash Lite **3/3**, p50 **3.44s**, 알려진 비용 $0.01132, 무재시도; Luna는 최초 **1/3**, JSON code fence 보수적 unwrap 후 **2/3**. 실제 사용자 테스트 계정으로 WAV/STT→answer revision→코칭→`coaching_runs` 확인도 기록되어 있으나 **표본 3건 모델 비교는 합성 고정 케이스**다.
+6. **통합 오류 분석과 결정:** 최초 독립 하네스의 `temperature=0`/OpenRouter `require_parameters=true` 조합에서 두 모델 HTTP 404가 나와, 서비스 호출도 `temperature`를 생략해 model-default로 맞춤. Luna의 코드펜스 JSON은 보수적 파서로 일부 복구했지만 스키마 필드 누락 사례는 여전히 실패. Flash Lite는 비교 시점 **속도·계약 준수·실제 API 통과**가 안정적이므로 기본 코칭 모델로 결정하고 `.env.example`·README에 반영함.
+7. **동료 리뷰로 결과/설정 정정:** [PR #47 리뷰](https://github.com/aihuman-7th/proj2-3/pull/47)에서 **서정현이 독립 harness Luna 3/3과 Docker E2E Luna 2/3을 섞어 기술한 불일치**를 지적해 날짜·버전별 두 실험을 별도 기록하도록 수정 요청. 이어 `.env.example`의 기본값이 여전히 다른 모델이어서 선정 문구와 실제 실행 설정이 어긋난다는 문제를 지적했고, 기본값·README 변경 후 승인. **팀원 지적을 반영해 재현성과 배포 구성 일치성을 확보한 협업 경험**으로 기술하는 것이 맞다.
+
+### 핵심 기술 해석과 주장 경계
+
+- 실험 단위: 40모델 preflight, 660건 diversity, 별도 120건 Final Four, 3×2건 서비스 smoke는 **독립 목적과 일부 중복/재실행**이므로 780건을 단일 동일조건 실험으로 표현하지 않는다.
+- **계약 준수 30/30 ≠ 사용자 코칭 의미 품질 100%**. Final Four blind semantic 결과 미확정, 실제 3~5명 사용자 효과 미검증, p95(3건)는 통계적으로 불안정.
+- `COACHING_LLM_MODEL` 기본값을 후보로 선택·설정한 것과 이후 **운영 배포의 전체 사용자 성능**은 다르다. 코칭 모델의 최종 운영 품질 승격까지 이 작업군 성과로 확대하지 않는다.
+- 다양성 단계의 최종 **$10.2759는 비용 미확인 80호출**이 있어 하한 성격. Final Four Terra 비용도 실패 호출 사용량 누락으로 하한이다.
+- **채용 활용 등급: 주력 사례.** 여러 모델의 이름이 아니라 **후보 탐색→사전 검증→조건 고정 재측정→실제 API 검증→설정 충돌 해결→채택**이라는 의사결정·시스템 평가 설계 능력, 자동화/재현성 확보를 강조한다.
+
+**검증 판정:** MB-03은 **개인 수행·의사결정·코딩 에이전트 활용·PR 책임 A**, 초기 평가 기반·후속 probe는 **팀 작업 T**. 다음 MB-04는 이미 사람 ground truth 원본·재채점 증거가 확보돼 있으나 PR 단위 작성·사람 검토 귀속까지 별도 심화한다.
+
+참고: [모델 다양성](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-model-diversity.md) · [Final Four](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-final-four.md) · [서비스 후보 비교](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_service-candidate-integration.md) · [로컬 E2E Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-21_2315_local-supabase-candidate-integration-e2e.md) · [평가 총괄](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
 
 ---
 
