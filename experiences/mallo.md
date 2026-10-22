@@ -67,20 +67,23 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 상세: [MA-01 경험 복원 원장](mallo-rework-checkpoint.md) · [설문 반영 PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
 
-## 1. 공통 contract와 Mock E2E부터 구성
+## 1. MA-03 — 독립 AI 모델 개발 중 Mock-first 음성 주문 통합·오류 처리 구현 (검증 완료)
 
-실제 모델이 완성될 때까지 기다리지 않고 STT/NLU/TTS adapter와 Mock implementation을 공통 interface에 맞춰 먼저 연결했습니다.
+**상황:** 말로의 STT·NLU·Order Engine·Adaptive TTS가 나뉘어 구현되는 동안 각 실제 모델이 완성될 때까지 기다리면 음성 주문 경로의 통합 문제를 늦게 발견할 수 있었다.
 
-핵심 contract:
+**문제:** 텍스트 주문 위주로 동작하던 서비스에 오디오 입력을 전달하는 공통 진입점과 **STT 결과·NLU JSON 검증·주문 상태·TTS 음성 및 실패 결과를 한 번에 확인할 수 있는 계약**이 필요했다. 실제 Whisper·Qwen·Melo 모델을 매번 로드해야만 검증할 수 있는 구조라면 개발과 회귀 테스트가 느려지고 실패 원인을 모듈별로 분리하기 어렵다.
 
-- audio/STT result
-- NLU `OrderCommand`
-- Validator의 허용/거부 규칙
-- Cart / Order Engine state
-- ErrorResponse
-- TTS request/response
+**판단:** **인터페이스를 먼저 통일하고 Mock으로 전체 흐름을 검증**하되, 실모델 어댑터는 독립적으로 추가하는 구조를 채택했다. `MalloService`에 STT·NLU·Order Engine·TTS를 주입하고, 오디오 요청을 `VoiceInteractionResult(STT, Order, TTS)`로 반환한다. 세션에서 TTS Level과 직전 안내를 유지하고 실패는 코드와 재입력 안내로 처리한다.
 
-이 구조 덕분에 각 파트가 독립적으로 모델을 바꿔도 전체 주문 flow는 유지할 수 있었습니다.
+**조치:** 개인 [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68)(2026-08-18)에서 `VoicePipeline.handle_audio` → STT `transcribe` → NLU `OrderCommand[]` 검증 → 결정론적 Order Engine → Adaptive TTS `synthesize` 연결, `MalloService.handle_audio`·통합 결과 모델·`MockSTT`·테스트용 `build_mock_service`를 구현했다. 통합 테스트에는 **모델이 읽을 WAV가 아니라 `b"audio_bytes_1"` 같은 가짜 바이트**, 고정 텍스트를 주는 `MockSTT`, `MockNLU`, `MockTTS`를 사용해 '아이스 아메리카노 두 잔'의 **9,400원 Cart**와 음성 응답 메타데이터를 확인했다. 또한 **천천히→다시→기본 속도(Level 0→1→2→0)**, 빈 입력, STT·TTS 강제 실패를 검증했다.
+
+개인 [PR #69](https://github.com/aihuman-7th/proj1-d/pull/69)에서는 실제 `MeloTTS` 및 `Qwen3-TTS` 호출 인터페이스를 갖춘 별도 교체형 어댑터를 구현했다. Melo의 지연 로딩·checkpoint 교체·Level 1/2 speed 0.85, Qwen의 `generate_custom_voice`·WAV bytes 변환을 제공했고 단위 테스트는 **실모델이 아닌 mock 모델**을 사용했다.
+
+**결과:** 실 STT/NLU/TTS 모델 준비와 관계없이 음성 입력·주문 명령 처리·안내 생성의 **인터페이스/정상·실패 경로를 반복 검증**할 수 있게 했다. 원본 #68은 저장소 **전체 297개 테스트 통과 및 팀원 승인**, #69는 별도 브랜치 **전체 296개 테스트 통과 및 승인**으로 기록돼 있다. 서로 다른 PR의 **저장소 전체 테스트를 신규 테스트 593개로 합산하지 않는다**.
+
+**구현 경계:** #68은 마이크 녹음, VAD, 진짜 Whisper STT·LLM NLU·실제 TTS 합성이 포함되지 않은 **Mock 통합 테스트**다. Stub confidence 0.98/가상 1,200ms는 실제 정확도·지연 지표가 아니다. #69의 Melo/Qwen 단위 테스트도 GPU 성능 검증이 아니다. #68 시점 **주문 성공 후 TTS만 실패하면 실패 결과에 새 `result.cart`가 남을 수 있어** 모든 오류에 걸쳐 Cart가 롤백된다고 주장할 수 없다. 실제 모델 비교·친절체 파인튜닝·실 E2E latency와 배포/브라우저는 각각 MA-04·MA-09·MA-10에서 별도 다룬다. #67 Whisper ONNX 구현은 윤태현, #70 NLU 데이터 도구는 류승민 작성으로 귀속한다.
+
+근거: [Mock E2E PR #68](https://github.com/aihuman-7th/proj1-d/pull/68) · [병합 당시 VoicePipeline](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/src/orchestrator/voice_pipeline.py) · [E2E 테스트](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/tests/integration/test_end_to_end_voice_pipeline.py) · [교체형 TTS 어댑터 PR #69](https://github.com/aihuman-7th/proj1-d/pull/69) · [검증 원장 MA-03](mallo-rework-checkpoint.md).
 
 ## 2. MA-02 — LLM 이해와 실제 주문 상태를 분리한 결정론적 Order Engine (검증 완료)
 
