@@ -19,7 +19,7 @@
 | --- | --- | --- | --- | --- |
 | **MA-01** | 고령 사용자 조사·문제 정의·PRD/TRD·MVP 범위 | [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83), `docs/prd.md`, `docs/survey-pipeline-update.md` | 설문 실시·분석·결정·최종 배포 구현 분리 | **1차 검증 완료** |
 | **MA-02** | **OrderCommand 계약·결정론적 주문 관리 구현** | 개인 [#23](https://github.com/aihuman-7th/proj1-d/pull/23) 문서·개인 [#55](https://github.com/aihuman-7th/proj1-d/pull/55) 코드/테스트·병합 시점 snapshot | **A: 설계·Intent 구현 / 팀원 2명 승인**; 최초 6필드·동일 Intent batch와 이후 10필드·복합 Intent 지원 구분 | **검증 완료** |
-| **MA-03** | STT→NLU→주문→TTS 계약·VoicePipeline·Mock E2E | [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68), [#69](https://github.com/aihuman-7th/proj1-d/pull/69) | Mock/Real 호출, 297 tests가 무엇을 테스트하는지 구분 | 대기 |
+| **MA-03** | **VoicePipeline·Mock E2E·교체형 TTS 어댑터** | 개인 [#68](https://github.com/aihuman-7th/proj1-d/pull/68) Mock 통합·결과/오류 계약; 개인 [#69](https://github.com/aihuman-7th/proj1-d/pull/69) Melo/Qwen 실제 모델 어댑터 | **A(통합 코드·Mock 시나리오, TTS 어댑터)** / 전체 297 vs 296 테스트 각 PR 기록 구분; 실제 Whisper·VAD·브라우저 E2E 미포함 | **검증 완료** |
 | **MA-04** | MeloTTS·Qwen3-TTS baseline, 친절체 학습과 모델 선정 | [PR #63](https://github.com/aihuman-7th/proj1-d/pull/63), [#71](https://github.com/aihuman-7th/proj1-d/pull/71), [#152](https://github.com/aihuman-7th/proj1-d/pull/152) | G_2000 비교와 G_2800 운영 벤치마크 서로 다른 설정 | 대기 |
 | **MA-05** | Adaptive TTS Level 0~2·한국어 수사 정규화·쇼케이스 | [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97), [#116](https://github.com/aihuman-7th/proj1-d/pull/116), [#150](https://github.com/aihuman-7th/proj1-d/pull/150) | 청음 체감 개선 vs 계산된 RTF·출력 호환성 | 대기 |
 | **MA-06** | Whisper Medium STT QLoRA 후보 탐색·Train65·서빙 모델 | [PR #218](https://github.com/aihuman-7th/proj1-d/pull/218), STT worklogs·후보 평가 | STT 담당/개인 추가 학습 구분, CER/WER·speaker split | 대기 |
@@ -71,6 +71,29 @@
 - **직무 활용:** 'LLM을 통해 주문을 이해하되 상태 변경은 코드가 검증'이라는 **AI-제어권 분리·SSOT·불변 조건 기반 테스트**를 주력 서사로 활용한다. 의도/엔진 계약과 실제 코드 간 시간차 및 초반 모호성 누락도 질문받으면 설명 가능하도록 기록한다.
 
 원본: [PR #23](https://github.com/aihuman-7th/proj1-d/pull/23) · [PR #55](https://github.com/aihuman-7th/proj1-d/pull/55) · [#55 병합 시점 코드](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/src/domain/conversation.py) · [#55 병합 시점 테스트](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/tests/unit/test_order_engine_operations.py) · [최신 OrderCommand 스키마](https://github.com/aihuman-7th/proj1-d/blob/main/schemas/order-command.schema.json) · [최신 주문 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/order-command.md).
+
+## 3-3. MA-03 — Mock-first VoicePipeline과 표준 음성 입출력 계약 구현 (2026-10-22 검증 완료)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** STT, 주문 NLU, 결정론적 Order Engine, Adaptive TTS를 서로 다른 모듈과 팀 작업으로 개발 중이었다. 각 모델의 실학습·배포 완료 전에도 **음성 입력부터 주문 결과·음성 출력까지 서비스 계약**을 고정하고 검증할 필요가 있었다. 당시 `MalloService`에는 주문 텍스트 처리 흐름이 있었고, 실제 음성 입력과 종합 결과 모델의 통합이 부족했다.
+2. **문제:** STT 반환을 문자열로 주는 구현과 `STTResult`로 주는 구현, NLU 오류/스키마 오류, TTS 실패가 각각 서로 다른 예외로 나타날 수 있다. 모든 실제 GPU 모델이 완성될 때까지 통합을 미루면 **모듈 경계의 오류·주문 변경·Adaptive TTS 상태 전이** 문제를 개발 후반에 한 번에 발견하게 된다. 반대로 테스트 바이트와 canned transcript를 사용한 통합 테스트를 **실제 음성 인식·TTS 품질·마이크 E2E**로 보고하면 성능을 과장한다.
+3. **판단:** STT/NLU/Agent/TTS를 **Protocol/생성자 주입으로 교체 가능한 인터페이스**에 묶고, 먼저 `MockSTT`·`MockNLU`·`MockTTS`를 이용해 **결정적 통합 경로와 실패 계약**을 검증한다. 요청 단위 반환은 `VoiceInteractionResult(stt_result, order_result, tts_result)`로 통일하고, Adaptive TTS의 Level·직전 안내·리셋은 같은 `VoicePipeline`의 세션 상태로 관리한다. **진짜 MeloTTS/Qwen3-TTS 어댑터 연결은 별도 PR**로 구현해 인터페이스 교체 가능성을 확보하되, mock unit test를 실제 GPU 추론 실측으로 부르지 않는다.
+4. **조치:**
+   - **개인 작성 [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68), MERGED 2026-08-18:** `src/orchestrator/voice_pipeline.py`의 `handle_audio(audio: bytes, cart: Cart)`에서 STT `transcribe` 결과를 문자열·`STTResult`로 수용해 표준화하고, `handle_text`를 경유한 NLU schema 검증→Order Engine `execute`→AdaptiveTextTransformer→TTS `synthesize` 경로를 연결했다. `MalloService.handle_audio` wrapper·세션 `reset_session`, `VoiceInteractionResult`(STT/Order/TTS+직렬화), `MockSTT` (canned text·실패 주입·요청 bytes 기록), `build_mock_service`를 도입했다. 빈 입력 `EMPTY_INPUT`, `STTFailure`→`UNSUPPORTED_UTTERANCE` 및 `retryable=true`, `NLUFailure`/schema→검증 오류, `TTSFailure`→`TTS_FAILED` 응답 분기를 구현했다.
+   - **구체적 통합 테스트:** `tests/integration/test_end_to_end_voice_pipeline.py`에서 **가짜 바이트 `b"audio_bytes_1"`**를 넣으면 `MockSTT`가 고정 텍스트 '아이스 아메리카노 두 잔 주세요'를 반환하고, `MockNLU`→`ConversationAgent`가 **2잔·9,400원** Cart를 계산하며 `MockTTS`가 **`b"mock_audio"`**를 반환함을 확인한다. 별도 테스트는 **Level 0→1(천천히)→2(다시)→0(기본 속도)**, 빈 오디오·STT 실패·TTS 실패를 다루며, `tests/unit/test_mock_stt.py`에서 canned transcript·failure injection을 검증한다. **당시 저장소 전체 `pytest tests/` 297 passed**라는 PR 기록과, **류승민(`Padong47`) 승인**이 있다.
+   - **개인 작성 [PR #69](https://github.com/aihuman-7th/proj1-d/pull/69), MERGED 2026-08-18:** `TTS` 프로토콜을 따르는 `MeloTTSAdapter`(모델 지연 로딩, `config/ckpt` 인자, speed Level0=1.0·Level1/2=0.85, 파일 합성 후 WAV bytes+latency/duration 반환)와 `Qwen3TTSAdapter`(`generate_custom_voice`, 메모리 WAV bytes 반환, `TTSResult`/예외 통일)를 작성했다. 두 모델의 **unit test는 MagicMock/fake WAV를 통한 인터페이스 테스트**라 실모델 합성·품질·추론시간의 증거가 아니다. PR 본문에는 별도 브랜치 기준 **전체 296 tests 통과**, **류승민 승인**이 기록됐다. TTS 모델 20문장 GPU 비교/파인튜닝 및 실제 서비스 기본 모델 선택은 **MA-04**에서 별도 검증한다.
+5. **결과:** **Mock 기반 음성 주문 통합의 정상·실패 경로를 코드와 테스트로 고정**, 인터페이스를 유지하면서 실모델 TTS Provider로 갈아 끼울 수 있는 어댑터를 마련했다. Mock 정상 케이스에서 **아이스 아메리카노 2잔·9,400원 Cart / Level0 TTS 결과**를 검증하고, 반복/느린 말하기/기본 속도 상태 전이와 음성·TTS 실패를 구분했다. **#68 당시 전체 297 tests 통과, #69 별도 PR 296 tests 통과**(합산·신규 테스트 593개가 아님), 두 PR 모두 개인 명의·팀원 승인·병합이다. 성과의 정확한 표현은 **'독립 모델 개발 중 Mock-first STT→NLU→Cart→TTS 통합을 먼저 검증'**이며 실제 모델 end-to-end latency 수치·사용자 음성 인식률은 이 PR의 성과가 아니다.
+
+### 증거 경계 및 후속 중복 방지
+
+- **#68 병합 직후 코드 snapshot:** `fad7146da7cff9f745b1a9411b9c9fdb41d5946c`의 `src/orchestrator/voice_pipeline.py`, `src/app/service.py`, `tests/integration/test_end_to_end_voice_pipeline.py`를 조회했다. 테스트 input은 **유효한 WAV 파일 검사 없이 임의 bytes**, 모델은 세 개 모두 Mock이고 브라우저 `getUserMedia`/VAD/실음성 인식/실 TTS GPU latency가 없다. `MockSTT.duration_ms=1200.0`·`confidence=0.98`도 **stub 데이터**, 실제 성능 수치가 아니다. 테스트 성과 297개는 **저장소 전체 테스트**이지 `test_end_to_end_voice_pipeline.py`에 새로 297개를 추가한 것이 아니다.
+- **#69 snapshot:** `076fb0c8d152a2df81c5dbf470a4719efb908362`의 Melo/Qwen adapter code 및 단위 테스트를 대조했다. Melo Level1/2 speed=0.85 제어는 adapter 구현 사항이나, **Qwen3 어댑터는 level을 결과 metadata로만 반환하며 `generate_custom_voice`에 speed를 전달하지 않는다**. 실제 네 모델 20문장 음성 benchmark와 finetuning 결과는 #63/#71 및 MA-04에서만 다룬다.
+- **오류 후 상태 제한:** STT/입력/잘못된 NLU 요청 실패는 `cart.copy()`/표준 오류 반환을 확인했지만, **주문 엔진 성공 뒤 TTS 합성만 실패한 경우** #68 `_synthesize_result`는 **실패 flag로 반환하면서 이미 만든 `result.cart`를 그대로 전달**하므로 주문의 전체 트랜잭션이 롤백된다고 주장하지 않는다. 완전한 서비스 실패 복구/동시성은 후속 QA MA-11의 검증 대상이다.
+- **역할 귀속:** #68/#69의 GitHub author는 `nanocode00`, 리뷰는 `Padong47`. 원래 타 팀원들이 작성한 Whisper ONNX #67(`surf7978`)이나 NLU dataset #70(`Padong47`)을 개인 구현으로 합산하지 않는다. **VoicePipeline 통합과 실제 STT/NLU 학습·서빙·웹 자동 Listening 구현은 서로 다른 작업**이다.
+- **면접에 쓰는 한 문장:** "AI 모델별 완성 일정에 의존하지 않도록 STT·NLU·주문 엔진·TTS에 공통 인터페이스를 적용하고, Mock E2E로 정상 주문·상태 전이·실패 경로를 먼저 검증했습니다."
+
+원본: [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68) · [#68 병합 시점 파이프라인](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/src/orchestrator/voice_pipeline.py) · [Mock E2E 테스트](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/tests/integration/test_end_to_end_voice_pipeline.py) · [PR #69](https://github.com/aihuman-7th/proj1-d/pull/69) · [Melo adapter](https://github.com/aihuman-7th/proj1-d/blob/076fb0c8d152a2df81c5dbf470a4719efb908362/src/adapters/tts/melotts_adapter.py) · [Qwen adapter](https://github.com/aihuman-7th/proj1-d/blob/076fb0c8d152a2df81c5dbf470a4719efb908362/src/adapters/tts/qwen3_adapter.py).
 
 ## 4. 진행 원칙
 
