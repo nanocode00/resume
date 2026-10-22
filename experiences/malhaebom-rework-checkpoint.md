@@ -36,7 +36,7 @@
 | MB-09 | **WAV 업로드·STT/VAD·전사·코칭·비교 로컬 E2E 및 분석 지연** | 개인 PR #47·#104·#106·#115; 9/21·9/28·9/29 Worklog | **A(서비스 경로 검증·벤치마크·회귀 판정) / T(제품 핵심 STT·UI 기능)** | **검증 완료** — 마이크 실녹음·Hosted Supabase 운영 전체 E2E 미확인, MB-03/07 결과 중복 집계 금지 |
 | MB-10 | Langfuse Prompt·Skill 실행 버전·Trace·운영 관측 | **개인 PR #101·#114·#162·#216 / 개인 리뷰 #221**, 9/28~10/9 실측·worklog | **A(실험 export·버전 정합성·운영 trace 검증) / R(#221 요청-ID 연계 리뷰)** | **검증 완료** — 10/8 관리형 Prompt @4 실행 연결, 10/9 운영 HTTP ID 연결은 별도 실행; release/rollback 미검증 |
 | MB-11 | UI/UX 개선 검토·정적 쇼케이스 제작·소개 통합 | **개인 PR #214, 개인 리뷰 #211, 개인 showcase 저장소**; 팀원 #240·#241·#251; 10/7~10/10 worklogs | **A(정적 소개 구현·콘텐츠/에셋 검증) / R(UI 코드 결함 발견·승인) / T(앱 통합·후속 운영)** | **검증 완료** — 목업/실제 UI/별도 Pages/운영 앱 통합 및 10/8 마감 전후를 분리 |
-| MB-12 | D1~D12 체크포인트·PR·CI 협업/종료 | 10/1 개인 Worklog, PR/CI 기록 | A/B | 직접 처리한 리뷰·브랜치·테스트·병합 대표 3~5건 선정 |
+| MB-12 | D2~D12 공식 체크포인트·PR/CI 운영·마감 증거 | **개인 PR #48·#137·#141·#143·#148·#150·#217**, Review Core 400/800 규칙·10/1 Worklog·제출 인덱스 | **A(재실행 경합 방지·제품 CI·증거 상태/제출 정합성) / T(코어 정책 초기 작성·최종 팀 제출)** | **검증 완료** — 공식 D1 제외; D10/D11 부분 완료·D12 최종 동결 미완료, 10/8 이후 병합/운영 혼동 금지 |
 
 ## 3-1. MB-01 — 문제 정의·경쟁 조사·제품 범위 결정 (1차 검증 완료: 2026-10-21)
 
@@ -376,6 +376,33 @@
 
 ---
 
+## 3-12. MB-12 — PR/CI 품질 정책·공식 체크포인트 증거와 마감 관리 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 2026-09-18~10-08의 말해봄 Mk.2 개발 중 음성/STT·LLM Agent·Skill/MCP·Prompt 평가·인증/DB·운영 배포를 여러 사람이 병렬 추진했다. PR 수와 자동검사·실험 문서가 늘어나 **리뷰의 정확성, CI 실행 비용, 공식 일정과 현재 구현의 상태 정합성**이 중요했다. 공식 Checkpoint의 canonical은 **D2~D12**이며 **D1은 원본 작업표에서 의도적으로 제외**돼 있다. 별도의 강사 피드백·STT 실험·팀 자체 개선은 Day 항목을 대체하지 않았다.
+2. **문제:** (a) PR의 review core를 400줄이라는 **전체 diff 줄 수**로 취급하면 부수 Worklog·raw 결과 때문에 불필요하게 분할하거나, 반대로 실제 핵심 변경의 과대화를 놓칠 수 있었다. PR 설명에 초과 사유를 보완했을 때 같은 HEAD에 **과거 실패와 새 성공 정책 검사 run이 공존**했고, 후속 edit-helper가 이전 HEAD A의 실행을 기다리다가 새 HEAD B가 push되면 **오래된 A 재실행이 최신 B 정책 검사를 취소하는 race**도 있었다. (b) PR 정책·Secret Scan만으로 실제 backend/frontend 제품 회귀를 막을 수 없었고, 경량 의존성 없는 backend 전체 환경 설치는 CI 비용이 컸다. (c) PR 병합 뒤 MCP/D9·Langfuse/D10·D7 완료 표시가 stale이거나 외부 서비스/Notion 원본 근거 없이 '[x]' 처리되어, **문서상 완료와 실제 실행/운영 제출 완료를 혼동**할 위험이 있었다.
+3. **판단:** **Review Core 약 400줄 권장, 401~800줄은 초과·비분리 사유 필수, 800줄 초과는 분리 차단**으로 팀 정책을 정리했다. 증거인 Worklog·raw 산출물은 부수 범주로 분리하되 실험 계획·방법·평가기준·핵심 Spec은 계속 핵심 리뷰 대상이다. PR description 변경은 **동일 HEAD의 기존 check run 새 attempt**로 갱신하고, 가장 최근의 PR 본문과 HEAD를 실행 직전에 재조회해야 한다. 제품 CI는 backend와 frontend를 별도 job으로 자동 검증하되 lightweight dependency를 설치한다. 일정 보고는 **[x]/[-]/[ ] 상태를 개별 실행 근거와 연결**하고, '강사 확인 종료'는 새 실험 성공과 구분하며 **D8 clean clone vs D10 운영, 관리형 Prompt 화면 vs 실제 release/rollback, D11 기존 평가 vs D12 최종 동일 조건 재평가·코드 동결**을 독립 판정한다.
+4. **조치:**
+   - **정책 재실행 race 처리 [PR #48](https://github.com/aihuman-7th/proj2-3/pull/48) — 개인 작성 2커밋:** `.github/workflows/pr-policy-check.yml`이 PR `edited`를 직접 구독하지 않게 바꾸고, `pr-policy-rerun-on-edit.yml` helper로 **현재 HEAD의 기존 정책 run을 rerun**하도록 구현했다. 정책 본체는 현재 GitHub API의 PR body를 읽고 **PR+HEAD SHA**를 concurrency key로 사용한다. 서정현의 구체적인 **HEAD A/B race `CHANGES_REQUESTED`**를 받고 rerun 직전 현재 HEAD 확인→변경됐으면 skip하도록 보완했으며 정책 계약 테스트를 추가했다. **정적 정책/워크플로 테스트 6+3 PASS**, 동료 재검토 **APPROVED 후 MERGED**. 당시 기록에는 description edit→원격 Actions Attempt 2의 실제 UI E2E가 별도 미확인으로 남아 있으므로 unit/CI 계약 통과와 실운영 재실행을 동일시하지 않는다.
+   - **제품 PR 회귀 CI [PR #137](https://github.com/aihuman-7th/proj2-3/pull/137) — 개인 작성 3커밋:** `.github/workflows/product-ci.yml`에 **Python 3.12 backend job / Node 22.14 frontend test+build job**, `backend/requirements-ci.txt` 경량 패키지, 캐시·PR concurrency·테스트 bootstrap을 구성했다. 동료 리뷰에서 이미 실제 Actions 양측 job이 성공했는데 문서상 미확인으로 남은 차이를 지적받아 최신 성공 run과 `[x]`로 정정했다. 당시 **Backend tests, Frontend tests and build, PR Policy Check, Secret Scan 모두 SUCCESS**, 리뷰 **APPROVED/MERGED**. [후속 PR #145](https://github.com/aihuman-7th/proj2-3/pull/145)의 `pytest` 정식 테스트 명령 수정은 **서정현 구현**으로 개인 작성에서 제외한다. CI 절감 '목표'와 직접 측정된 절감 시간·비용은 구분한다.
+   - **공식 Day/외부 강사 증거 정합성 [PR #136](https://github.com/aihuman-7th/proj2-3/pull/136), [#141](https://github.com/aihuman-7th/proj2-3/pull/141), [#143](https://github.com/aihuman-7th/proj2-3/pull/143), [#148](https://github.com/aihuman-7th/proj2-3/pull/148):** 김재훈 계정에서 강사 보완 목록을 **공식 D2~D12와 별도** 추적하고, D7 문서를 **문제정의·30건 평가셋·baseline·아키텍처·버릴 기능·잔여 일정** 한 장으로 압축했다. #141 동료의 **'완료 [x]에 근거/원본 URL/확인일 및 Worklog가 없다' 변경 요청**을 받아 근거 범위·링크를 보완했다. #143에서는 병합된 #140/#142의 MCP/D9 실제 상태를 맞추면서 Langfuse **로컬 성공·운영 미확인**, D8 **로컬 재현·D10 배포**, D7 **보고서 작성·실제 제출**을 분리했다. Markdown의 trailing whitespace가 diff 검사에서 잡힌 것도 수정 요청 뒤 보완·승인받았다. #148은 강사 별도 승인으로 종료된 요구를 **새로운 기술 실험 성공으로 소급하지 않고** 체크리스트 추적에서 분리했다.
+   - **작업 문서 보호 [PR #150](https://github.com/aihuman-7th/proj2-3/pull/150):** 핵심 문서 링크·Skill 경로 및 개인 머신 절대경로가 현재 저장소와 어긋나지 않게 `scripts/check_doc_references.py`와 회귀 테스트를 구축했다. 이후 자료·원문 모델 가중치/개인 키/음성 파일 등 추적 위험 점검은 별도 `scripts/check_tracked_artifacts.py`·3개 테스트로 관리됐으나 **파일명·용량·ignore 검증은 gitleaks 본문 탐지의 대체품이 아님**.
+   - **D11/D12 제출 정합성 [PR #217](https://github.com/aihuman-7th/proj2-3/pull/217) — 개인 작성:** 이미 수행한 10/2 Prompt 30건, 10/6 운영 이미지 30×3, 10/8 D11 신규 인젝션 3건을 **서로 다른 실험**으로 인덱싱했다. D11 v5 3건의 **최초 계약 1/3과 제한 재시도 후 마지막 유효 시도 3/3·정답 2/3**을 병기하고, 사람이 독립 검토하지 않은 부분·운영 Release/rollback·사람 품질 판정 7건·D12 공식 전후 재측정·실제 코드 동결·데모 영상/발표 PDF·제출용 비식별 Langfuse 캡처를 **미완료로 남겼다**. 작성 당시 열린 PR #215·#216의 결과를 이미 main에 병합됐다고 소급하지 않았고, 기능 수정·실제 발표 제출·배포를 대신 수행했다고 쓰지 않는다.
+5. **결과:** **(1) PR 정책 품질:** 같은 HEAD의 stale run 정합성과 race condition 재발 방지를 위한 HEAD recheck/PR+SHA concurrency 정책을 코드·회귀 테스트로 고정하고 리뷰 승인·병합했다. **(2) 제품 회귀 자동화:** GitHub Actions backend/frontend 테스트 및 빌드가 성공하도록 첫 운영 검증을 남겼다. 이후 계정 billing/spending 한도 문제가 생긴 시점에는 **시작조차 하지 못한 CI를 정상 테스트 실패 또는 통과로 처리하지 않았다**. **(3) 추적 가능한 보고:** 공식 D2~D12, 강사 확인 종료·팀 자체 평가, 로컬/운영 증거를 나눠 실제 근거에 따라 상태를 갱신했다. D7 근거 링크와 체크포인트 불일치 지적에 대응했고, 10/8 D12 제출 인덱스는 진행과 미완료를 함께 보존했다. **프로젝트 모든 공식 항목을 완료했다거나 최종 코드 동결·영상/발표물 제출까지 단독 완료했다고 주장할 증거는 없다.**
+
+### 개인 기여와 관리 성과의 경계
+
+- **A / 직접 작성·수정 PR:** [#48](https://github.com/aihuman-7th/proj2-3/pull/48) PR 정책 re-run/race, [#137](https://github.com/aihuman-7th/proj2-3/pull/137) backend/frontend product CI, [#136](https://github.com/aihuman-7th/proj2-3/pull/136) 강사 보완 목록, [#141](https://github.com/aihuman-7th/proj2-3/pull/141) D7 근거, [#143](https://github.com/aihuman-7th/proj2-3/pull/143) D8/D9 등 상태 정합성, [#148](https://github.com/aihuman-7th/proj2-3/pull/148) 강사 확인 종료 추적, [#150](https://github.com/aihuman-7th/proj2-3/pull/150) 링크/경로 정합성 검사, [#217](https://github.com/aihuman-7th/proj2-3/pull/217) D12 평가/제출 증거 보수적 기록. 커밋은 `nanocode00`이나 AI 코딩 에이전트 사용·리뷰 협업의 실체까지 '모든 줄 수작업'으로 주장하지 않는다.
+- **팀 정책과 별도 역할:** Review Core 400/800 정책은 저장소 [DECISIONS](https://github.com/aihuman-7th/proj2-3/blob/main/docs/DECISIONS.md)의 **팀 기준**. 현 PR/Worklog만으로 원래 size checker 전체를 김재훈이 첫 작성했다고 단정하지 않는다. #48은 해당 정책을 적용하는 **재실행 신뢰성 코드**에 대한 직접 귀속이다. [#145](https://github.com/aihuman-7th/proj2-3/pull/145) pytest 전환, D8 README clean clone [#133](https://github.com/aihuman-7th/proj2-3/pull/133) 등은 **서정현 작성 코드/문서**. **#88~94 일괄 머지는 Codex가 kwak317 인증 계정으로 수행**하고 김재훈은 팀원 PR 리뷰/승인 역할이므로 해당 merge author로 쓰지 않는다.
+- **일정/검증 예외:** 공식 원장에 **D1 항목이 의도적으로 없다**(D2~D12). 10/7 강사 확인 D7 발표 종료와 곽호준의 최종 시연·회의자료 담당 분리는 **팀 합의**이지 최종 데모 파일·기술 검증 완료 아님. 10/8 당시 **D10 일부·D11 일부·D12 미완료**, 제출 증거의 Langfuse 비식별 캡처·정상/실패 영상·발표 PDF/코드 동결은 추후 명시적 확인이 필요했다. 이후 PR MERGED/운영 소스 동기화는 과거 공식 제출 시점의 완성 증거가 아니다.
+- **PR/CI 성공 표현:** 9/30 첫 Product CI 4개 job 성공은 실제 GitHub 체크 증거. 10/8 CI 시작 불가로 인한 실패는 결제/spending 제한이었으므로 '**모든 PR CI 성공**'으로 표현하지 않는다. 10/8 의존성 없는 정적 사이트는 CI 소비량 절감 설계이나 계량 개선 수치는 별도 측정되지 않음.
+- **주력 경력 서사:** 여러 팀의 기능이 병렬 변경되는 상황에서 **잘못된 CI 검사 결과·검증 없는 완료 판정이 배포/마감 의사결정을 오염시키는 위험을 감지하고, HEAD 단위 재실행·제품 테스트 자동화·증거 기반 상태표로 관리한 경험**. '단순 일정 관리'보다 **품질 게이트의 설계·재현 가능한 결함 수정**이 기술 면접에서 강하다.
+
+원본: [PR size/review-core 정책](https://github.com/aihuman-7th/proj2-3/blob/main/docs/DECISIONS.md) · [PR #48](https://github.com/aihuman-7th/proj2-3/pull/48) · [PR policy rerun Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-22_1120_pr-policy-rerun.md) · [PR #137](https://github.com/aihuman-7th/proj2-3/pull/137) · [공식 D2~D12 체크포인트](https://github.com/aihuman-7th/proj2-3/blob/main/docs/project2-checkpoint-work-cards.md) · [10/1 정합성 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1035_checkpoint-cleanup.md) · [D12 제출 정합성](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_d12-evaluation-submission-alignment.md) · [제출 인덱스](https://github.com/aihuman-7th/proj2-3/blob/main/docs/SUBMISSION_EVIDENCE.md).
+
+---
+
 ## 4. 확정된 1차 사실
 
 ### MB-04 — 평가 정답 검토
@@ -399,8 +426,8 @@
 
 ## 6. 남은 검증과 다음 진행 지점
 
-1. **MB-01~11 개별 근거 조사·5단계 경험 복원 완료 (11/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
-2. **다음 조사: MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
+1. **MB-01~12 개별 근거 조사·5단계 경험 복원 완료 (12/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
+2. **다음 단계: MB-01~12 전체 누락·중복·귀속 역검증.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
 3. **12개 작업군 전체 완료 후 누락·중복·귀속 역검증.** 사용자의 UI 제안·평가/검증·PR 운영과 팀원 프론트 구현·운영 배포를 혼동하지 않는다.
 4. **사례 선별.** 모델 평가/선정, 신뢰 계약·검증, 사람 ground truth, STT 실험, 인증 E2E 중 직무별 상위 3~5개 선택.
 5. **전면 근거 검증 뒤** `experiences/malhaebom.md` 채용 요약을 확정하고 `experiences/README.md`, `career-timeline.md`를 업데이트. 마스터 `resume.md`는 나머지 프로젝트 점검 뒤 변경.
