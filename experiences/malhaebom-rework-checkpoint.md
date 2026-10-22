@@ -35,7 +35,7 @@
 | MB-08 | Whisper Medium 50k → B0 → C2 학습 | **개인 PR #23~34·#51~56·#69~73·#146**, 50k/clean/71592/실사용 모델×beam 실험·리뷰 | **A(개인 주도 학습·데이터/평가 파이프라인·상대적 모델 선택)** | **검증 완료** — legacy adapter 단절, sealed test, retention 회귀, 단일 화자, 운영 기본 미교체 |
 | MB-09 | **WAV 업로드·STT/VAD·전사·코칭·비교 로컬 E2E 및 분석 지연** | 개인 PR #47·#104·#106·#115; 9/21·9/28·9/29 Worklog | **A(서비스 경로 검증·벤치마크·회귀 판정) / T(제품 핵심 STT·UI 기능)** | **검증 완료** — 마이크 실녹음·Hosted Supabase 운영 전체 E2E 미확인, MB-03/07 결과 중복 집계 금지 |
 | MB-10 | Langfuse Prompt·Skill 실행 버전·Trace·운영 관측 | **개인 PR #101·#114·#162·#216 / 개인 리뷰 #221**, 9/28~10/9 실측·worklog | **A(실험 export·버전 정합성·운영 trace 검증) / R(#221 요청-ID 연계 리뷰)** | **검증 완료** — 10/8 관리형 Prompt @4 실행 연결, 10/9 운영 HTTP ID 연결은 별도 실행; release/rollback 미검증 |
-| MB-11 | UI/UX 개선과 소개 페이지·배포 | 10/10 README, 운영 비교 PR, 별도 showcase 저장소 | T/B | 개인 제안·목업·별도 showcase 설계와 팀 프론트 구현 구분 |
+| MB-11 | UI/UX 개선 검토·정적 쇼케이스 제작·소개 통합 | **개인 PR #214, 개인 리뷰 #211, 개인 showcase 저장소**; 팀원 #240·#241·#251; 10/7~10/10 worklogs | **A(정적 소개 구현·콘텐츠/에셋 검증) / R(UI 코드 결함 발견·승인) / T(앱 통합·후속 운영)** | **검증 완료** — 목업/실제 UI/별도 Pages/운영 앱 통합 및 10/8 마감 전후를 분리 |
 | MB-12 | D1~D12 체크포인트·PR·CI 협업/종료 | 10/1 개인 Worklog, PR/CI 기록 | A/B | 직접 처리한 리뷰·브랜치·테스트·병합 대표 3~5건 선정 |
 
 ## 3-1. MB-01 — 문제 정의·경쟁 조사·제품 범위 결정 (1차 검증 완료: 2026-10-21)
@@ -350,6 +350,32 @@
 
 ---
 
+## 3-11. MB-11 — 제품 UI 사용성 검증과 독립 쇼케이스 설계·구현 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄은 음성 면접 연습·전사 확인·코칭·재답변·기록 등을 React/Vite 기반으로 제공하고 있었지만, 외부 방문자가 제품 목적과 실제 사용 흐름을 이해하기 위한 별도 소개 경로가 약했다. 2026-10-07에는 기존 연습 화면의 라이트/다크 테마, 시작 화면, 녹음·전사 진행 상태의 시각적 일관성이 개선 대상이었다. 사용자 측에서 랜딩 개선안을 **11페이지 PDF 목업**으로 구체화해 소개 사이트 제작의 입력으로 제공했다.
+2. **문제:** (a) 다크 모드 도입 과정에서 **`--app-background`·`--surface-raised`·`--border-subtle` 등 미정의 CSS 변수**, 기록/연습 화면의 고정 라이트 색상, 전사 입력창의 **어두운 배경에 어두운 텍스트가 남는 CSS specificity/cascade 충돌**이 있었다. (b) 랜딩 기획 목업·실제 제품 프런트 화면·현재 배포 동작을 혼동할 수 있고, 실제 모델 품질·데이터 보관 기간이 검증되지 않은 상태에서 홍보 카피로 확정할 위험이 있었다. (c) 별도 홍보 사이트를 기존 프런트에 즉시 결합하면 인증 라우팅/서비스 진입이 변하고 마감 전후 작업의 책임 범위가 불명확해질 수 있었다.
+3. **판단:** 코칭 화면의 기능·API/DB 상태 전이는 보존하면서 **테마를 semantic token으로 통일하고 실제 전사 편집기 대비까지 검토**해야 한다. 랜딩 PDF를 출발점으로 **서비스 소개와 개발·평가 근거 설명을 분리한 독립 정적 사이트**를 만들어 CI/build 의존성을 줄이고, 기존 브랜드 자산을 재사용하면서 **기획용 UI와 운영 중 UI를 명확히 표시**한다. 확인하지 않은 성능·보관기간은 공개 카피에서 제외한다. 사이트 소스 제작/개인 별도 Pages/기존 운영 앱 진입 화면 결합은 **각각 독립 산출물·시점**으로 구분한다.
+4. **조치:**
+   - **10/7 UI 리뷰 [PR #211](https://github.com/aihuman-7th/proj2-3/pull/211):** 사용자의 메인·코칭 UI 개선 요청을 바탕으로 **김재훈 명의 `CHANGES_REQUESTED` 2회 + `APPROVED` 1회**가 남았다. CSS 변수 정의 누락으로 카드가 투명해지는 문제, 라이트 고정 CSS 때문에 공통 테마 전환 후 연습·기록·계정 일부가 어긋나는 문제, `.transcript-editor` 선택자 우선순위로 다크 모드에서 입력 글자가 잘 보이지 않는 문제를 각각 코드 줄·CSS 선택자로 지적했다. 동료/코딩 에이전트의 수정 커밋을 재검토하고 **normal 15.29:1, disabled 8.46:1** 대비를 확인했다. **실행 테스트·빌드는 Windows npm/WSL UNC 오류로 개인 환경에서 재실행하지 못했음**을 명시했고, 작성자 Worklog **181 tests 및 build PASS**는 별도 근거로만 기록했다. 실제 마이크·배포 E2E도 미실행.
+   - **10/8 독립 정적 소개 사이트 개인 작성 [PR #214](https://github.com/aihuman-7th/proj2-3/pull/214):** 김재훈 명의 **3개 커밋**으로 `site/index.html` 서비스 소개와 `site/project/index.html` 개발·평가 소개를 구성하고, 기존 제품의 로고·마스코트·녹음/전사 코치 이미지·데모 4장·배경 SVG를 WebP 등으로 최적화해 복제, **보라색 브랜드 톤, Light/Dark/System·반응형 메뉴·FAQ·실서비스 CTA·콘텐츠 확인 체크리스트**를 적용했다. 의존성 없는 HTML/CSS/JS와 `site/scripts/check_site.py` 검사기를 추가했으며 최종 정적 검사 **서비스 18 IDs/31 links·assets, 프로젝트 7 IDs/30 links·assets**, 두 페이지 로컬 HTTP 200·MIME 및 이미지 시그니처·중복 앵커 검증을 통과했다. 실제 서비스 주소와 GitHub 원본 프로젝트 링크를 설정하고, **프로젝트 기간 2026-09-18~10-08**을 확인해 기록했다. **24시간 보관은 실제 삭제 정책 미확인이라 사이트 공개 확정문구에서 제외**했다.
+   - **개인 쇼케이스 저장소:** [`nanocode00/malhaebom-showcase`](https://github.com/nanocode00/malhaebom-showcase)에 별도 정적 게시 루트(`README.md`, `index.html`, `project/`, `assets/`, `scripts/`)가 존재함을 **GitHub 연결 파일에서 확인**했다. README는 GitHub Pages `main / root` 게시 설정과 예상 URL을 안내하고 서비스는 `malhaebom.xyz`로 연결한다. **현재 Pages 응답/배포 시각을 본 조사에서 직접 점검한 것은 아니므로, 파일 존재와 운영 공개 실측을 동일시하지 않는다.**
+   - **10/10 운영 소개 동선 통합의 팀원 귀속:** [PR #240](https://github.com/aihuman-7th/proj2-3/pull/240)에서 **곽호준**이 정적 소개 소스/자산을 이관했고, [PR #241](https://github.com/aihuman-7th/proj2-3/pull/241)에서 같은 작성자가 `/` 소개·`/app/` 서비스 홈·`/app/practice` 연습·OAuth 복귀·레거시 경로 호환을 구현했다. 원래 쇼케이스 HTML과 이관 자산에 **원본 SHA manifest**를 남겼고 **프런트 234 tests/build·경로 스모크**가 기록됐다. 10/10 당시 CI는 GitHub billing/spending limit 때문에 job을 시작하지 못해 로컬 증거와 구별했다. [PR #251](https://github.com/aihuman-7th/proj2-3/pull/251)의 최신 소개 콘텐츠/운영 화면 갱신도 **곽호준** 작성. 이 통합·후속 작업은 **공식 프로젝트 종료 10/8 이후**의 팀 작업이다.
+5. **결과:** 제품 UI 리뷰에서 **미정의 토큰·고정 색상·전사문 cascade 세 문제를 구체적으로 발견해 변경 요청하고, 대비 개선을 확인한 뒤 승인**했다. 독립 소개 사이트는 **서비스 소개·프로젝트 소개 2개 정적 페이지, 브랜드 에셋/시각 데모, 반응형·다중 테마, 정적 검사와 로컬 HTTP 검증**을 갖춘 개인 커밋 산출물로 보존됐다. 사용자 제공 기획용 화면을 실제 서비스 캡처로, 시험 데이터·보관 정책을 검증된 운영 성과로 소개하지 않도록 구분했다. 별도 개인 GitHub 저장소에도 게시 소스가 존재한다. 이후 곽호준 작성 통합 PR로 소개→로그인(필요 시)→연습 진입 경로가 프런트에 추가됐으나 **원본 소스 제작과 통합/배포는 같은 개인 작업으로 중복 계상하지 않는다**.
+
+### 기여·시점·검증 경계
+
+- **A — 직접 구현/기획:** [#214](https://github.com/aihuman-7th/proj2-3/pull/214) 독립 정적 소개 사이트·기획 목업의 웹 구성·브랜드 원본 자산 적용·공개 전 근거 검증, [개인 showcase 저장소](https://github.com/nanocode00/malhaebom-showcase) 소스.
+- **R — 직접 코드 리뷰:** [#211](https://github.com/aihuman-7th/proj2-3/pull/211) CSS 정의/명암/입력 상태 리뷰와 변경 요청·최종 승인. **제품 ThemeProvider/홈·코칭 화면 코어 코드를 김재훈이 단독 구현했다고 서술하지 않음**.
+- **T — 팀원 구현:** [#240](https://github.com/aihuman-7th/proj2-3/pull/240)·[#241](https://github.com/aihuman-7th/proj2-3/pull/241)·[#251](https://github.com/aihuman-7th/proj2-3/pull/251) 곽호준 작성 이관·OAuth/루트 동선·현재 서비스 화면 내용 갱신. 원본/이관 자산과 PR/브라우저 테스트를 검증했더라도 **개인 단독 구현이나 10/8 이전 기능으로 소급하지 않음**.
+- **목업/운영 구분:** 11페이지 PDF는 소개 사이트의 **디자인 입력물**이지 자체 사용자 효과나 A/B 실험 결과가 아니다. 기획용 3단 코칭 UI를 실제 운영 기능으로 광고하지 않고, demo image는 구버전일 수 있다. 로그인 OAuth 실제 성공·실마이크/STT/운영 UI 배포 상태/Pages 현재 응답은 별도 검증 필요.
+- **이력서 활용 판단:** UX 직무 단독 '디자인 전면 리뉴얼'보다 **(1) UI 코드 리뷰로 실제 사용성·대비 버그를 추적해 개선 요구, (2) 11페이지 기획안을 의존성 없는 정적 소개 사이트로 구현, (3) 과장 없는 제품·프로젝트 홍보/증거 구분** 경험으로 표현하는 것이 정확하다.
+
+원본: [테마 리뷰 PR #211](https://github.com/aihuman-7th/proj2-3/pull/211) · [UI 테마/코칭 화면 Spec](https://github.com/aihuman-7th/proj2-3/blob/main/docs/specs/ui-theme-coaching-refresh.md) · [UI 개선 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-07_ui-theme-coaching-refresh-design.md) · [개인 소개 사이트 PR #214](https://github.com/aihuman-7th/proj2-3/pull/214) · [사이트 작업 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_malhaebom-intro-site.md) · [개인 쇼케이스](https://github.com/nanocode00/malhaebom-showcase) · [10/10 소개 이관](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-10_showcase-intro-integration.md).
+
+---
+
 ## 4. 확정된 1차 사실
 
 ### MB-04 — 평가 정답 검토
@@ -373,8 +399,8 @@
 
 ## 6. 남은 검증과 다음 진행 지점
 
-1. **MB-01~10 개별 근거 조사·5단계 경험 복원 완료 (10/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
-2. **다음 조사: MB-11 → MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
+1. **MB-01~11 개별 근거 조사·5단계 경험 복원 완료 (11/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
+2. **다음 조사: MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
 3. **12개 작업군 전체 완료 후 누락·중복·귀속 역검증.** 사용자의 UI 제안·평가/검증·PR 운영과 팀원 프론트 구현·운영 배포를 혼동하지 않는다.
 4. **사례 선별.** 모델 평가/선정, 신뢰 계약·검증, 사람 ground truth, STT 실험, 인증 E2E 중 직무별 상위 3~5개 선택.
 5. **전면 근거 검증 뒤** `experiences/malhaebom.md` 채용 요약을 확정하고 `experiences/README.md`, `career-timeline.md`를 업데이트. 마스터 `resume.md`는 나머지 프로젝트 점검 뒤 변경.
