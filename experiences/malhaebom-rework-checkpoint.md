@@ -28,7 +28,7 @@
 | MB-01 | 문제 정의·경쟁 비교·프로젝트 범위 고정 | PR #59·#60, 9/23 Worklog, D2, 10/1 Worklog | **A(문서 작업 지시·검토)/T(기획 원형)** | **1차 확인 완료** — 공개자료 조사와 직접 사용은 분리; 초기 기획 주도권은 추가 미확인 |
 | MB-02 | Agent의 Prompt·Skill·MCP·서버 정책 분리 | PR #119의 직접 인라인 리뷰, PR #116의 3차 수정요청, PR #123 신뢰 경계 문서; 실제 코드 및 테스트 | **A(검토·신뢰 경계 문서) / T(주요 코드 구현)** | **검증 완료** — 핵심 구현 PR 작성은 팀원; 검증 계약 결함 지적과 문서화는 개인 귀속 |
 | MB-03 | OpenRouter 다양성 탐색·Final Four·서비스 후보 선정 | 사용자 커밋 PR #36/#37/#40/#41/#47, 팀원 리뷰, 실험·서비스 E2E Worklog | **A(실험 구현·운영 및 후보 선정 흐름) / T(기존 평가 기반)** | **검증 완료** — Codex/Antigravity 보조 개발을 명시; 계약·비용·E2E 근거의 모집단 분리 |
-| MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | reviewer-assignment, 9/30 offline regrade | **A** | 검토표·수정 반영 커밋 연결만 추가 |
+| MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | **PR #126**·dataset v2·reviewer-assignment·9/30 offline regrade | **A(직접 검토·정정·재채점 확인)** | **검증 완료** — 30건 사람 검토와 저장 출력 90건 재채점 분리, PR #125 폐기·#123 revert 기록 확인 |
 | MB-05 | Prompt/Skill A/B 및 회귀 대응 | 10/2 30건, 10/6 Skill smoke | T/B | 직접 만든 harness/실험 실행과 팀 검토·프롬프트 작성 분리 |
 | MB-06 | 로그인 사용자 공고 원문 분석 E2E | 10/1 14:00 김재훈 Worklog, 토큰 0600 검증 | **A** | 해당 PR 번호·diff, 반복 재현 여부 확인 |
 | MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | AGENT_REPORT, CURRENT_STATE, 서버 코드, PR | T/B | stdio 도구 기여/통합 검증과 구현 코드 책임 구분 |
@@ -162,14 +162,33 @@
 
 ---
 
+## 3-4. MB-04 — 합성 30건 사람 검토·Ground Truth 교정 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄의 `evals/dataset.v2.jsonl`에는 정상 12·경계 10·실패 유도 8의 **합성 평가 30건**이 있었지만, D4 체크포인트의 필수 사항인 **사례별 실제 사람 검토자와 최종 판정 근거**가 확정되지 않아 provenance가 `independent_review_pending`이었다. 과거 모델 출력 품질 평가와 **정답표 검토**는 목적이 다르다.
+2. **문제:** `coach-boundary-17`의 답변은 “첫 프로젝트에서는 캐시, 두 번째 프로젝트에서는 로그, 인덱스도 추가, 결과적으로 성능 개선”처럼 **프로젝트·조치와 결과가 연결되지 않는다**. 결과가 언급됐다는 이유만으로 V(`result_verification`)의 기대값을 `partial`로 두면 모델이 **귀속 불명확성을 판단하지 못해도 정답**으로 계산될 수 있다. 같은 상위 V 상태라도 '검사 행위만 있음'과 '결과 주장만 있음'은 오류 원인이 다르다.
+3. **판단:** **결과가 전혀 언급되지 않음(`not_observed`)**과 **결과 정보는 있으나 어느 행동의 결과인지 확인 불가(`undetermined`)**를 분리해야 한다. 사람 검토로 수정한 **Ground Truth만 적용해 기존 출력 재채점**해야 새 추론이나 Prompt 회귀와 섞이지 않는다. V 보조지표는 **사람 검토 메타데이터**일 뿐 기존 모델의 4상태 계약·자동 품질 점수에 추가하지 않는다.
+4. **조치:** 김재훈이 2026-09-30 **30건 전체의 원문·C/A/V expected 및 판정 근거를 직접 검토**, 29건을 유지하고 `coach-boundary-17`의 V를 **`partial → undetermined`**로 확정했다. `evals/reviewer-assignment.md`에 사례별 판정자·근거·상태를 기록하고 V 원인을 `verified / verification_only / result_only / omitted / explicitly_unverified / ambiguous_target / conflicting_results` **7종**으로 분류했다. Dataset·기대 행렬·provenance를 고치고, **9/22 Gemini Flash-Lite / Prompt v4.1 / 30건×3회 = 90개 최종 저장 출력**을 **provider 재호출 없이** offline 재채점했다.
+5. **결과:** 세 번의 case17 출력 V가 모두 `partial`이었으므로 새 정답 적용 후 전체 label 일치가 **316/360(87.8%) → 313/360(86.9%)**, V가 **77/90(85.6%) → 74/90(82.2%)**로 정정됐다. **최종 계약 통과 90/90, evidence accuracy 96%, ID reference 100%, 비용 $0.292, 원본 호출 총 96건**은 기존 측정 그대로다. **실험 결과가 새로 악화된 것이 아니라 정확한 정답표로 동일 출력을 다시 평가한 결과**다.
+
+### 기여·PR·검증 경계
+
+- [PR #126 — D4 human review split](https://github.com/aihuman-7th/proj2-3/pull/126)은 **JaeHun Kim / nanocode00** 명의 2개 커밋으로 Dataset 30건 최종 검토 결과 및 `EVAL_REPORT` offline regrade를 연결했고 **MERGED**. 동료 `SJeongHyeon`이 case17 데이터셋·테스트 기대 행렬·재채점 보고서를 대조하고 **D4 관련 8개 테스트, diff check, PR Policy·Secret Scan 통과**를 확인해 승인했다. 이 PR은 개인 작업 귀속의 중심 증거다.
+- [PR #123 체크포인트](https://github.com/aihuman-7th/proj2-3/pull/123)에 D4 검토/expected 정정 작업이 일시 포함됐으나 최종적으로 **두 커밋을 revert**해 체크포인트만 분리·병합했다. 원래 [PR #125](https://github.com/aihuman-7th/proj2-3/pull/125)는 **CLOSED, unmerged**. **최종 유효 기여는 #126**을 기준으로 추적해야 한다. 중복 커밋을 독립 성과로 계산하지 않는다.
+- 실제 사람 검토 **30개 사례 ≠ 90개 모델 출력 전수 사람 검토**. 90개는 저장된 모델의 출력이고 자동 스코어러로 다시 채점했다. 96 provider calls는 90 최종 execution 및 contract repair를 포함한 **과거 실행 기록**이며 이번 교정에서 새 과금/API 호출은 하지 않았다.
+- **단일 검토자**: 다른 검토자와 합의하거나 inter-rater agreement를 측정한 것처럼 쓰지 않는다. Ground Truth의 1개 수정은 모든 평가 정책을 독립 검증했다는 의미도 아니고, 보조 7분류는 별도 모델 예측 지표가 아니다.
+- **이력서 가치: 주력 보완 사례.** '점수를 개선했다'가 아니라 **정답표 오류를 검출하고, 인과 귀속과 관찰/미관찰을 구분하며, 결과 재측정에서 입력·모델 호출 통제를 지켰다**는 신뢰성 있는 평가 엔지니어링 판단 사례로 제시한다.
+
+원본: [D4 사람 검토표](https://github.com/aihuman-7th/proj2-3/blob/main/evals/reviewer-assignment.md) · [D4 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-30_d4-human-review.md) · [offline 재채점](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-30_d4-boundary17-offline-regrade.md) · [EVAL_REPORT §3-2](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
+
+---
+
 ## 4. 확정된 1차 사실
 
 ### MB-04 — 평가 정답 검토
 
-- 9/30 김재훈이 30개 expected label·근거 모두 검토, 29개 유지, boundary-17의 결과 검증을 `partial → undetermined`.
-- 동일 저장 출력 90개를 offline 재채점: contract 90/90 유지; 전체 label 316/360 → 313/360(86.9%), V 77/90 → 74/90(82.2%). 새 모델 호출이 아니라 정답 수정 효과.
-- 단일 검토자·inter-rater 없음.
-- [사람 검토표](https://github.com/aihuman-7th/proj2-3/blob/main/evals/reviewer-assignment.md) · [재채점](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-30_d4-boundary17-offline-regrade.md).
+- 작업군 검증 완료. **5단계 서사, 개인 기여, PR #126 및 재채점의 세부 근거는 §3-4 참조.**
 
 ### MB-06 — 공고 원문 분석 E2E
 
