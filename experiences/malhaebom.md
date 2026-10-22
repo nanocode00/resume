@@ -84,13 +84,24 @@
 
 근거: [다양성 실험](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-model-diversity.md) · [Final Four](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-final-four.md) · [서비스 통합](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_service-candidate-integration.md) · [평가 총괄](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
 
-### 4. Prompt/Skill 변경의 회귀를 측정하고 승격 보류 — 프로젝트 실험 확인, 귀속 재확인 필요
+### 4. Prompt/Skill A/B 평가의 회귀 검출과 확대 실험 중단 — 개인 기여·팀 역할 구분 완료
 
-2026-10-02 동일 Gemini Flash Lite·Skill·합성 30건에서 Prompt v4/v5를 비교했다. 양쪽 계약은 **30/30**이었지만 종합 자동 통과는 **22/30 → 20/30**, 기대 intent/C/A/V 일치는 **116/120 → 107/120**으로 후퇴했다. 알려진 provider 비용은 **$0.19638110 → $0.17027067**, p95는 **4.621 → 4.622초**였다. 비용 절감에도 코칭 의미 판정 회귀가 발생해 품질 개선이나 출시 게이트 통과로 판단하지 않았다.
+**상황:** 말해봄은 같은 코칭 모델에서도 Prompt·Skill 수정으로 인한 판정 변화, 서버 출력 계약 안정성, 비용·지연을 각각 검증해야 했다. 기존 Prompt v4→v5 30건 페어 실험과 단일 Skill 규칙 smoke, 별도 D11 인젝션 3건은 목적과 실행 조건이 달랐다.
 
-10월 6일의 단일 Skill 규칙 smoke는 계약 양쪽 1/1이었으나 target hit **2/3 → 1/3**으로 악화돼 전체 확대 실행을 중단했다. 같은 날 별도 배포 이미지 기반 30건×3회 반복 평가에서는 계약 **90/90**, 종합 자동 통과 **57/90**이었다. 이 세 실험의 버전·모집단·조건을 합쳐 하나의 개선율로 표시하지 않는다.
+**문제:** JSON 계약이 유효하더라도 개인 행동·결과 검증 판정이 회귀할 수 있었다. 특히 단일 Skill 규칙 A/B의 첫 구현은 특정 `problem_context`만 개선 대상으로 보거나 C/A/V 전체 합산 점수만 비교해 **다른 기준의 개선·회귀를 놓칠 위험**이 있었다.
 
-근거: [EVAL_REPORT 4·6·7장](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md) · [AGENT_REPORT](https://github.com/aihuman-7th/proj2-3/blob/main/docs/AGENT_REPORT.md).
+**판단:** 모델을 개선했다고 주장하려면 **계약·C/A/V 개별 정답·전체 자동 통과·비용·지연을 함께 보며**, 한 target 기준이 좋아져도 다른 기준의 퇴행이 있으면 보류해야 한다고 판단했다. 목표 사례 smoke에서 회귀가 나오면 전체 평가를 확대하지 않고, 단일 검토자 인젝션 실험과 불균등한 재시도의 성공을 방어 효과로 일반화하지 않는다.
+
+**조치:** 동료 구현의 영문 Prompt v4/v5 30건 비교 [PR #155](https://github.com/aihuman-7th/proj2-3/pull/155)를 코드·실험 조건·보고서와 CI 관점에서 검토했다(원시 출력의 독립 재계산은 미수행). 개인 주도 [PR #185](https://github.com/aihuman-7th/proj2-3/pull/185)에서는 `coach-boundary-19`를 대상으로 **Skill 한 문장만 교체하는 A/B runner**와 고정 조건 검사를 준비하고, 동료 수정 요청을 반영해 **전체 target C/A/V 집계 및 기준별 무회귀 gate**를 추가했다. [PR #189](https://github.com/aihuman-7th/proj2-3/pull/189)에 실제 1건 smoke 결과를 기록했고, [PR #215](https://github.com/aihuman-7th/proj2-3/pull/215)에 신규 인젝션 3건의 Prompt v4/v5 비교와 추가 1회씩의 재시도 결과를 분리 보존했다.
+
+**결과:** 
+- **10/2 Prompt v4/v5 (팀원 실험, 개인 리뷰):** 계약 양쪽 **30/30**이지만 종합 자동 통과 **22/30→20/30**, C/A/V·intent 판정 **116/120→107/120**. 호출 비용은 약 **13.3% 감소**했으나 품질 개선 승격은 보류했다. 실제 구현/호출은 **곽호준** 작업이므로 개인 단독 실행 성과가 아니다.
+- **10/6 개인 Skill A/B:** baseline/candidate 계약 **각 1/1**이어도 목표 C/A/V 일치는 **2/3→1/3**, label accuracy **75%→50%**. 자동 게이트 `DISCARD_CANDIDATE`가 작동해 **전체 30건×2회 확대 호출은 중단**했다. 최종 사람 검토를 거친 확정 폐기와는 구분한다.
+- **10/8 신규 인젝션 잠정 A/B:** 실패 건 추가 호출을 포함한 **사례별 마지막 시도 기준** v4/v5 계약 **3/3 대 3/3**, 기대 판정 전체 일치 **3/3 대 2/3**. 단, v5 **첫 호출 계약은 1/3**이었고 조건별 재시도 횟수·타임아웃과 독립 사람 검토가 달라 방어 개선·출시 통과로 주장하지 않는다.
+
+**개인 기여 귀속:** [PR #185](https://github.com/aihuman-7th/proj2-3/pull/185)의 단일 Skill A/B 준비 및 판정 게이트 개선 커밋, [#189](https://github.com/aihuman-7th/proj2-3/pull/189)의 회귀 실측 기록, [#215](https://github.com/aihuman-7th/proj2-3/pull/215)의 추가 인젝션 실험 증거는 `nanocode00` 작성으로 확인됐다. **실험의 보수적 판정과 실패 시 확대 중단**이 핵심 경험이다. 10/6 배포 이미지 별도 30×3 반복 결과(계약 90/90, 자동 통과 57/90)는 이 A/B 개선율과 합치지 않는다.
+
+근거: [10/2 비교](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-10-02_latest-english-v5-comparison.md) · [10/6 단일 규칙 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-06_single-skill-rule-offtopic-cav.md) · [10/8 잠정 인젝션 A/B](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-10-08_d11-injection-prompt-ab-provisional.md).
 
 ### 5. Whisper Medium 추가 학습·도메인 적응 — 프로젝트 실험 확인, 개인 수행 범위 재확인 필요
 
