@@ -31,7 +31,7 @@
 | MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | **PR #126**·dataset v2·reviewer-assignment·9/30 offline regrade | **A(직접 검토·정정·재채점 확인)** | **검증 완료** — 30건 사람 검토와 저장 출력 90건 재채점 분리, PR #125 폐기·#123 revert 기록 확인 |
 | MB-05 | Prompt/Skill A/B 및 회귀 대응 | PR #155 리뷰, #185(공동 PR의 본인 작성 1·5~9), #189, #215; 10/2 30건·10/6 Skill smoke·10/8 D11 3건 | **A(단일 Skill A/B·검증 기준·결과 기록·추가 실험 정리) / R(10/2 팀원 A/B 리뷰)** | **검증 완료** — 변경 효과보다 회귀·미검증 범위의 정확한 판정 중점 |
 | MB-06 | 로그인 사용자 공고 원문 분석 E2E | **개인 PR #149**, 로컬 redacted 증거·10/1 Worklog·팀 리뷰; 별도 팀원 PR #167·#186 | **A(인증 API E2E 도구·실측·장애 분리) / T(운영 로그 문서화·Windows 보강)** | **검증 완료** — PlayMCP 직접/브라우저 UI/운영 동일 요청 입증은 미확인 |
-| MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | AGENT_REPORT, CURRENT_STATE, 서버 코드, PR | T/B | stdio 도구 기여/통합 검증과 구현 코드 책임 구분 |
+| MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | **개인 PR #112·#114·#115·#118 / 개인 리뷰 #122**, 팀원 PR #39·#116·#117·#172 | **A(통합 테스트·인증 사용자 검증·저장 거짓 양성 리뷰) / T(핵심 Agent·MCP 코어)** | **검증 완료** — fixture·로컬 JWT live·Cloud trace·DB 행 검증·운영 배포의 수준 구분 |
 | MB-08 | Whisper Medium 50k → B0 → C2 학습 | stt-finetuning-lineage, 50k/C2 실험 | T/B | 본인 수행 train configs/로그/checkpoint SHA, 운영 모델 선택 |
 | MB-09 | 실제 마이크/STT·NLU·Supabase 통합 E2E | checkpoint, EVAL_REPORT, 일부 worklog | T/B | 인증 사용자 부분 E2E와 운영 전체 E2E 분리 |
 | MB-10 | Langfuse Prompt/trace·운영 관측 | AGENT_REPORT, 10/8~10/9 운영 증거 | T/B | 직접 운영 trace 확인/배포와 팀 공통 관측 분리 |
@@ -230,6 +230,33 @@
 - **채용용 서사:** '공고 분석 시스템 전체 구현'보다 **기존 기능의 인증 연속 경로를 자동화하고, 외부 MCP 인증 장애·토큰 만료를 분리해 정상 지원 fallback으로 E2E를 검증하면서 민감정보가 남지 않도록 한 경험**이 가장 강하다.
 
 근거: [PR #149](https://github.com/aihuman-7th/proj2-3/pull/149) · [10/1 Local evidence](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/job-source-analysis-local-e2e-2026-10-01.md) · [10/1 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1400_job-source-authenticated-e2e.md) · [PR #167](https://github.com/aihuman-7th/proj2-3/pull/167) · [PR #186](https://github.com/aihuman-7th/proj2-3/pull/186).
+
+---
+
+## 3-7. MB-07 — MCP·Agent·DB 통합 검증과 거짓 양성 제거 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄은 `POST /api/agent`에서 로그인 사용자와 질문·답변 revision·공고 snapshot을 식별하고, 서버의 **FastMCP stdio 읽기 도구**(`get_question`, `get_practice_attempt`, `get_job_context`)로 허용 문맥을 읽어 LLM 코칭→스키마·인용·ID 검증→`coaching_runs` 저장을 수행하도록 발전했다. 별도의 HTTP `/mcp`는 읽기 도구와 capability token scope를 제공했다. **Agent/MCP의 주요 구현은 팀 코드**로, 검증 범위를 자신의 전체 코어 구현이라고 주장하지 않는다.
+2. **문제:** 개별 API·stdio·HTTP MCP 테스트가 있어도 이 결과만으로 **인증된 실제 사용자가 음성을 분석하고, Agent가 올바른 MCP 문맥을 읽고, 유효한 코칭 출력을 DB에 새로 저장했는지** 확인할 수 없었다. 테스트용 MCP 오류를 '실제 운영 실패'로 오인할 수도 있었고, `needs_more_info` 같은 유효한 코칭 terminal status를 `ok`가 아니라고 실패 판정할 위험이 있었다. DB 검증기가 단지 **같은 revision/snapshot의 기존 `coaching_runs` 행이 있음**만 확인하면 현재 POST의 저장 실패를 성공으로 오판하는 심각한 **stale-row false positive**가 있었다.
+3. **판단:** 검증 증거를 **(a) fixture 기반 MCP 호출·권한 경계, (b) 로컬 인증 사용자 Agent E2E, (c) Langfuse provider/validation/trace, (d) DB에 이번 호출로 새 행이 저장됐는지**로 분리해야 한다. 정상 입력에도 설명 근거가 모자라면 `needs_more_info`는 실패가 아니라 **정상적인 근거 기반 보류**다. 저장 성공은 HTTP 200이 아니라 **요청 전후의 새 행 ID + 동일 revision/snapshot + 최종 API status 일치**로 검증해야 한다. 운영 배포·실제 MCP 서버 인증과 로컬 fixture를 동일 성과로 묶지 않는다.
+4. **조치:**
+   - **[#112 — D6 MCP 경계](https://github.com/aihuman-7th/proj2-3/pull/112):** 김재훈 명의 최초 구현 커밋으로 HTTP `/mcp`의 scope 밖 질문 ID 거부 및 `/api/agent`→실제 **stdio FastMCP subprocess 3도구** 호출·ID 일치·gateway 오류→503 정규화 테스트를 추가했다. 이후 서정현 작성 보정 커밋으로 **fixture 검증은 운영 E2E가 아니므로 체크포인트 완료를 부분 완료로 수정**했다.
+   - **[#114 — 인증 사용자 Langfuse 증거](https://github.com/aihuman-7th/proj2-3/pull/114):** 김재훈 작성 커밋으로 로그인 사용자 WAV/STT→Agent→MCP→provider→validator→DB→Langfuse 흐름에서 **network_error 시도 1/2, 오류 복구, 성공 trace**의 관측을 기록했다. 출력 validator 성공 후 503으로 실패한 별도 사례의 원인은 **로컬 Supabase에서 `coaching_runs.criteria_version` migration 누락**이었고, migration 반영 후 재실행 성공을 기록했다. DB 오류가 기존 `provider_error`로 뭉개져 보일 수 있다는 진단 한계도 남겼다.
+   - **[#115 — 실제 사용자 3종 검증](https://github.com/aihuman-7th/proj2-3/pull/115):** 김재훈 명의 4개 커밋으로 **normal / boundary / injection의 실제 로컬 브라우저 인증 흐름**을 테스트하고, 정상 입력의 `needs_more_info`를 유효 상태로 인정하도록 `D6_CASE_ID`별 허용 HTTP·terminal status와 runner exit 판정/회귀 테스트를 연결했다. 동료 리뷰에서 발견된 **PR·Worklog·체크포인트 간 1차→2차 비교 완료 상태 불일치**도 정정했다.
+   - **[#118 — 재현 가능한 자동화](https://github.com/aihuman-7th/proj2-3/pull/118):** 김재훈 작성으로 인증 사용자 JWT를 숨김 입력/환경변수로 받고, 완료된 **사용자가 명시 선택한 테스트용 analysis job**에 합성 immutable answer revision을 생성해 정상·경계·인젝션 각각 `/api/agent`를 검증하는 runner 및 안내 문서를 구축했다. 자체 소스·mock 테스트/CI 검증과 **이 runner가 실제 사용자에서 반복 실행됐다는 증거는 분리**한다.
+   - **[#122 — DB 저장 검증 코드 리뷰](https://github.com/aihuman-7th/proj2-3/pull/122):** 서정현 작성 verifier가 마지막 matching row만 조회해 **과거 저장 행을 이번 POST 성공으로 착각**할 수 있는 결함과 **DB status 불일치 미검출**을 김재훈이 `CHANGES_REQUESTED`로 지적했다. 후속 커밋은 POST 이전의 마지막 run ID를 확보하고 POST 이후 **다른 새 ID** 및 API/DB status 일치를 검사하도록 수정했고, 김재훈이 focused **3개 테스트와 compile 확인 뒤 승인**했다.
+5. **결과:** [MCP D6 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1133_mcp-d6-verification.md)에 **HTTP MCP 11개, Coaching runtime 24개, Agent API 12개 테스트 통과**가 기록됐다. 로그인 사용자의 **normal·boundary·injection 세 코칭 사례는 각 `needs_more_info`로 처리되며 테스트 의도에 맞는 결과**였고, 1차 저장·코칭→재답변 저장·코칭→비교 화면까지 로컬 인증 흐름을 기록했다. Langfuse에서는 실제 provider의 controlled network 실패·1회 retry 및 migration 반영 이후 성공 trace의 비용·토큰·validation 관측을 확보했다. DB verifier가 **이전 실행의 행을 새 저장 성공으로 잘못 인정하는 회귀**를 막는 규칙이 반영됐다. **하지만 운영 환경의 실제 MCP tool→동일 호출 DB 저장을 끝까지 잇는 통합 trace, 사용자 전체 E2E 성공률, 사람 semantic 코칭 품질**은 이 근거로 확정하지 않는다.
+
+### PR 귀속과 검증 성격의 경계
+
+- **개인 직접 작업:** [#112](https://github.com/aihuman-7th/proj2-3/pull/112) **첫 3커밋**의 MCP 호출/차단·오류 테스트 및 CI secret fingerprint 후처리, [#114](https://github.com/aihuman-7th/proj2-3/pull/114) Langfuse 인증 사용자 실측 증거, [#115](https://github.com/aihuman-7th/proj2-3/pull/115) 실제 UI 3종 및 1차/2차 비교, [#118](https://github.com/aihuman-7th/proj2-3/pull/118) 인증 Agent 자동화 runner. 초기 **[#122](https://github.com/aihuman-7th/proj2-3/pull/122)** 직접 리뷰의 false-positive 결함 발견·변경 요청·재검토 승인도 중요하다. AI 코딩 도구의 실제 코드 작성을 포함한 작업 흐름이므로 Git author만으로 모든 코드를 수작업으로 작성했다고 주장하지 않는다.
+- **팀 코어 및 별도 구현:** MCP 문맥 접근, Agent runtime, DB 비교 및 HTTP MCP 기능 다수는 **곽호준 작성 [#39](https://github.com/aihuman-7th/proj2-3/pull/39)**를 포함한 팀 기여. 서정현은 [#112](https://github.com/aihuman-7th/proj2-3/pull/112) 마지막 평가 근거 교정, [#113](https://github.com/aihuman-7th/proj2-3/pull/113) 초기 synthetic/live harness, [#116](https://github.com/aihuman-7th/proj2-3/pull/116) D6 verifier, [#117](https://github.com/aihuman-7th/proj2-3/pull/117) MCP 증거 검증, [#122](https://github.com/aihuman-7th/proj2-3/pull/122) DB 저장 verifier 구현, [#172](https://github.com/aihuman-7th/proj2-3/pull/172) D9 MCP 실패 검증의 커밋 작성자다. 김재훈의 리뷰를 팀원 구현으로 잘못 귀속하지 않는다.
+- **증거 주의:** `HTTP /mcp 200`에서 `result.isError=true`는 capability 거절이 정상적으로 동작한 예다. 실제 stdio subprocess로 간 fixture는 모델 제공자·실제 Supabase JWT·운영 MCP 성공까지 검증하지 않는다. 초기 MCP 오류는 일반 `provider_error`로 매핑됐고 후속 D9에서는 `mcp_error`로 분리됐다. 서로 다른 시점 계약을 동시에 현재 상태로 주장하지 않는다.
+- **로컬 DB migration:** `criteria_version` 컬럼 누락은 성공한 provider 응답 이후 **persistence 단계 실패**였고, migration 후 `needs_more_info` 성공 trace를 얻었다. **DB 저장 확인은 별도 수동 SQL 조회 증거와 자동 verifier를 구별**하고, #122의 PR 테스트 3개가 운영 DB 영속성을 재측정한 것처럼 쓰지 않는다.
+- **채용 활용:** 핵심 구현 전체 소유보다 **(1) MCP/Agent 경계 통합 검증, (2) 유효한 `needs_more_info` 상태 판정 교정, (3) 신규 저장 행 여부를 구분하지 못한 테스트의 false positive 제거**를 개인 판단·조치로 제시한다. 이 중 #122의 변경 요청은 단순 ‘테스트 작성’보다 실패 가능성 식별과 명확한 검증 계약의 기술 깊이가 높다.
+
+원본: [MCP 통합 근거](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1133_mcp-d6-verification.md) · [인증 사용자 Langfuse](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1430_langfuse-authenticated-e2e.md) · [D6 실제 3종](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1632_d6-agent-live-e2e.md) · [D6 검증 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-30_0930_d6-runtime-evidence.md) · [DB verifier](https://github.com/aihuman-7th/proj2-3/blob/main/backend/tests/verify_d6_coaching_completion.py) · [AGENT_REPORT](https://github.com/aihuman-7th/proj2-3/blob/main/docs/AGENT_REPORT.md).
 
 ---
 
