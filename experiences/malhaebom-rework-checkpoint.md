@@ -34,7 +34,7 @@
 | MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | **개인 PR #112·#114·#115·#118 / 개인 리뷰 #122**, 팀원 PR #39·#116·#117·#172 | **A(통합 테스트·인증 사용자 검증·저장 거짓 양성 리뷰) / T(핵심 Agent·MCP 코어)** | **검증 완료** — fixture·로컬 JWT live·Cloud trace·DB 행 검증·운영 배포의 수준 구분 |
 | MB-08 | Whisper Medium 50k → B0 → C2 학습 | **개인 PR #23~34·#51~56·#69~73·#146**, 50k/clean/71592/실사용 모델×beam 실험·리뷰 | **A(개인 주도 학습·데이터/평가 파이프라인·상대적 모델 선택)** | **검증 완료** — legacy adapter 단절, sealed test, retention 회귀, 단일 화자, 운영 기본 미교체 |
 | MB-09 | **WAV 업로드·STT/VAD·전사·코칭·비교 로컬 E2E 및 분석 지연** | 개인 PR #47·#104·#106·#115; 9/21·9/28·9/29 Worklog | **A(서비스 경로 검증·벤치마크·회귀 판정) / T(제품 핵심 STT·UI 기능)** | **검증 완료** — 마이크 실녹음·Hosted Supabase 운영 전체 E2E 미확인, MB-03/07 결과 중복 집계 금지 |
-| MB-10 | Langfuse Prompt/trace·운영 관측 | AGENT_REPORT, 10/8~10/9 운영 증거 | T/B | 직접 운영 trace 확인/배포와 팀 공통 관측 분리 |
+| MB-10 | Langfuse Prompt·Skill 실행 버전·Trace·운영 관측 | **개인 PR #101·#114·#162·#216 / 개인 리뷰 #221**, 9/28~10/9 실측·worklog | **A(실험 export·버전 정합성·운영 trace 검증) / R(#221 요청-ID 연계 리뷰)** | **검증 완료** — 10/8 관리형 Prompt @4 실행 연결, 10/9 운영 HTTP ID 연결은 별도 실행; release/rollback 미검증 |
 | MB-11 | UI/UX 개선과 소개 페이지·배포 | 10/10 README, 운영 비교 PR, 별도 showcase 저장소 | T/B | 개인 제안·목업·별도 showcase 설계와 팀 프론트 구현 구분 |
 | MB-12 | D1~D12 체크포인트·PR·CI 협업/종료 | 10/1 개인 Worklog, PR/CI 기록 | A/B | 직접 처리한 리뷰·브랜치·테스트·병합 대표 3~5건 선정 |
 
@@ -318,6 +318,38 @@
 
 ---
 
+## 3-10. MB-10 — Langfuse 실제 실행 버전 정합성과 운영 Trace 증거 검증 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄은 코칭 요청의 `coaching.analyze`·`coaching.provider`·`coaching.output_validation`을 Langfuse Japan Cloud에서 기록하고, 모델·Prompt·Skill·재시도·토큰·비용을 관측하도록 개발 중이었다. 과거 모델 비교 자료는 로컬 `comparison.json`에 존재했고, 개발/운영별 Langfuse SDK·Prompt label·실제 Skill 버전이 서로 달라 재현과 비교가 어려웠다.
+2. **문제:** (a) 이미 실행한 합성 실험을 Langfuse에 등록하려고 **provider를 재호출하거나 import 소요시간·비용을 원래 평가 수치와 혼동**할 위험, (b) `interview-coach-v6.1-domain-rules` 카탈로그와 관측 기본값 `interview-coach-v6` 불일치, 관리형 Prompt 선택과 무관하게 **DB가 stale 환경변수를 읽어 실제 사용하지 않은 버전을 저장하는 문제**, (c) API HTTP 200, Langfuse 유효한 JSON span, 관리형 Prompt `production` label만으로 **동일 운영 요청의 Cloud Run revision·DB 저장·실제 Skill bundle·응답 의미 품질**까지 입증했다고 과장할 위험이 있었다. 과거 코칭의 401 `auth_error`는 모델 미호출 사례인데도 운영 코칭 성공 trace로 혼동될 수 있었다.
+3. **판단:** **실제 런타임이 선택한 버전을 단일 사실 근거(source of truth)**로 관측과 DB에 전달하고, 과거 레코드는 근거 없이 소급 보정하지 않는다. 기존 합성 실험의 Langfuse 이전은 **원래 평가 attempt·score·latency/cost를 metadata로 기록하는 dry-run-first import**, 실제 API 호출은 별도다. 관측 증거는 **로컬 인증 사용자 / 운영 Langfuse 같은 trace 내부 / 실제 사이트의 HTTP header ↔ Langfuse ↔ Cloud Run 동일 ID**로 단계화한다. HTTP 401·422의 올바른 차단과 실제 생성 성공을 나누고, 관리형 Prompt의 코드 `v4/v5`·Langfuse 숫자 `@4`·mutable `production` label을 구분한다. 운영 release/rollback은 **승인된 전환·복구 실측**이 있어야 완료 처리한다.
+4. **조치:**
+   - **[#101 — 평가 결과 import 도구](https://github.com/aihuman-7th/proj2-3/pull/101):** 김재훈 작성 `evals/export_langfuse_experiments.py`에서 원래 `comparison.json`의 **execution별 마지막 contract attempt**, candidate×repeat별 별도 run, synthetic Dataset item만 허용, `recorded_latency_ms`/`recorded_cost_usd` 및 `provider_recalled=false`, 결정적 run name·기본 dry-run/`--apply` 명시를 구현했다. SDK 4.15.1 포함 관련 **35개 tests**, mock 2후보×2반복×30건 **120 offline execution → 4개 run 계획 dry-run**을 확인했다. **원격 Langfuse `--apply`를 실행하거나 실제 실험을 업로드한 것은 아님**.
+   - **[#114 — 로컬 실제 provider·실패/retry 관측](https://github.com/aihuman-7th/proj2-3/pull/114):** 실제 로그인 사용자의 기존 WAV/STT→Agent/MCP→OpenRouter→validator→DB 경로에서 network endpoint를 고의로 차단해 `network_error` **transport attempt 1 재시도 승인, attempt 2 중단**을 기록했다. 실제 provider 성공·출력 검증 `valid=true`에도 DB `coaching_runs.criteria_version` migration 누락으로 503이 발생한 **persistence 오류를 provider 오류와 분리해 분석**했고, migration 반영 뒤 정상 `needs_more_info` trace를 확인했다. 실측 수치는 **14,560 tokens, 약 $0.007367**(한 성공 trace); 응답 원문·JWT는 Git·Langfuse 증거 문서에서 제외했다. 장애 검증 경로 자체는 MB-07에도 연결되므로 결과를 중복 산정하지 않는다.
+   - **[#162 — Prompt/Skill 실제 실행 버전 기록 정합성](https://github.com/aihuman-7th/proj2-3/pull/162):** 김재훈 작성으로 관측의 기본 Skill 버전을 **실제 카탈로그에서** 가져오고, 모델 코칭 서비스가 **그 요청에서 선택한 managed Prompt 및 Skill 버전**을 `coaching_runs` 저장 함수에 명시 인자로 전달하게 했다. 요청 관측도 코칭 서비스 버전을 우선하고 구버전 환경변수에 의해 덮어쓰지 않도록 구성했다. Langfuse SDK 4.15.1 환경의 **70 tests 통과**, 오래된 SDK 2.60.10 환경의 관련 실패는 환경 계약 차이로 별도 기록했다. 기존 DB 행 소급 수정·모델 정책 변경·운영 배포/Prompt `production` label 변경은 하지 않았다.
+   - **[#216 — 10/8 관리형 Prompt 운영 관측](https://github.com/aihuman-7th/proj2-3/pull/216):** 사용자 제공 **Langfuse Cloud 캡처와 읽기 전용 조회**를 김재훈 명의 커밋으로 교차 검증했다. 별도 reinforced 관리형 Prompt의 **숫자 버전 @4, `production`·`latest` label**을 확인하고 10/8 **12:38:46 KST의 `coaching.provider`** generation을 `Linked Generations`와 **같은 trace ID**로 대조했다. **Gemini 3.5 Flash-Lite, 약 8.19초, 24,266 tokens, $0.006809, HTTP 200·no retry** 및 같은 트리의 `coaching.output_validation` **`valid=true`/`error_count=0`**을 기록했다. Skill `interview-coach-v6`은 **관측 표시값**이고 실제 코드/번들 해시나 운영 revision을 증명하지 못함을 명시했다. 이 PR은 **운영 설정 변경 없는 읽기 전용 확인 문서**이며 나중에 MERGED 됐다.
+   - **[#221 — 10/9 운영 HTTP ↔ Trace 연결 개인 리뷰](https://github.com/aihuman-7th/proj2-3/pull/221):** **곽호준 작성 구현**에서 각 요청 ContextVar·`X-Trace-Id`/`X-Request-Id` 헤더 및 CORS 노출·`http.request` span·민감 본문 제외·동시성을 검토했다. 김재훈은 linkage/coaching API **28 tests 및 제공된 실제 200/422 증거 JSON**을 대조해 **APPROVED**. **CI job은 당시 결제/spending 한도로 시작 전 차단**돼 GitHub Actions/gitleaks 통과를 주장하지 않았고, 리뷰에서 새로운 운영 요청을 직접 재실행하거나 PR을 병합/배포하지 않았다고 명시했다.
+5. **결과:**
+   - **개인 구현:** 과거 실험 metadata의 Langfuse import 경계를 코드로 강제하고 **실제 선택한 Prompt·Skill 버전이 관측·DB에 전파되는 정합성 보장 코드와 회귀 테스트**를 마련했다. 실험 import는 **dry-run 성공**, 실제 Langfuse 업로드/새 비용 0.
+   - **로컬 실제 인증 사용자 trace:** provider 네트워크 오류의 **2개 transport attempt(1회 재시도 후 실패)**, provider 정상·출력 검증 성공에도 DB migration 문제로 저장 실패한 사례, migration 이후 실제 `needs_more_info` 성공을 구분했다.
+   - **10/8 운영 Prompt/코칭 관측:** 관리형 reinforced Prompt **@4 `production`** 및 같은 trace의 **provider·output validation PASS** 확인. 그 당시의 **HTTP 요청↔Cloud Run revision/DB 행의 동일 ID 직접 증거는 없음**.
+   - **10/9 팀 운영 연결 구현의 결과 검토:** 실제 사이트의 준비 채팅 **HTTP 200**은 `X-Trace-Id`=`X-Request-Id`=Langfuse trace ID=Cloud Run request ID, **모델 generation 1건**. 필수 입력 누락 **HTTP 422**도 같은 ID가 연결되고 **generation 0건**. 이는 [10/9 증거](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/request-trace-linkage-2026-10-09.md) 및 동료 #221의 성과이고, 김재훈은 해당 코드·기존 운영 증거를 리뷰한 사람이다. **임시 인증 세션 주입을 사용해 OAuth 로그인 UI는 직접 검증하지 않았음.**
+   - **남은 미확인:** 생산 Prompt @4의 **release gate·전환 과정·rollback 실증**, 10/8 코칭 trace의 동일 요청 Cloud Run revision·실제 Skill bundle fingerprint·`coaching_runs` DB 행, 같은 요청 PlayMCP, 최신 코칭 출력 사람 평가, 실제 마이크부터 전체 E2E. 10/9 준비 채팅 trace는 **코칭 `/api/agent` 전체·같은 Prompt 사용의 증거가 아님**.
+
+### 개인 기여/팀 귀속 및 중복 방지
+
+- **직접 작성 A:** [#101](https://github.com/aihuman-7th/proj2-3/pull/101) Langfuse Experiment import, [#114](https://github.com/aihuman-7th/proj2-3/pull/114) 인증 사용자 Langfuse 실측 정리, [#162](https://github.com/aihuman-7th/proj2-3/pull/162) effective Prompt/Skill provenance 코드, [#216](https://github.com/aihuman-7th/proj2-3/pull/216) 운영 @4 screenshot + read-only evidence. AI 코딩 도구/팀원 리뷰 협업이 있어 모든 코드를 수작업 단독 작성했다고 주장하지 않는다.
+- **리뷰 R:** [#221](https://github.com/aihuman-7th/proj2-3/pull/221)은 곽호준 구현. 김재훈은 ContextVar·민감데이터 경계·표본 200/422 ID 연계 검증·CI 실패 공지를 포함한 승인 리뷰 담당. **Cloud Run 배포 직접 작업/원 구현으로 귀속하지 않는다.**
+- **타 작업군과의 관계:** LLM 후보 점수/비용 선택은 MB-03, Prompt v4/v5 자동 품질 회귀는 MB-05, 로컬 Agent/MCP/DB 저장 failure 원인·상태 검증은 MB-07, WAV/STT부터 사용자 1·2차 비교는 MB-09. **MB-10 독립 중심은 observability의 정확한 실행 버전 기록·기존 실험 전시의 정합성·운영 trace 증거 수준 구분**이다.
+- **문서/운영 시점:** 10/6 이후 후속 기능·병합된 PR 상태를 10/8 공식 마감 전에 직접 완료한 운영 변경으로 소급하지 않는다. Langfuse `production` 라벨 존재가 **본인이 직접 승격했다는 뜻은 아니며**, Prompt 숫자 버전과 코드 명칭을 동일 버전으로 간주하지 않는다.
+- **채용 활용:** 평가 엔지니어링/AI 백엔드 관점에서 **버전 불일치(카탈로그 vs 관측/DB)의 원인 발견과 수정**, **재시도·DB 오류 트리 관측을 통한 원인 분리**, **HTTP response-to-trace cross-system 상관관계 검증**을 실제 판단·조치로 제시하되 운영 release/rollback 자동화를 구현했다고 쓰지 않는다.
+
+원본: [Langfuse import 실험](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-28_1540_langfuse-evaluation-export.md) · [인증 사용자 관측](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1430_langfuse-authenticated-e2e.md) · [Prompt/Skill 버전 정합성](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-02_coaching-version-provenance.md) · [10/8 운영 Prompt @4](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_d10-production-readonly-evidence.md) · [10/9 운영 직접 ID 연계](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/request-trace-linkage-2026-10-09.md) · [10/9 작업 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-09_request-trace-linkage-production.md).
+
+---
+
 ## 4. 확정된 1차 사실
 
 ### MB-04 — 평가 정답 검토
@@ -341,8 +373,8 @@
 
 ## 6. 남은 검증과 다음 진행 지점
 
-1. **MB-01~09 개별 근거 조사·5단계 경험 복원 완료 (9/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
-2. **다음 조사: MB-10 → MB-11 → MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
+1. **MB-01~10 개별 근거 조사·5단계 경험 복원 완료 (10/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
+2. **다음 조사: MB-11 → MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
 3. **12개 작업군 전체 완료 후 누락·중복·귀속 역검증.** 사용자의 UI 제안·평가/검증·PR 운영과 팀원 프론트 구현·운영 배포를 혼동하지 않는다.
 4. **사례 선별.** 모델 평가/선정, 신뢰 계약·검증, 사람 ground truth, STT 실험, 인증 E2E 중 직무별 상위 3~5개 선택.
 5. **전면 근거 검증 뒤** `experiences/malhaebom.md` 채용 요약을 확정하고 `experiences/README.md`, `career-timeline.md`를 업데이트. 마스터 `resume.md`는 나머지 프로젝트 점검 뒤 변경.
