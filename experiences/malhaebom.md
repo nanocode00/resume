@@ -39,15 +39,21 @@
 
 근거: [30건 사람 검토표](https://github.com/aihuman-7th/proj2-3/blob/main/evals/reviewer-assignment.md) · [9/30 작업 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-30_d4-human-review.md) · [offline 재채점](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-30_d4-boundary17-offline-regrade.md).
 
-### 2. 로그인 사용자 공고 원문 분석 E2E의 실제 재현 — 개인 작업 기록 확인
+### 2. 로그인 사용자 공고 원문 분석 E2E 검증 — 개인 수행 확인
 
-**문제:** 공고 조회·요구사항 추출·원문 인용 검증 코드가 개별적으로 존재해도 실제 로그인 사용자 권한 아래에서 저장까지 이어지는지 불확실했다. 외부 MCP 인증 요청은 503, 서비스 재기동 뒤 기존 JWT는 401을 반환했다.
+**상황:** 말해봄에는 공고 원문 조회·요구사항 추출·서버 인용 검증·로그인 사용자 공고 저장 기능이 있었으나, 강사 피드백의 **공고 선택부터 연습 세션 생성까지** 실제 인증된 사용자 문맥에서 연속 통과한 근거가 없었다.
 
-**판단·조치:** 브라우저에서 얻은 실제 로그인 세션 JWT로 프런트와 같은 API 순서를 검증하고, 비대화형 E2E runner가 권한 `0600`인 Git ignored 토큰 파일만 허용하도록 보완했다(권한 우선순위·0644 거부 등 단위검사 3건). 당시 PlayMCP 503은 기능 전체의 실패와 구분해 보존된 `web` provider 경로로 전환했고, 새로운 JWT로 테스트했다.
+**문제:** 비대화형 검증 도구에 로그인 JWT를 안전하게 전달할 방법이 부족했고, 실행 중 초기 NCS 요청과 PlayMCP 인증에서 각각 **HTTP 503**, API 재생성 후 기존 JWT에서 **401**이 발생했다. 개별 provider 인증 장애를 전체 공고 분석 기능 결함으로 오인할 위험도 있었다.
 
-**결과:** `NCS 선택 → 외부 공고 추천 3개 → 원문 조회 → requirement 5개 추출 → quote validation 통과 → 인증 사용자 목록에 저장 → 요구사항 2개 선택 → 연습 세션 생성` 경로 성공을 redacted 기록으로 남겼다. **브라우저 클릭 UI E2E, 운영 배포에서의 동일 검증, PlayMCP 복구를 완료한 것은 아니다.**
+**판단:** **PlayMCP 자체 인증과 공고 원문 분석의 기능적 E2E를 별도 검증**하기로 했다. 브라우저에서 발급된 실제 로그인 JWT를 사용하되 프런트와 동일한 API 흐름을 자동 실행하고, PlayMCP 503 시 서버가 이미 제공하는 `web` 검색 provider 복귀 경로를 통해 원문 인용·저장·세션 생성 기능을 확인한다. 토큰과 외부 공고 원문은 저장소 기록에 남기지 않는다.
 
-근거: [2026-10-01 개인 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1400_job-source-authenticated-e2e.md).
+**조치:** [PR #149](https://github.com/aihuman-7th/proj2-3/pull/149)에서 인증 E2E runner에 **환경변수 우선·Git ignored JWT 토큰 파일 fallback·POSIX 0600 권한 검사**를 도입하고, 정상 파일·환경변수 우선·과도한 권한(0644) 거부 **3개 단위 테스트**를 추가했다. NCS 장애 시 재시도하고, PlayMCP 인증 503 시 `JOB_SEARCH_PROVIDER=web`으로 전환했으며, 컨테이너/API 재생성 후에는 로그인 브라우저의 최신 JWT를 사용했다. 결과에는 인증 상태·건수·검증 통과 여부만 기록했다.
+
+**결과:** 실제 **로컬 Supabase 로그인 사용자 JWT**로 `NCS skill-server 선택 → 공고 추천 3건 → 사람인 공고 원문 재조회 → 요구사항 5건 추출 및 source quote 검증 통과 → 개인 `private_job` 저장·목록 조회 → 요구사항 2개 선택 → `preset-04` 연습 세션 생성`을 **로컬 API E2E 1회** 성공했다. 해당 PR은 **JaeHun Kim/nanocode00 작성, 서정현 승인·CI 통과 후 병합**됐다. 이 경로는 PlayMCP **직접 성공이 아닌 web fallback 성공**이며 운영·브라우저 클릭 전체 검증도 아니다.
+
+**후속 작업 및 한계:** [PR #167](https://github.com/aihuman-7th/proj2-3/pull/167)의 운영 HTTP 로그 증거 재정리는 **곽호준 기여**이고 새 연속 E2E 실행이 아니며, [PR #186](https://github.com/aihuman-7th/proj2-3/pull/186)의 Windows 토큰 파일 fallback 금지는 **서정현 구현·내 리뷰**다. 이후 실제 운영 브라우저에서 공고 분석과 연습 기능 성공을 확인한 수동 보고는 있으나 **같은 요청의 PlayMCP 호출 로그와 연계된 증거는 별도**다. 내 검증 결과를 제품 전체·모든 provider·운영 사용자 E2E 성공률로 확대하지 않는다.
+
+근거: [PR #149](https://github.com/aihuman-7th/proj2-3/pull/149) · [로컬 E2E 증거](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/job-source-analysis-local-e2e-2026-10-01.md) · [개인 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1400_job-source-authenticated-e2e.md).
 
 ### 검증된 추가 사례. AI Agent 계약 및 검증 하네스 리뷰 — 개인 기여 확인
 
