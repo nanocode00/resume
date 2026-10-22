@@ -82,22 +82,23 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 이 구조 덕분에 각 파트가 독립적으로 모델을 바꿔도 전체 주문 flow는 유지할 수 있었습니다.
 
-## 2. LLM과 주문 상태를 분리한 deterministic Order Engine
+## 2. MA-02 — LLM 이해와 실제 주문 상태를 분리한 결정론적 Order Engine (검증 완료)
 
-`54131e860...`은 `nanocode00`이 직접 작성한 Order Engine 확장 커밋입니다.
+**상황:** 말로는 STT로 인식한 주문 발화를 NLU가 구조화하고, 메뉴 데이터와 장바구니를 실제 주문 코드가 관리하는 Voice-first 키오스크였다. 초기 `ADD_ITEM` 기반 구현만으로는 메뉴 삭제·수량/온도 변경·주문 조회·취소 등 사용자의 수정 요구를 해결할 수 없었다.
 
-구현 Intent:
+**문제:** 모듈마다 NLU `OrderCommand` 필드와 오류 형식, 복수 메뉴 Batch 처리 기준이 달랐고, LLM이 가격·수량·Cart 상태를 직접 변경하면 잘못된 수량·메뉴·온도를 실행하거나 이미 올바른 장바구니를 손상할 수 있었다.
 
-- `REMOVE_ITEM`
-- `UPDATE_QUANTITY`
-- `UPDATE_OPTION`
-- `QUERY_CART`
-- `CONFIRM_ORDER`
-- `CANCEL`
+**판단:** 정상 NLU 출력은 **단일 명령도 배열 `OrderCommand[]`**, 실패는 별도 `OrderCommandError`로 규격화한다. 초기 명령의 **6개 공통 필드·누락값 `null`** 규칙을 정하고, **가격·총액·Confirmation Policy는 Menu DB/결정론적 Order Engine이 전담**하게 한다. 복수 `ADD_ITEM`은 **전부 검사 후 복사된 Cart에 반영**하고, 오류 시 기존 Cart를 유지한다. 당시 구현에서는 **혼합 Intent 한 번에 실행을 거부**한다.
 
-해당 spec의 핵심 판단은 **LLM에게 Cart 변경을 직접 맡기면 수량 누락·계산 착오 같은 비결정적 오류가 발생할 수 있으므로, Order Engine이 SSOT로 상태를 검증·변경해야 한다**는 것입니다.
+**조치:** 개인 명의 [PR #23](https://github.com/aihuman-7th/proj1-d/pull/23)(2026-08-14)에서 메뉴 하나당 명령 하나, 배열 계약, 요청 ID·Intent·target·category·수량·온도 필드, 온도 누락과 복수 메뉴/오류 처리, NLU와 Order Engine 책임을 문서로 고정하고 PRD·TRD를 맞췄다. 이 PR은 **7개 Markdown 변경의 설계 작업**으로, JSON Schema validator 실제 구현은 별도이다.
 
-Edge case에서는 잘못된 수량, 지원하지 않는 옵션, 존재하지 않는 item, 빈 Cart confirm 등을 거부하고 기존 Cart를 보호했습니다.
+개인 [PR #55](https://github.com/aihuman-7th/proj1-d/pull/55)(2026-08-18)에서는 `src/domain/conversation.py`의 `ConversationAgent`에 `REMOVE_ITEM`, `UPDATE_QUANTITY`, `UPDATE_OPTION`(HOT↔ICED), `QUERY_CART`, `CONFIRM_ORDER`, `CANCEL` **6개 주문 관리 Intent**를 구현했다. `ADD_ITEM`은 동일 메뉴·온도 중복 병합, 모든 명령 검증, `cart.copy()` 이후 상태 반영이 코드로 확인된다. 신규 주문 관리 Intent에는 수량 유효성·메뉴/온도 정책 검사·금액 재계산·한국어 조사 안내를 추가하고 테스트했다.
+
+**결과:** 주문 삭제·수량 변경·온도 변경·조회·확정·취소 동작과 함께 **존재하지 않는 메뉴 삭제·0 이하 수량·미지원 온도·빈 장바구니 확정을 거부하고 기존 Cart를 유지**하는 동작을 구현했다. [PR #55](https://github.com/aihuman-7th/proj1-d/pull/55) 기록상 전체 `pytest` **70개 통과**, 팀원 **윤태현·류승민 승인** 후 병합됐다. 실제 PG 결제 구현·음성 전체 E2E·운영 사용자의 성공률을 측정한 것은 아니다.
+
+**개인 기여·구현 연혁:** #23은 **계약 정의**, #55는 **초기 실행 코드·단위 테스트**로 구분한다. 당시 `REMOVE_ITEM/UPDATE_QUANTITY/UPDATE_OPTION`은 Batch 중 **첫 명령만 처리**했고, HOT·ICED가 함께 있는 동일 메뉴에 온도 없이 삭제/수량 변경을 요청하면 **첫 일치 항목을 선택할 수 있어** #23의 모호성 방지 목표가 완전히 구현된 것은 아니었다. 현재는 모호성 회귀 테스트와 추가 옵션·제한된 혼합 명령·10개 필드 명령 스키마 등으로 발전했으나, 그 후속 코드를 **8월 18일의 개인 #55 구현으로 소급하지 않는다**. 또한 명령 스키마에 Size 필드가 있다는 이유로 최종 서비스에서 **Size 음성 주문을 지원했다고 주장하지 않는다**.
+
+원본: [계약 PR #23](https://github.com/aihuman-7th/proj1-d/pull/23) · [엔진 PR #55](https://github.com/aihuman-7th/proj1-d/pull/55) · [초기 병합 코드](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/src/domain/conversation.py) · [검증 원장 MA-02](mallo-rework-checkpoint.md).
 
 ## 3. TTS 모델 비교와 fine-tuning
 
