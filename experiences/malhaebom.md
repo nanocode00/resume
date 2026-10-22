@@ -109,7 +109,23 @@
 
 근거: [10/2 비교](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-10-02_latest-english-v5-comparison.md) · [10/6 단일 규칙 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-06_single-skill-rule-offtopic-cav.md) · [10/8 잠정 인젝션 A/B](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-10-08_d11-injection-prompt-ab-provisional.md).
 
-### 5. Whisper Medium 추가 학습·도메인 적응 — 프로젝트 실험 확인, 개인 수행 범위 재확인 필요
+### 5. MCP·Agent·DB 통합 검증과 저장 성공 거짓 양성 제거 — 개인 기여 확인
+
+**상황:** 말해봄은 `/api/agent`에서 로그인 사용자 문맥을 FastMCP로 조회하고, LLM 출력의 스키마·인용·ID 계약을 검증한 뒤 `coaching_runs`에 저장하는 팀 공통 Agent 경로를 구축했다.
+
+**문제:** **단위 테스트의 성공만으로 실제 인증 사용자 흐름·실제 제공자 호출·새 DB 저장까지 성공했다고 볼 수 없었다.** MCP gateway 실패, 유효한 `needs_more_info` 상태의 오판정, 모델 출력 검증 후 로컬 Supabase migration 누락에 의한 저장 실패가 발견됐다. 더 위험하게는 DB 저장 검증기가 이번 요청의 insert가 없어도 **과거의 같은 답변 행을 읽고 성공으로 판정할 수 있었다.**
+
+**판단:** fixture 기반 MCP 권한·도구 호출, 로컬 인증 사용자 Agent E2E, 실제 provider/Langfuse trace, **이번 요청으로 생성된 DB 행 검증**을 서로 다른 증거로 다뤘다. `needs_more_info`는 설명 근거 부족을 정확히 알리는 정상 결과일 수 있으므로 단일 `ok` 강제 기준을 고쳐야 한다. 저장 검증은 HTTP 200이나 기존 저장 행 존재가 아니라 **POST 전·후 행 ID 변화, revision/snapshot 일치, API terminal status와 DB status 일치**로 확인해야 한다고 판단했다.
+
+**조치:** [PR #112](https://github.com/aihuman-7th/proj2-3/pull/112)의 개인 커밋으로 `/api/agent → 실제 stdio FastMCP 도구 3개` 및 HTTP `/mcp`의 scope 밖 ID 차단·gateway 오류 처리 통합 테스트를 추가했다. [#114](https://github.com/aihuman-7th/proj2-3/pull/114)에는 로그인 사용자 WAV/STT→Agent→MCP→provider→검증·저장·Langfuse 흐름과 통제된 통신 오류·재시도 trace를 정리했다. [#115](https://github.com/aihuman-7th/proj2-3/pull/115)에서는 실제 로컬 로그인 UI에서 정상·경계·인젝션 3종을 검증하고, **`needs_more_info`를 허용하는 case별 상태 판정·회귀 테스트**를 수정했다. [#118](https://github.com/aihuman-7th/proj2-3/pull/118)에서는 인증 테스트용 analysis job을 명시 선택해 합성 revision을 추가하는 자동 E2E runner를 작성했다. **팀원 작성 [#122](https://github.com/aihuman-7th/proj2-3/pull/122)의 리뷰에서는 기존 행을 현재 요청의 저장 성공으로 오인하는 결함과 DB 상태 불일치를 지적해 변경을 요청**했고, 요청 전 마지막 ID와 요청 후 새 ID를 비교하는 수정·회귀 테스트 3건을 재검토해 승인했다.
+
+**결과:** 로컬 통합 검증에서 **HTTP MCP 11개·Coaching runtime 24개·Agent API 12개 테스트**가 통과했다. 로그인 사용자의 정상·경계·인젝션 테스트 모두 상황에 적절한 `needs_more_info`를 반환했고, **1차 답변 저장·코칭 → 재답변 저장·코칭 → 비교 화면**까지 실제 로컬 흐름을 확인했다. 실제 Langfuse에서는 network 오류 후 **재시도 1회와 최종 실패**, 별도 실제 provider 성공 이후 **DB migration 누락 오류**를 구분했고, 로컬 migration 반영 후 성공 trace를 기록했다. **과거 DB 행을 이용해 저장 누락을 정상으로 판정하는 verifier 결함도 후속 코드에서 차단했다.**
+
+**기여 경계:** Agent/MCP의 핵심 도구·runtime·DB 스키마 전체를 혼자 구현한 것은 아니다. 주요 코어는 **곽호준 등 팀원 소유**이며, D6 저장 verifier 본체와 후속 MCP 오류 분리 구현은 **서정현 소유**다. 내 강한 기여는 **MCP 통합·사용자 흐름 검증, 검증 상태 정책 보정, false-positive 결함 리뷰와 재검증**이다. 실사용 전체 서비스 성공률이나 배포된 동일 요청의 MCP→DB end-to-end 연계를 측정한 결과는 아니다.
+
+근거: [PR #112](https://github.com/aihuman-7th/proj2-3/pull/112) · [PR #114](https://github.com/aihuman-7th/proj2-3/pull/114) · [PR #115](https://github.com/aihuman-7th/proj2-3/pull/115) · [PR #118](https://github.com/aihuman-7th/proj2-3/pull/118) · [DB 검증 리뷰 #122](https://github.com/aihuman-7th/proj2-3/pull/122) · [D6 실제 사용자 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1632_d6-agent-live-e2e.md).
+
+### 6. Whisper Medium 추가 학습·도메인 적응 — 프로젝트 실험 확인, 개인 수행 범위 재확인 필요
 
 기존 STT adapter 인계 누락 뒤 50k QLoRA 재학습 → placeholder 제거 B0 → AI Hub 71592 면접 답변 C1/C2 도메인 적응을 진행했다. B0 기준 C2는 replay 20%를 넣어 기존 도메인 망각을 완화하도록 설계했다. 기술 질문 8건의 발화형 정규화 WER은 **20.11% → 11.73%**였으나, 기존 119 validation WER은 **15.33% → 16.81%**로 악화돼 trade-off가 남았다. C2의 별도 면접 final test는 CER **2.5876%**, WER **9.7740%**였다.
 
