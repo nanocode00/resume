@@ -193,6 +193,22 @@
 
 근거: [UI 리뷰 #211](https://github.com/aihuman-7th/proj2-3/pull/211) · [쇼케이스 개인 PR #214](https://github.com/aihuman-7th/proj2-3/pull/214) · [10/8 소개 사이트 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_malhaebom-intro-site.md) · [개인 쇼케이스 저장소](https://github.com/nanocode00/malhaebom-showcase) · [10/10 팀 통합 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-10_showcase-intro-integration.md).
 
+### 10. PR 정책·제품 CI 및 D2~D12 증거 기반 진행 관리 — 개인 기여 확인
+
+**상황:** 말해봄 Mk.2는 2026년 9월 18일부터 10월 8일까지 코칭 Agent·MCP/Skill·STT·DB·프런트·배포와 평가가 동시에 진행되는 팀 프로젝트였다. 다수 PR·실험 결과·체크포인트에서 **무엇이 구현됐는지보다 어떤 실행 근거로 완료를 판정할 수 있는지**가 협업의 핵심 문제가 됐다.
+
+**문제:** 정책상 PR 설명에 크기 초과 사유를 보완하면 같은 HEAD에 기존 정책 검사 실패와 새 성공 run이 공존했고, 설명 수정 helper가 이전 HEAD A의 정책 검사를 재실행하는 동안 새 커밋 HEAD B를 취소할 수 있는 경합도 있었다. PR 정책·Secret Scan은 있었지만 실제 **백엔드/프런트엔드 회귀 테스트가 자동 실행되지 않는 공백**이 있었다. 또 MCP·Langfuse·배포와 D7 보고서의 상태 표시가 새 병합·문서 근거·실제 실행 상황에 뒤처지면서 **로컬 재현과 운영 검증, 강사 확인 종료와 기술 완료, 제출 파일 존재와 제출 완료**를 혼동할 위험이 있었다.
+
+**판단:** PR 설명 변경에서는 **현재 HEAD의 기존 policy run을 새 attempt로 rerun**하되 실행 직전 HEAD를 재조회하고 **PR 번호+HEAD SHA** 단위로 동시성 범위를 구분해야 한다. 제품 CI는 경량 Python 환경의 백엔드 테스트와 Node 프런트 테스트·빌드로 나누고, PR size는 팀의 **Review Core 400줄 권장·401~800줄 사유 필수·800줄 초과 분리** 규칙을 적용한다. 일정 관리는 **원본 D2~D12 순서**를 지키면서 `[x]` 완료·`[-]` 부분 완료·`[ ]` 미검증에 실제 문서/코드/실험 근거를 남기는 방식으로 해야 한다.
+
+**조치:** 개인 [PR #48](https://github.com/aihuman-7th/proj2-3/pull/48)에 최신 PR 본문 조회·동일 HEAD 정책 run 재실행·새 HEAD 발생 시 obsolete rerun 차단·회귀 테스트를 구현했다. 동료의 race-condition 수정 요청을 받고 기존 HEAD 재조회와 concurrency key를 보완해 승인을 받았다. [PR #137](https://github.com/aihuman-7th/proj2-3/pull/137)에 경량 `backend/requirements-ci.txt` 기반 backend 테스트 job과 frontend `npm test`·`npm run build` job을 추가하고, 첫 실제 CI 통과가 체크리스트에 반영되지 않은 점을 수정했다. [PR #136](https://github.com/aihuman-7th/proj2-3/pull/136)·[#141](https://github.com/aihuman-7th/proj2-3/pull/141)·[#143](https://github.com/aihuman-7th/proj2-3/pull/143)·[#148](https://github.com/aihuman-7th/proj2-3/pull/148)에서 강사 피드백과 공식 체크포인트를 분리해 관리하고 D7 중간점검 1장·원본 근거·D8/D9 상태·D10 미검증 범위를 갱신했다. [PR #150](https://github.com/aihuman-7th/proj2-3/pull/150)에는 깨진 문서/Skill 참조·개인 로컬 경로를 찾는 검사기를 작성했다. [PR #217](https://github.com/aihuman-7th/proj2-3/pull/217)에서는 기존 Prompt/Skill 평가·10월 8일 신규 인젝션 3건·Langfuse 실측을 **서로 다른 실험/관측 근거**로 연결하고 D12 제출 인덱스를 정리했다.
+
+**결과:** [PR #48](https://github.com/aihuman-7th/proj2-3/pull/48)의 정책 검사 HEAD 경합 방지·정적 계약 테스트 **6+3건 통과 및 동료 승인·병합**이 확인됐다. 다만 PR 설명 수정 후 Actions 기존 run의 실제 rerun UI E2E는 해당 Worklog에서 별도 미확인으로 남겼다. [PR #137](https://github.com/aihuman-7th/proj2-3/pull/137)에서 실제 **Backend tests, Frontend tests and build, PR Policy Check, Secret Scan 4개 check 성공**, 리뷰 승인·병합을 확인했다. 공식 D2~D12 작업표는 실행 증거를 기준으로 갱신해 **D10과 D11 일부 완료, D12 최종 재측정·코드 동결 미완료**를 보존했고, 기존 평가와 새 평가, 공개 URL/운영 trace/최종 제출을 합산하지 않도록 했다.
+
+**개인 기여·범위:** 위 PR들은 `nanocode00` 명의 커밋으로 확인됐으나 AI 도구 활용 및 동료 검토를 거친 결과다. **Review Core 400/800 정책은 팀 결정**이며 크기 검증 스크립트 원작을 내 단독 구현으로 주장하지 않는다. [PR #145](https://github.com/aihuman-7th/proj2-3/pull/145)의 제품 CI `pytest` 전환과 [PR #133](https://github.com/aihuman-7th/proj2-3/pull/133)의 D8 clean clone README는 **서정현 작성**이다. 뒤늦게 팀 계정의 billing/spending 제한으로 시작하지 못한 Actions job과 실제 테스트 코드 실패도 구분해야 한다. 10월 7일 발표 담당 분리와 강사 확인 종료는 **최종 제출 파일 확보·코드 동결과 동일하지 않다**. 개인 강점은 **검증 정책의 race condition 수정, 제품 CI 자동화, 재현 가능한 증거 기반 품질 게이트 운영**이다.
+
+근거: [PR 정책 경합 수정 #48](https://github.com/aihuman-7th/proj2-3/pull/48) · [제품 CI #137](https://github.com/aihuman-7th/proj2-3/pull/137) · [D7 원본 근거 #141](https://github.com/aihuman-7th/proj2-3/pull/141) · [체크포인트 최신화 #143](https://github.com/aihuman-7th/proj2-3/pull/143) · [D12 근거 정합성 #217](https://github.com/aihuman-7th/proj2-3/pull/217) · [체크포인트 원장](https://github.com/aihuman-7th/proj2-3/blob/main/docs/project2-checkpoint-work-cards.md).
+
 ## 기타 경험과 후속 검증
 
 - 실제 서비스는 운영 배포·소개 페이지, OAuth, 코칭 API, 답변 revision, MCP 조회, Langfuse trace, 이력서 PDF 지원 기능까지 확장됐다. **팀 전체 제품 범위**와 해당 시점의 운영 확인을 먼저 적고 개인 코드 기여를 나중에 연결한다.
