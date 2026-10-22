@@ -21,7 +21,7 @@
 | **MA-02** | **OrderCommand 계약·결정론적 주문 관리 구현** | 개인 [#23](https://github.com/aihuman-7th/proj1-d/pull/23) 문서·개인 [#55](https://github.com/aihuman-7th/proj1-d/pull/55) 코드/테스트·병합 시점 snapshot | **A: 설계·Intent 구현 / 팀원 2명 승인**; 최초 6필드·동일 Intent batch와 이후 10필드·복합 Intent 지원 구분 | **검증 완료** |
 | **MA-03** | **VoicePipeline·Mock E2E·교체형 TTS 어댑터** | 개인 [#68](https://github.com/aihuman-7th/proj1-d/pull/68) Mock 통합·결과/오류 계약; 개인 [#69](https://github.com/aihuman-7th/proj1-d/pull/69) Melo/Qwen 실제 모델 어댑터 | **A(통합 코드·Mock 시나리오, TTS 어댑터)** / 전체 297 vs 296 테스트 각 PR 기록 구분; 실제 Whisper·VAD·브라우저 E2E 미포함 | **검증 완료** |
 | **MA-04** | **친절체 TTS adaptation·동일 문장 GPU 비교·checkpoint 보수적 선택** | 개인 [#33](https://github.com/aihuman-7th/proj1-d/pull/33) PoC 정의·[#63](https://github.com/aihuman-7th/proj1-d/pull/63) CPU Baseline·[#71](https://github.com/aihuman-7th/proj1-d/pull/71) G_2000/4모델 GPU·[#152](https://github.com/aihuman-7th/proj1-d/pull/152) G_2800 검증 | **A: 학습·비교·최종 후보 판단 / T: AI 도구 보조**; CPU/GPU·G_2000/G_2800·합성 지연/첫 오디오/음질·사용자 평가 분리 | **검증 완료** |
-| **MA-05** | Adaptive TTS Level 0~2·한국어 수사 정규화·쇼케이스 | [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97), [#116](https://github.com/aihuman-7th/proj1-d/pull/116), [#150](https://github.com/aihuman-7th/proj1-d/pull/150) | 청음 체감 개선 vs 계산된 RTF·출력 호환성 | 대기 |
+| **MA-05** | **적응형 한국어 TTS 전처리·L0/L1/L2 차별화·Level 비용 실측** | 개인 [#97](https://github.com/aihuman-7th/proj1-d/pull/97) Level 쇼케이스/어댑터 버그, [#116](https://github.com/aihuman-7th/proj1-d/pull/116) 수사/속도/분절, [#150](https://github.com/aihuman-7th/proj1-d/pull/150) 동일 G_3600 200회 Level 실측 | **A: 오류 재현·TTS 정규화/속도 구현·교차 측정** / 청음은 비블라인드, 10001 수사 edge·G_3600≠G_2800·L2 비용 미계측 | **검증 완료** |
 | **MA-06** | Whisper Medium STT QLoRA 후보 탐색·Train65·서빙 모델 | [PR #218](https://github.com/aihuman-7th/proj1-d/pull/218), STT worklogs·후보 평가 | STT 담당/개인 추가 학습 구분, CER/WER·speaker split | 대기 |
 | **MA-07** | NLU 모델 추가 학습·생산 Qwen 0.6B runtime | [PR #209](https://github.com/aihuman-7th/proj1-d/pull/209), [#214](https://github.com/aihuman-7th/proj1-d/pull/214) | 개인 Qwen 1.7B 추가 실험 vs 팀 0.6B production | 대기 |
 | **MA-08** | Senior-first 9:16 UI·음성/터치·lifecycle/자동 Listening | [PR #54](https://github.com/aihuman-7th/proj1-d/pull/54), [#136](https://github.com/aihuman-7th/proj1-d/pull/136), [#137](https://github.com/aihuman-7th/proj1-d/pull/137), [#225](https://github.com/aihuman-7th/proj1-d/pull/225) | UI 직접 구현·유효성/상태 회귀·브라우저 E2E 구분 | 대기 |
@@ -128,6 +128,38 @@
 - **라이선스:** AI Hub 원본·학습 checkpoint 공개 범위는 문서에서 별도 확인 대상으로 두었으며, 외부 인계용 공개 모델 파일이 Git에 있다는 주장은 하지 않는다.
 
 원본: [PoC 설계 #33](https://github.com/aihuman-7th/proj1-d/pull/33) · [CPU Base #63](https://github.com/aihuman-7th/proj1-d/pull/63) · [친절체 4후보 GPU #71](https://github.com/aihuman-7th/proj1-d/pull/71) · [G_2800 재검증 #152](https://github.com/aihuman-7th/proj1-d/pull/152) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md) · [TTS 인계](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tts-usability-test-handoff.md) · [동일 20문장](https://github.com/aihuman-7th/proj1-d/blob/main/data/tts/evaluation/sentences.json).
+
+## 3-5. MA-05 — 고령 사용자 주문 안내의 한국어 오독·분절 왜곡 수정과 Adaptive TTS 지연 비용 분리 (2026-10-22 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** TTS 친절체 모델을 선정해도 음성 키오스크는 메뉴·수량·금액을 정확히 말해야 한다. 세션별 사용자가 **'천천히'·'다시'·'보통 속도'**를 명시적으로 요청할 때 **Adaptive Level 0(자연 발화), Level 1(느린 발화+휴지기), Level 2(더 느린 발화+짧은 문장)**으로 전환하는 서비스를 구축하고 있었다. [MA-04](#3-4-ma-04--친절체-tts-파인튜닝과-실제-응답-지연을-함께-고려한-모델-후보-선정-2026-10-22-검증)에서 모델 전체 WAV 생성 속도는 확인했으나, 적응형 모드에 따른 사용자 안내의 정확성·분절 및 **추가 합성 지연**은 독립 문제였다.
+2. **문제:** 실제 MeloTTS 청음에서 **`5,200원`이 '오, 이백원'**처럼 잘못 읽혀 금액 전달 정확성에 영향을 주었고, 기존 pause 마커 **`...`/`/`**는 클릭음·왜곡 발음을 유발했다. 기존 Level 1과 2는 **둘 다 `speed=0.85`**이며 고정 주문 평가 문장 **20개 중 17개가 L1/L2 텍스트 100% 동일**해서 '더 천천히·더 명료하게' 요청을 했음에도 단계 구분이 약했다. 또한 L1의 속도를 낮추고 쉼표를 늘리면 음성 길이와 합성 시간이 증가할 수 있는데, 모델 비교 T-28의 4종 지연 표만으로 **Level 적용의 추가 비용**은 평가할 수 없었다.
+3. **판단:** 모델 재학습보다 먼저 **TTS 전용 결정론적 한국어 수사 정규화 + 표준 문장부호 + Level별 문장 구조/속도 정책**을 분리한다. 가격은 한자어 수사, 물품 수량은 단위 명사에 맞는 고유어 수사로 교정하고 비표준 `...`, `/`, `|`, `~`를 정상 쉼표·마침표로 치환한다. **L0=1.00x·L1=0.85x 쉼표·L2=0.75x 독립 단문 분절**로 텍스트·속도를 동시에 차별화한다. 체감 품질 청음과 재현 가능한 지연 검증은 다른 증거로 두고, **동일 모델·체크포인트·문장/환경·warm-up·반복·교차 실행**으로 L0/L1 합성 구간만 측정한다. L2 지연은 따로 측정되지 않았으므로 L1 결과에서 추론하지 않는다.
+4. **조치:**
+   - **개인 [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97), MERGED 2026-08-19:** `scripts/generate_adaptive_levels_player.py`로 동일 안내문 L0(1x)/L1(0.85x 쉼)/L2(**당시에는 역시 0.85x**, 단문 강조)의 비교 청음 HTML을 생성했다. `src/adapters/tts/melotts_adapter.py`에서 `HParams.spk2id`가 `dict`/객체·None일 때 발생하는 attribute 접근 실패를 방어하고, standalone 플레이어 출력·원시 WAV 관리 경로를 정리했다. Qwen 진단·실험 스크립트도 등록했으나 **Qwen 모델 연구·재학습 결과를 이 Level 기능 성과로 재계상하지 않는다**. 당시 전체 **391 passed / 5 skipped**, 윤태현(`surf7978`) 승인·병합.
+   - **개인 [PR #116](https://github.com/aihuman-7th/proj1-d/pull/116), MERGED 2026-08-20:** `src/domain/korean_normalizer.py`에 **`5,200원→오천이백원`, `10,400원→만 사백원`, `15,400원→만 오천사백원`, `3잔→세 잔`, `2개→두 개`**, 비표준 발화/분절 기호 정제를 구현했다. `AdaptiveTextTransformer`는 공통 정규화 후 **L0 기존 자연 문장, L1 절 경계 쉼표 삽입, L2 메뉴·수량·금액·삭제·변경·확정 등을 별도 단문으로 분리**하도록 주문 템플릿 범위를 넓혔다. `MeloTTSAdapter`를 **L0 1.0 / L1 0.85 / L2 0.75**로 조정하고 v2 브라우저 Level 쇼케이스를 생성했다. 코드·단위·Mock 통합 테스트 12개 파일을 함께 수정하고 **20개 평가 안내문의 L1/L2 출력 분리**를 확인했다. 전체 **509/509 passed**는 PR 본문과 동료 실제 재실행 리뷰에 일치. 직접 청음으로 금액 발음·click noise 완화를 확인했지만 **블라인드 MOS나 사용성 개선율 수치는 없음**. 윤태현 승인, 리뷰에 비차단 문제 **`10001→만` (올바른 `만 일`을 누락)**와 `4개→네 잔`이라는 **docstring 오타**가 남아 있으므로 '**임의의 모든 한국어 숫자/경계값 완전 정확**'으로 쓰지 않는다. PR **변경량 998줄**은 당시 400줄 권장 가이드 초과로, 승인자는 이번 1회 한정 허용 후 분리 요구를 남겼다.
+   - **개인 [PR #150](https://github.com/aihuman-7th/proj1-d/pull/150), MERGED 2026-08-21:** `docs/specs/adaptive-tts-latency.md`에 Level 추가 비용을 독립 AC로 정의하고 `src/adapters/tts/level_latency.py` **Level 0/1 교차 벤치마크**를 작성했다. **MeloTTS Friendly `G_3600.pth`·speaker 10·RTX 5070 Ti 16GB·Python 3.11.9·CUDA 12.8**에서 **T-21 20문장 × Level당 5회 = 200 유효 합성**을 실행, 두 Level당 1회 별도 warm-up·문장/회차 교차 순서·nearest-rank p95·합성 실패 결과 보존을 적용했다. `tests/unit/test_tts_level_latency.py` 4건은 200회·교차 순서·평균/비율/p95·오류 결과 보존을 검증한다. **200/200 성공**, 저장소 전체 **547 passed**, 윤태현 승인·병합. `G_3600`은 MA-04에서 사용성 테스트 대상이 된 `G_2800`과 **다른 체크포인트**다.
+5. **결과:** [#116](https://github.com/aihuman-7th/proj1-d/pull/116)에서 메뉴·수량·가격 발화를 결정적 한국어 텍스트로 바꾸고 **L1 쉼/0.85x vs L2 단문/0.75x**를 구현해 기존 17/20 출력 동일 문제를 수정했다. 코드와 청음 사례로 확인된 기능 개선이며 **고령 사용자 이해도 상승을 외부 참가자 평가로 입증한 것은 아니다**. [#150](https://github.com/aihuman-7th/proj1-d/pull/150)에서 **L0 평균 169.4ms/p95 307.2ms → L1 평균 210.1ms/p95 362.0ms**, **추가 합성 지연 평균 +40.7ms / p95 +54.8ms**를 측정했다. 평균 RTF는 **0.0383→0.0391(+0.0008, 약 2.1%)**로 둘 다 1 미만을 유지했다. 이 **200회 측정은 Level 0/1 합성 구간**이며 Audio Browser 재생 지연·실서비스 첫 소리 도착·L2 지연·장기 사용성은 측정하지 않았다.
+
+### 기술적으로 중요한 측정 경계
+
+| 지표 (G_3600 / RTX 5070 Ti, 20문장 각 5회, 200회) | Level 0 | Level 1 | 차이 |
+| --- | ---: | ---: | ---: |
+| 평균 WAV 합성 지연 | 169.4ms | 210.1ms | +40.7ms |
+| p95 WAV 합성 지연 | 307.2ms | 362.0ms | +54.8ms |
+| 평균 RTF | 0.0383 | 0.0391 | +0.0008 |
+
+- **MA-04와 고유 성과 분리:** #71 `G_2000` 4개 모델 20문장 latency 비교는 **모델 선택**의 근거, #152 `G_2800` 20문장 재합성은 **사용성 테스트 후보 재검증**, #150 `G_3600` 200회 L0/L1 교차 실험은 **Adaptive 정책 적용 비용**. 동일 모델·체크포인트의 개선 전후로 합쳐 '속도가 204→169ms 개선' 같은 지표를 만들지 않는다.
+- **`G_3600`은 선정 모델이 아님:** 선택된 사용성 checkpoint는 loss 근거로 `G_2800`이며, #150에서는 **조건을 고정한 별도의 이전 샘플**을 사용했다. L2 `0.75x` 코드는 검증됐어도 L2 GPU 200회 측정은 하지 않았다.
+- **금액·수사 정규화 한계:** 5,200/10,400/15,400원 등 실제 메뉴 도메인 규칙과 범용 10001·마이너스 금액/큰 수·복합 카운터의 정확성은 다른 문제. `sino_number_to_korean(10001)` 리뷰 문제와 docstring 4개→'네 잔' 오타를 알고도 승인한 기록이 있어 범용 숫자 엔진 100% 정확도는 주장 금지. **정상 카페 가격과 주문 수량에 대한 테스트/청음 검증**만 이 항목의 성과다.
+- **실제 품질 근거:** 개인/팀 청음은 **블라인드 외부 MOS 점수가 아니다**. [#116](https://github.com/aihuman-7th/proj1-d/pull/116)의 509 테스트는 저장소 **전체 테스트**이고 #97의 391, #150의 547과 더해 신규 1,447개 테스트로 세지 않는다.
+- **엔진 간 적용 범위:** `AdaptiveTextTransformer.transform` 단계에서 공통 정규화를 호출하므로 **Melo/Qwen 등 TTS 어댑터 앞에서 한국어 수사가 변환**될 수 있다. Melo 어댑터의 추가 normalize 호출은 텍스트 정규화가 멱등이 되도록 설계돼 있으나 실모델 Qwen·모든 금액 발화에 대해 100% 청음 테스트를 수행한 것은 아니다.
+- **사용자 제어 결론:** 명시적 `REQUEST_REPEAT`, `REQUEST_SLOWER`, `REQUEST_DEFAULT_SPEED`는 같은 세션에서 L0→L1→L2→L0로 전환하도록 별도 MA-03 Mock 검증과 연결. 무조건 고령자에게 느린 TTS나 연령 추정 기반 단계 상승을 적용했다고 쓰지 않는다.
+
+원본: [Level 비교/쇼케이스 #97](https://github.com/aihuman-7th/proj1-d/pull/97) · [한국어 수사/Level 3단계 수정 #116](https://github.com/aihuman-7th/proj1-d/pull/116) · [동일 조건 L0/L1 latency #150](https://github.com/aihuman-7th/proj1-d/pull/150) · [#116 병합 당시 normalizer](https://github.com/aihuman-7th/proj1-d/blob/cecb52aa2fe3805c58816d957f88da0668173ae4/src/domain/korean_normalizer.py) · [L0/L1 측정 도구](https://github.com/aihuman-7th/proj1-d/blob/feebdd817c4a2c2c45870b13ea348448bb60673a/src/adapters/tts/level_latency.py) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md).
+
+---
 
 ## 4. 진행 원칙
 
