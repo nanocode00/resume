@@ -30,7 +30,7 @@
 | MB-03 | OpenRouter 다양성 탐색·Final Four·서비스 후보 선정 | 사용자 커밋 PR #36/#37/#40/#41/#47, 팀원 리뷰, 실험·서비스 E2E Worklog | **A(실험 구현·운영 및 후보 선정 흐름) / T(기존 평가 기반)** | **검증 완료** — Codex/Antigravity 보조 개발을 명시; 계약·비용·E2E 근거의 모집단 분리 |
 | MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | **PR #126**·dataset v2·reviewer-assignment·9/30 offline regrade | **A(직접 검토·정정·재채점 확인)** | **검증 완료** — 30건 사람 검토와 저장 출력 90건 재채점 분리, PR #125 폐기·#123 revert 기록 확인 |
 | MB-05 | Prompt/Skill A/B 및 회귀 대응 | PR #155 리뷰, #185(공동 PR의 본인 작성 1·5~9), #189, #215; 10/2 30건·10/6 Skill smoke·10/8 D11 3건 | **A(단일 Skill A/B·검증 기준·결과 기록·추가 실험 정리) / R(10/2 팀원 A/B 리뷰)** | **검증 완료** — 변경 효과보다 회귀·미검증 범위의 정확한 판정 중점 |
-| MB-06 | 로그인 사용자 공고 원문 분석 E2E | 10/1 14:00 김재훈 Worklog, 토큰 0600 검증 | **A** | 해당 PR 번호·diff, 반복 재현 여부 확인 |
+| MB-06 | 로그인 사용자 공고 원문 분석 E2E | **개인 PR #149**, 로컬 redacted 증거·10/1 Worklog·팀 리뷰; 별도 팀원 PR #167·#186 | **A(인증 API E2E 도구·실측·장애 분리) / T(운영 로그 문서화·Windows 보강)** | **검증 완료** — PlayMCP 직접/브라우저 UI/운영 동일 요청 입증은 미확인 |
 | MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | AGENT_REPORT, CURRENT_STATE, 서버 코드, PR | T/B | stdio 도구 기여/통합 검증과 구현 코드 책임 구분 |
 | MB-08 | Whisper Medium 50k → B0 → C2 학습 | stt-finetuning-lineage, 50k/C2 실험 | T/B | 본인 수행 train configs/로그/checkpoint SHA, 운영 모델 선택 |
 | MB-09 | 실제 마이크/STT·NLU·Supabase 통합 E2E | checkpoint, EVAL_REPORT, 일부 worklog | T/B | 인증 사용자 부분 E2E와 운영 전체 E2E 분리 |
@@ -211,6 +211,28 @@
 
 ---
 
+## 3-6. MB-06 — 로그인 사용자 공고 원문 분석 인증 API E2E (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 공고 원문 조회·LLM 요구사항 추출·서버 quote 검증·사용자별 공고 저장 기능과 개별 테스트는 존재했지만, 강사 피드백의 **공고 선택 → 원문 조회 → 요구사항 추출 → 원문 인용 검증 → 요구사항 선택**을 *실제 로그인 사용자 권한*으로 연속 실행한 근거가 없었다. 비대화형 실행기 초안은 Supabase access JWT 전달 방법도 없어 실행을 완료하지 못했다.
+2. **문제:** 로컬 시험 도중 **초기 외부 NCS API 503**, 이후 **PlayMCP 인증 503**, API 재생성 뒤 **기존 사용자 JWT 401**이 연달아 발생했다. 각각의 실패 지점을 분리하지 않으면 공고 원문 분석 자체의 결함인지, 외부 검색 provider 접근 문제인지, 로그인 토큰 수명 문제인지 구별하기 어렵다. 또한 JWT·외부 공고 원문·사용자별 UUID를 증거에 노출할 위험이 있었다.
+3. **판단:** 전반적인 제품 기능 성공과 **PlayMCP 자체의 인증 성공은 다른 검증 조건**이다. 서버가 이미 지원하는 `JOB_SEARCH_PROVIDER=web` 복귀 경로를 사용하면 PlayMCP 장애 시에도 **인증 → 추천 → 원문 검증 → 요구사항 저장 → 세션 생성**이라는 핵심 기능을 검증할 수 있다. 실제 브라우저 로그인 JWT로 **프런트와 동일한 API 호출 순서**를 검증하되, 브라우저 클릭 UI/운영 PlayMCP E2E와 혼동하지 않는다. 비밀 토큰은 Git ignored 파일로 보관하고 그룹·다른 사용자 읽기 권한을 거부한다.
+4. **조치:** **[PR #149](https://github.com/aihuman-7th/proj2-3/pull/149)**의 `backend/tests/run_job_source_e2e.py`를 포함한 **JaeHun Kim/nanocode00 단일 작성 커밋**에서 비대화형 JWT 전달을 추가하고 환경변수 우선·POSIX `chmod 600` 파일 허용·`0644` 거부 **3개 단위 테스트**를 작성했다. 실제 로그인 세션의 JWT로 `http://localhost:8000` 로컬 Compose API에 NCS → 공고 추천 → 사람인 공고 선택 → 원문 재검증 및 LLM 요구사항 추출 → 서버 source quote validation → `private_job` 저장/사용자 목록 조회 → 요구사항 2개 선택 → `preset-04` 연습 세션 생성 순서로 실행했다. NCS 장애는 재시도, PlayMCP 장애는 **기존 web provider fallback**, 재시작 후 401은 **갱신된 로그인 JWT**로 해결했다. 저장 증거는 JWT·원문·공고 전체 URL·사용자 ID·저장 UUID 없이 redacted 집계만 보존했다.
+5. **결과:** `auth=ok`, `ncs_option=skill-server`, `recommendation_count=3`, `source_review=ok`, `requirement_count=5`, `quote_validation_gate=passed`, `authenticated_job_list_contains_selected=true`, `selected_requirement_count=2`, `practice_session_created=true`를 **1회 로컬 인증 API E2E 성공 run**으로 기록했다. [PR #149](https://github.com/aihuman-7th/proj2-3/pull/149)는 팀원 **SJeongHyeon 승인**, diff check·CI 4개 통과 후 병합됐다. **당시 PlayMCP 직접 호출은 인증 503으로 실패**했고 성공 run은 web provider였다. **실제 운영 배포/브라우저 UI 클릭 E2E/PlayMCP 전체 경로를 해당 실험으로 입증하지 않았다.**
+
+### 후속 근거·개인 귀속 경계
+
+- **개인 주력 기여:** 인증 API E2E runner 및 비밀 토큰 권한 경계, 실패를 provider·JWT·기능 동작으로 나눠 분석하고 기존 fallback으로 기능적 증거를 완성한 판단, 기밀을 제외한 재현 가능 결과 정리. 주 작성 커밋·리뷰 증거는 **[#149](https://github.com/aihuman-7th/proj2-3/pull/149)**.
+- **팀원 후속 작업:** **곽호준 작성 [PR #167](https://github.com/aihuman-7th/proj2-3/pull/167)**은 저장된 운영 HTTP 로그(추천 200, 분석 201, 세션 201 등)를 별도 정리하고 기존 로컬 원본을 보존했다. 새로운 운영 사용자 E2E를 실행한 것이 아니라는 한계를 기록했다. **서정현 작성 [PR #186](https://github.com/aihuman-7th/proj2-3/pull/186)**은 Windows에서 POSIX 파일 권한에 의존한 JWT 파일 fallback을 막고 환경변수를 사용하도록 보완했다. 김재훈은 코드·테스트·CI를 확인하고 승인했지만 Windows 보완 코드는 팀원 귀속이다.
+- **후속 사용자 수동 보고의 별도 성격:** 2026-10-02 실제 운영 브라우저에서 로그인 후 공고 검색·원문 분석·1/2차 비교가 성공했다는 사용자 확인 기록은 있다. 다만 당시 동일 요청의 **PlayMCP 도구 호출 로그→추천→원문 분석**을 이어주는 request ID/trace와 회복 원인은 확보되지 않아 10/1 로컬 **web fallback API E2E의 성공 조건에 합산하지 않는다**.
+- **증거 수위:** 초기 PlayMCP 503과 NCS 503은 서로 다른 외부 경로/시도의 실패다. redacted 실행 기록의 `trace_ids_present=false`는 각 API 성공 여부와 별도 관측성 항목이며 추적 로그가 없음을 곧 응답 실패라고 주장하지 않는다. API 연속 호출 1회 성공은 다수 사용자 부하/검색 정확도·추출 의미 품질·배포 안정성을 입증하지 않는다.
+- **채용용 서사:** '공고 분석 시스템 전체 구현'보다 **기존 기능의 인증 연속 경로를 자동화하고, 외부 MCP 인증 장애·토큰 만료를 분리해 정상 지원 fallback으로 E2E를 검증하면서 민감정보가 남지 않도록 한 경험**이 가장 강하다.
+
+근거: [PR #149](https://github.com/aihuman-7th/proj2-3/pull/149) · [10/1 Local evidence](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/job-source-analysis-local-e2e-2026-10-01.md) · [10/1 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1400_job-source-authenticated-e2e.md) · [PR #167](https://github.com/aihuman-7th/proj2-3/pull/167) · [PR #186](https://github.com/aihuman-7th/proj2-3/pull/186).
+
+---
+
 ## 4. 확정된 1차 사실
 
 ### MB-04 — 평가 정답 검토
@@ -219,10 +241,7 @@
 
 ### MB-06 — 공고 원문 분석 E2E
 
-- 10/1 Worklog 작성자 김재훈/ChatGPT. JWT 0600 파일 전달 지원과 보안 테스트 3개 추가.
-- API 동일 순서 실행: 추천 3개, 요구사항 5개, quote validation PASS, 저장 확인, 요구사항 2개 선택, session 생성.
-- PlayMCP 인증 503 시 다른 정상 지원 provider 경로로 실행; 배포 환경·브라우저 클릭 E2E는 미검증.
-- [작업기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-01_1400_job-source-authenticated-e2e.md).
+- 작업군 검증 완료. **5단계 서사, PR #149 개인 커밋/리뷰, 로컬 web fallback과 후속 팀원 운영 증거 구분은 §3-6 참조.**
 
 ## 5. 실험 수치 — 조건을 합치지 말 것
 
