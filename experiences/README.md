@@ -18,6 +18,7 @@
 | 경험 | 핵심 키워드 | 활용하기 좋은 문항 |
 |---|---|---|
 | [Mallo](mallo.md) | Voice AI, TTS, 팀장, 접근성, 서비스 통합 | 최근 프로젝트, 리딩, AI 직무, 사용자 경험 |
+| [말해봄 Mk.2](malhaebom.md) | FastMCP/Agent 검증, OpenRouter 모델 평가, Whisper QLoRA, JWT 공고 E2E, PR·CI 품질 게이트 | AI Agent·백엔드, 모델 평가, 시스템 신뢰성, 기술 의사결정 |
 | [HummingBlocks](hummingblocks.md) | Android, CV, 제품 출시, 사용자 경험, 문제 해결 | 대표 프로젝트, 어려움 극복, 직무 역량, 협업 |
 | [CNN Accelerator](cnn-accelerator.md) | PyTorch, Verilog, 검증, OpenROAD | 기술 역량, 디버깅, HW/SW 융합 |
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
@@ -35,3 +36,4 @@
 - 역할을 팀 전체 성과와 개인 기여로 구분합니다.
 - 결과만 적지 않고 판단 기준과 문제 해결 과정을 함께 남깁니다.
 - 같은 경험도 지원 직무에 따라 다른 부분을 강조할 수 있도록 세부 내용을 충분히 보존합니다.
+- 말해봄은 [12개 작업군·대화 누락 감사·귀속/중복 교차검증 원장](malhaebom-rework-checkpoint.md)과 [AI Agent/Backend 우선 사례 5개](malhaebom.md#채용용-핵심-사례-5선--ai-agentbackend-기준)를 구분해 활용합니다. 검증 완료는 실제 운영 전체 E2E·마감 제출·독립 사람 품질 평가를 뜻하지 않습니다.
