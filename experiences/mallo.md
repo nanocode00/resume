@@ -1,5 +1,7 @@
 # Mallo — Senior-Friendly Voice Ordering Kiosk
 
+> **말로 경험 복원 재검증 중 (2026-10-22).** 기존 경험기술서의 팀원 실명 귀속 오류를 교정하고 원본 12개 작업군·개인 PR·최종 실험 조건을 재검토하는 단계입니다. 기존의 임시 역할·속도·모델 성능 수치는 상세 검증 완료 전까지 채용 문장으로 단정하지 않습니다. [진행 원장](mallo-rework-checkpoint.md).
+
 ## 채용용 경험 요약
 
 고령 사용자의 키오스크 주문 부담을 줄이기 위해 만든 3인 팀 음성 주문 서비스입니다. Team Lead / Product & Integration으로 PRD/TRD와 공통 contract, deterministic Order Engine, Senior-first UI, TTS fine-tuning, STT/NLU 추가 튜닝, multi-model runtime과 배포까지 제품 전체 흐름을 연결했습니다.
@@ -7,7 +9,8 @@
 - 기간: **2026.06 ~ 2026.08**
 - 팀 규모: **3인**
 - 역할: **Team Lead / Product & Integration**
-- 공식 파트 분담: 김재훈 Product/Integration, 이규헌 STT Lead, 이승훈 NLU Lead
+- **원본 팀 구성:** 김재훈(`nanocode00`, 팀장), 윤태현(`surf7978`), 류승민(`padong47`). [README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md) 기준. 기존 기록의 '이규헌·이승훈'은 원본 저장소와 불일치하여 교정
+- **업무 구분:** [tasks.md](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tasks.md)에 A(Adaptive TTS/Voice UX), B(Local NLU/Order Engine), C(STT/Audio/GUI/Integration) 영역이 있지만, 이 표만으로 **A/B/C를 개별 팀원 이름에 연결하지 않음**. 본인은 팀장으로 파트 간 통합 및 개인 명의 구현·실험을 수행
 - 프로젝트 상태: 2026-08-28 feature freeze, 2026-08-30 최종 정리 후 종료/동결
 - 기술: Whisper, Qwen, MeloTTS, QLoRA, FastAPI, Python sidecar, Vercel, Cloudflare Tunnel
 
@@ -47,6 +50,22 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 | NLU legacy batch | **1000/1000** | schema parse error 0 |
 | isolated 50-turn E2E | **p50 253.9ms / p95 312.2ms** | real STT + real NLU + MockTTS |
 | 사용자 평가 | **n=13, 만족 응답 92.3%** | 참가자 전원이 고령자는 아님 |
+
+## 0. 고령 사용자 조사에서 Voice-first + Minimal GUI 우선순위로 — MA-01 (1차 검증)
+
+**상황 → 문제 → 판단 → 조치 → 결과**
+
+**상황:** 음성 주문 키오스크가 고령 사용자에게 실제로 어떤 도움을 줄지 정리하기 위해 초기 60대 응답자 **13명(60~64세 6명·65~69세 7명)**의 키오스크 이용 경험을 확인했습니다.
+
+**문제:** 제품을 Voice-only 또는 무조건 느린 분절형 TTS로 설계하면, 사용자가 겪는 문제인 **옵션 선택의 어려움(8/13), 실수 후 처음부터 다시 주문(7/13), 음성 오인식 불안(6/13), 다시 설명받고 싶은 요구(10/13)**를 충분히 해결하지 못합니다. 표본은 디지털 사용 경험이 높은 60대에 치우쳐 전체 고령층으로 일반화하기 어렵습니다.
+
+**판단:** 기존 STT→NLU→Validator→Order Engine 구조는 유지하면서, **음성으로 탐색 부담을 낮추고 현재 주문의 음성·화면 확인 및 수정·재설명 복구**에 우선순위를 둡니다. 고령 사용자의 상태를 연령/침묵으로 추정하지 않고 **명시적 다시 듣기·천천히 듣기 요청에만 TTS를 적응**시킵니다. LLM이 Cart 금액이나 상태를 직접 변경하지 않게 Order Engine을 SSOT로 둡니다.
+
+**조치:** 개인 명의 [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83)으로 팀이 수집한 초기 설문 분석 결과를 [PRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/prd.md)의 사용자 문제·P0/P1/P2 우선순위 및 [평가 기록](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/evaluation.md)에 연결했습니다. 팀 인터뷰 원본의 모집·조사 전 과정을 직접 수행했다고 PR로 증명되는 것은 아닙니다. 초기 [설문 변경안](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md)의 **UNDO/Pending/Preview**는 기능 제안이며, 최종 MVP에서는 **ORDER_REVIEW의 명시적 주문 확인을 유지하고 별도 Pending Confirmation 상태 머신과 Size 음성 지원은 제외**했습니다.
+
+**결과:** 제품이 막연한 음성 대체가 아니라 **'복잡한 메뉴 탐색은 줄이고, 잘못 알아들어도 화면에서 바로 확인·수정하는 Voice-first + Minimal GUI'** 방향으로 구체화됐습니다. 다만 이 단계의 성과는 **설문 기반 제품 정의와 요구사항 우선순위 확정**이지 실제 주문 시간 단축·사용성 개선의 인과적 검증이 아닙니다. **초기 60대 설문 n=13**과 별도로 기록된 **최종 사용성 평가 n=13 / 만족 응답 92.3%**는 목적·참가자 구성이 다른 평가이므로 합치지 않습니다.
+
+상세: [MA-01 경험 복원 원장](mallo-rework-checkpoint.md) · [설문 반영 PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
 
 ## 1. 공통 contract와 Mock E2E부터 구성
 
