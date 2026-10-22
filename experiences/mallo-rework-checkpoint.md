@@ -20,7 +20,7 @@
 | **MA-01** | 고령 사용자 조사·문제 정의·PRD/TRD·MVP 범위 | [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83), `docs/prd.md`, `docs/survey-pipeline-update.md` | 설문 실시·분석·결정·최종 배포 구현 분리 | **1차 검증 완료** |
 | **MA-02** | **OrderCommand 계약·결정론적 주문 관리 구현** | 개인 [#23](https://github.com/aihuman-7th/proj1-d/pull/23) 문서·개인 [#55](https://github.com/aihuman-7th/proj1-d/pull/55) 코드/테스트·병합 시점 snapshot | **A: 설계·Intent 구현 / 팀원 2명 승인**; 최초 6필드·동일 Intent batch와 이후 10필드·복합 Intent 지원 구분 | **검증 완료** |
 | **MA-03** | **VoicePipeline·Mock E2E·교체형 TTS 어댑터** | 개인 [#68](https://github.com/aihuman-7th/proj1-d/pull/68) Mock 통합·결과/오류 계약; 개인 [#69](https://github.com/aihuman-7th/proj1-d/pull/69) Melo/Qwen 실제 모델 어댑터 | **A(통합 코드·Mock 시나리오, TTS 어댑터)** / 전체 297 vs 296 테스트 각 PR 기록 구분; 실제 Whisper·VAD·브라우저 E2E 미포함 | **검증 완료** |
-| **MA-04** | MeloTTS·Qwen3-TTS baseline, 친절체 학습과 모델 선정 | [PR #63](https://github.com/aihuman-7th/proj1-d/pull/63), [#71](https://github.com/aihuman-7th/proj1-d/pull/71), [#152](https://github.com/aihuman-7th/proj1-d/pull/152) | G_2000 비교와 G_2800 운영 벤치마크 서로 다른 설정 | 대기 |
+| **MA-04** | **친절체 TTS adaptation·동일 문장 GPU 비교·checkpoint 보수적 선택** | 개인 [#33](https://github.com/aihuman-7th/proj1-d/pull/33) PoC 정의·[#63](https://github.com/aihuman-7th/proj1-d/pull/63) CPU Baseline·[#71](https://github.com/aihuman-7th/proj1-d/pull/71) G_2000/4모델 GPU·[#152](https://github.com/aihuman-7th/proj1-d/pull/152) G_2800 검증 | **A: 학습·비교·최종 후보 판단 / T: AI 도구 보조**; CPU/GPU·G_2000/G_2800·합성 지연/첫 오디오/음질·사용자 평가 분리 | **검증 완료** |
 | **MA-05** | Adaptive TTS Level 0~2·한국어 수사 정규화·쇼케이스 | [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97), [#116](https://github.com/aihuman-7th/proj1-d/pull/116), [#150](https://github.com/aihuman-7th/proj1-d/pull/150) | 청음 체감 개선 vs 계산된 RTF·출력 호환성 | 대기 |
 | **MA-06** | Whisper Medium STT QLoRA 후보 탐색·Train65·서빙 모델 | [PR #218](https://github.com/aihuman-7th/proj1-d/pull/218), STT worklogs·후보 평가 | STT 담당/개인 추가 학습 구분, CER/WER·speaker split | 대기 |
 | **MA-07** | NLU 모델 추가 학습·생산 Qwen 0.6B runtime | [PR #209](https://github.com/aihuman-7th/proj1-d/pull/209), [#214](https://github.com/aihuman-7th/proj1-d/pull/214) | 개인 Qwen 1.7B 추가 실험 vs 팀 0.6B production | 대기 |
@@ -94,6 +94,40 @@
 - **면접에 쓰는 한 문장:** "AI 모델별 완성 일정에 의존하지 않도록 STT·NLU·주문 엔진·TTS에 공통 인터페이스를 적용하고, Mock E2E로 정상 주문·상태 전이·실패 경로를 먼저 검증했습니다."
 
 원본: [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68) · [#68 병합 시점 파이프라인](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/src/orchestrator/voice_pipeline.py) · [Mock E2E 테스트](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/tests/integration/test_end_to_end_voice_pipeline.py) · [PR #69](https://github.com/aihuman-7th/proj1-d/pull/69) · [Melo adapter](https://github.com/aihuman-7th/proj1-d/blob/076fb0c8d152a2df81c5dbf470a4719efb908362/src/adapters/tts/melotts_adapter.py) · [Qwen adapter](https://github.com/aihuman-7th/proj1-d/blob/076fb0c8d152a2df81c5dbf470a4719efb908362/src/adapters/tts/qwen3_adapter.py).
+
+## 3-4. MA-04 — 친절체 TTS 파인튜닝과 실제 응답 지연을 함께 고려한 모델 후보 선정 (2026-10-22 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로는 고령 사용자에게 메뉴명·수량·옵션·합계 금액을 또렷하고 차분하게 안내해야 하는 **대화형 음성 키오스크**다. 최초 서비스 파이프라인에는 Mock TTS 또는 Base 모델만 있었고, 친절체 음색을 구현하려는 PoC와 모델 선택 기준이 필요했다. 음성을 **자연스럽게 읽는 성격**과 **대기 시간이 짧아야 한다는 제품 요구**를 동시에 평가해야 했다.
+2. **문제:** MeloTTS, Qwen3-TTS는 모델 구조와 요구 연산량이 달라 CPU/RTX GPU 측정을 섞어 비교하면 오판할 수 있다. Qwen3-TTS의 풍부한 음색을 장점으로 가정해도 지연이 길면 실제 주문 대화가 끊긴다. 친절체 Fine-tuning이 음질을 개선했다고 평가하려면 같은 문장의 사람 청취 판단도 필요하며, **속도 증가·44.1kHz 출력·학습 loss 감소만으로 '고령자 이해도 개선'이 증명되지는 않는다**. 이어서 `G_2000`을 선정했던 PoC 기준과 사용성 테스트 시점의 `G_2800` 후보가 혼재해 모델 버전 귀속이 불분명해질 수 있었다.
+3. **판단:** 동일한 **카페 주문 안내 20문장**을 사용하여 **초기 CPU Base 모델 비교**와 **GPU의 4개 모델(Melo Base/Friendly, Qwen Base/Friendly) 비교**를 별도 단계로 기록한다. RTX 5070 Ti 16GB·CUDA 12.8에서 합성 mean·median·RTF를 측정하고, **대화형 서비스에서의 실시간성**과 **친절체 지향 청음**을 함께 고려하여 MeloTTS Friendly를 PoC 우선 후보로 선택한다. **청감 개선 주장에는 블라인드 평가 수치가 없음을 표시**하고, 제어 가능한 모델 체크포인트·AI Hub 저작권/외부 공유 제한을 보존한다. 이후 사용성 테스트 대상은 **보존된 checkpoint들의 loss와 동일 20문장 재합성**으로 새로 선정하되, loss 최저가 음질 최고를 의미하지 않음을 명시한다.
+4. **조치:**
+   - **평가 설계 [PR #33](https://github.com/aihuman-7th/proj1-d/pull/33), 8/16 개인 작성:** 한국어 MeloTTS friendly adaptation의 AI Hub 데이터 선택, 화자·세션 분할과 누수 방지, 모델 비교/청취 기준, checkpoint/라이선스·환경/AC-01~17을 PoC 단일 문서로 규격화. 이 PR은 **Spec 문서만 변경**, 모델 학습 성공으로 계산하지 않는다.
+   - **초기 사전학습 모델 CPU 측정 [PR #63](https://github.com/aihuman-7th/proj1-d/pull/63), 8/18 개인 작성:** `data/tts/evaluation/sentences.json`의 20개 카페 안내 문장으로 `eval_synthesis.py` benchmark/단위 테스트를 추가하고 모델별 WAV·summary 결과를 기록. **Melo Base 평균 1.9223초·RTF 0.3939, Qwen3 0.6B Base 평균 22.3092초·RTF 3.9254**를 측정. 두 모델은 각기 44.1kHz/24kHz이며, 이 **CPU 수치와 이후 GPU 수치를 직접 모델 간 성능 향상률로 결합하지 않는다**. PR 보고 **당시 저장소 전체 269 tests 통과**, 변경된 benchmark 테스트 269개 신규 아님.
+   - **친절체 적응·GPU 비교 [PR #71](https://github.com/aihuman-7th/proj1-d/pull/71), 8/18 개인 기록:** AI Hub 71349 감성/발화스타일 음성의 **화자 10**, 30분 adaptation package **299 paired 음성·텍스트**를 Melo 공식 한국어 음소화 전처리에 통과시키고, 사전학습 `G.pth/D.pth/DUR.pth`을 `warm_start`한 MeloTTS를 **2,000 steps** 학습해 `G_2000.pth`(로컬 595MB)을 생성. Qwen3-TTS 0.6B에도 299개와 speech codes의 친절체 adaptation **10 epoch** 연구 기록이 있다. RTX 5070 Ti GPU에서 **네 모델 동일 20문장 합성**을 실행하고 브라우저용 비교 플레이어를 생성했다. `G_2000`를 **PoC 우선 모델**로 선택했다. PR #71의 실제 변경 파일은 **Tasks·Worklog·`eval_synthesis.py`·unit tests(4개)**이므로 대형 모델 checkpoint 자체나 데이터셋 원본을 Git에 게시한 것으로 오해하지 않는다. 당시 저장소 전체 **306 tests 통과**를 기록했다.
+   - **G_2800 사용성 후보 확정 [PR #152](https://github.com/aihuman-7th/proj1-d/pull/152), 8/24 개인 작성:** TensorBoard를 재확인한 결과 **전체 loss 최저 step 2850=26.6747은 저장되지 않았고**, 저장한 후속 checkpoint 중 **step 2800=29.0754**가 step 3600=31.9244보다 낮아 `G_2800.pth`를 테스트용 후보로 결정. G_2800 SHA256을 기록하고 동일 T-21 20문장 GPU 재합성 **20/20 WAV·44.1kHz·평균 0.1951초·RTF 0.0428**로 자동 확인했다. 통합·데모·평가 스크립트 기본 checkpoint를 G_2800으로 맞추고 사용성 테스트 준비 문서/차단 조건을 전달했다. **외부 사용자 0명·독립 블라인드 청음 미완료**이므로 T-30 자체는 완료로 표시하지 않았다. PR 작성 당시 전체 **550 tests 통과**를 기록했다.
+5. **결과:** GPU 동일 20문장 T-28에서 **Melo Base 0.1985초/RTF 0.0403**, **Melo Friendly G_2000 0.2041초/RTF 0.0485**, **Qwen Base 6.9075초/RTF 1.4620**, **Qwen Friendly 28.1953초/RTF 1.5732**. Melo Friendly의 지연은 **Base보다 +0.0056초(+2.8%)**였으나, 0.2초 수준 생성 지연을 유지하며 친절체 어조 후보를 확보해 **PoC 모델 선택**에 활용했다. 이후 별도 스냅샷 `G_2800`도 20문장 재합성에 성공해 테스트 후보 기준을 고정했다. **실측된 것은 모델의 전체 WAV 합성 latency이지 첫 음성 재생 시점, 서비스 E2E, 외부 고령 사용자의 명료도 개선 비율이 아니다.** 정확한 경력 표현은 **'TTS 후보 평가를 동일 문장·GPU 기준으로 실시하고 속도와 친절체 품질의 trade-off를 비교해 실시간 서비스 모델을 선택'**이다.
+
+### 동일 문장 T-28 GPU 측정 요약 (PR #71·G_2000 기준)
+
+| 모델 | 스냅샷 | 평균 합성 지연 | 평균 RTF | 경계 |
+| --- | --- | ---: | ---: | --- |
+| MeloTTS Base | 사전학습 | **0.1985초** | 0.0403 | 속도 기준점 |
+| **MeloTTS Friendly** | **G_2000** | **0.2041초** | **0.0485** | PoC 우선 후보, 속도 개선 아님 |
+| Qwen3-TTS Base 0.6B | 사전학습 | 6.9075초 | 1.4620 | 긴 생성 지연 |
+| Qwen3-TTS Friendly 0.6B | epoch 4 평가 snapshot | 28.1953초 | 1.5732 | GPU 비교 스냅샷·후속 10 epoch 실험 기록과 혼동 금지 |
+
+### 귀속·모델 버전·사용자 검증 경계
+
+- **개인 주도 근거:** `nanocode00`의 [#33](https://github.com/aihuman-7th/proj1-d/pull/33)·[#63](https://github.com/aihuman-7th/proj1-d/pull/63)·[#71](https://github.com/aihuman-7th/proj1-d/pull/71)·[#152](https://github.com/aihuman-7th/proj1-d/pull/152)에서 설계 문서·벤치마크 코드·실험 Worklog·학습 실행/판정 기록을 확인. AI 코딩·학습 스크립트 사용은 개인 의사결정과 분리하며, **원본 사용자 음성 데이터·모델 weight 공개 기여로 주장하지 않음**.
+- **초기/후속 Qwen 학습:** #71 시점의 Qwen 친절체 연구 및 4후보 스냅샷과 **8/19 추가 double-shift 버그 진단/299개 최종 재학습**은 시간·원인이 다른 후속 작업이다. PR #97의 Qwen 진단 스크립트는 MA-05의 TTS 도구/진단 확장과도 교차하므로 **동일 Qwen 실험을 중복 계상하지 않는다**.
+- **`G_3600` 지연 측정:** [PR #150](https://github.com/aihuman-7th/proj1-d/pull/150)의 Level 0/1 **200회 생성(169.4ms vs 210.1ms)**은 **G_3600으로 Adaptive Level 지연을 비교한 별도 MA-05 실험**이다. #71 `G_2000` 4후보 비교나 #152 `G_2800` 사용성 후보 최종 선택과 동일 checkpoint·조건이라고 간주하지 않는다.
+- **`G_2800` 후보 선정의 의미:** 저장된 checkpoint 중 최소 Generator loss라 선택했을 뿐 독립 3명 블라인드 청취·사용성 전후 비교 결과는 아직 없다. [TTS 인계 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tts-usability-test-handoff.md)는 **DRAFT·외부 참가자 0명·개선 전후 0건**, 사용자용 재생 중단/5초 이상 대기 안내·first audio playback 계측 부족을 기록한다. **사용자 테스트가 완료됐다거나 노인 대상 친절도 개선이 통계적으로 입증됐다고 쓰지 않는다**.
+- **측정 지표 구분:** CPU 초기 1.9223초/22.3092초, #71 GPU 0.1985·0.2041·6.9075·28.1953초, #152 G_2800 0.1951초는 **서로 다른 장치/학습 checkpoint/비교 목적**. 마지막 서비스 runtime mean 0.38s/p95 0.53s/RTF 0.0894는 **별도 측정**이므로 #71 대비 인과 향상률을 계산하지 않는다. `44.1kHz`는 sampling rate이고 사용자 측정 음질 등급이 아니다. 합성 mean 0.204초도 **브라우저 first_audio_start**가 아니다.
+- **라이선스:** AI Hub 원본·학습 checkpoint 공개 범위는 문서에서 별도 확인 대상으로 두었으며, 외부 인계용 공개 모델 파일이 Git에 있다는 주장은 하지 않는다.
+
+원본: [PoC 설계 #33](https://github.com/aihuman-7th/proj1-d/pull/33) · [CPU Base #63](https://github.com/aihuman-7th/proj1-d/pull/63) · [친절체 4후보 GPU #71](https://github.com/aihuman-7th/proj1-d/pull/71) · [G_2800 재검증 #152](https://github.com/aihuman-7th/proj1-d/pull/152) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md) · [TTS 인계](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tts-usability-test-handoff.md) · [동일 20문장](https://github.com/aihuman-7th/proj1-d/blob/main/data/tts/evaluation/sentences.json).
 
 ## 4. 진행 원칙
 
