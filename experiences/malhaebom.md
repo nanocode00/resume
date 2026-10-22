@@ -125,13 +125,23 @@
 
 근거: [PR #112](https://github.com/aihuman-7th/proj2-3/pull/112) · [PR #114](https://github.com/aihuman-7th/proj2-3/pull/114) · [PR #115](https://github.com/aihuman-7th/proj2-3/pull/115) · [PR #118](https://github.com/aihuman-7th/proj2-3/pull/118) · [DB 검증 리뷰 #122](https://github.com/aihuman-7th/proj2-3/pull/122) · [D6 실제 사용자 기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1632_d6-agent-live-e2e.md).
 
-### 6. Whisper Medium 추가 학습·도메인 적응 — 프로젝트 실험 확인, 개인 수행 범위 재확인 필요
+### 6. Whisper Medium QLoRA 재학습·B0 정제·C2 면접 도메인 적응 — 개인 주도 실험 확인
 
-기존 STT adapter 인계 누락 뒤 50k QLoRA 재학습 → placeholder 제거 B0 → AI Hub 71592 면접 답변 C1/C2 도메인 적응을 진행했다. B0 기준 C2는 replay 20%를 넣어 기존 도메인 망각을 완화하도록 설계했다. 기술 질문 8건의 발화형 정규화 WER은 **20.11% → 11.73%**였으나, 기존 119 validation WER은 **15.33% → 16.81%**로 악화돼 trade-off가 남았다. C2의 별도 면접 final test는 CER **2.5876%**, WER **9.7740%**였다.
+**상황:** 1차 프로젝트의 경상도 음성 약 6,000개 LoRA 적응 모델은 CTranslate2 추론 모델만 남고 후속 학습용 adapter가 인계되지 않았다. 말해봄 STT의 신규 학습·평가를 진행하려면 원본 `openai/whisper-medium`에서 별도 재학습 계보를 만들어야 했다.
 
-위 수치는 프로젝트 실험 결과이며 각각 다른 데이터·평가 조건을 섞어 개선율을 계산하지 않는다. C2가 배포 기본 STT 모델로 교체됐다고 주장하지 않는다. 실험의 개인 주도 구간·학습 명령·checkpoint 귀속은 추가 확인한다.
+**문제:** 기존 quick-eval에는 신규 train과 **181개 중복 segment**가 있어 검증 데이터 누수 위험이 있었고, 50k 학습 label 일부는 `#이름#`·회사명 placeholder가 음성과 맞지 않았다. 또 새 AI Hub 71592 면접 답변은 긴 음성을 분할해야 했으며, 해당 데이터만 추가 학습하면 기존 AI Hub 119 발화의 인식력이 떨어지는 **망각 위험**이 있었다.
 
-근거: [STT 파인튜닝 계보](https://github.com/aihuman-7th/proj2-3/blob/main/docs/stt-finetuning-lineage.md).
+**판단:** legacy CT2를 복원된 adapter로 오인하지 않고 **독립 Whisper Medium QLoRA 재학습**, **source-disjoint 고정 holdout**, placeholder 제거 후 **별도 Test B**, 면접 validation과 기존 도메인 retention을 나누어 검증하는 설계를 선택했다. 기존 도메인 망각을 줄일 목적으로 71592 단독 C1과 **71592 80% + 기존 clean 데이터 replay 20%**의 C2를 동일 조건에서 비교하고, 최종 test를 열기 전 모델을 고정하도록 했다. 실험 후보 선정은 운영 STT 배포 결정과 분리했다.
+
+**조치:** 개인 작성 [PR #23~34](https://github.com/aihuman-7th/proj2-3/pull/34)에서 데이터 검증·고정 holdout·clean manifest·Whisper QLoRA 학습기·CT2 evaluator 및 장시간 GPU 실행 도구를 구성하고, **50,000 train / 5,000 validation, NF4 4-bit, LoRA q/v rank16, effective batch32, 2 epoch / 3,126 optimizer step**의 50k 재학습을 수행했다. 데이터 정제로 **48,000 train / 4,802 validation B0**를 구성했다. 이어 [PR #51~56](https://github.com/aihuman-7th/proj2-3/pull/56)에서 B0 타임스탬프 정렬을 활용해 공식 전사문을 유지한 AI Hub 71592 장문 면접 답변을 분할, **24,556개 면접 segment + 6,139개 기존 도메인 replay**로 C1/C2 비교를 수행했다. 리뷰를 통해 재귀 삭제 범위를 제한하고 **C2 선택 adapter SHA·모델 fingerprint·validation·retention 결과를 저장한 frozen selection artifact**가 봉인 테스트보다 먼저 검증되게 보강했다. [PR #69~71](https://github.com/aihuman-7th/proj2-3/pull/71)에서 **1인 녹음 30건 raw/발화형 정규화 지표와 3모델×3 beam 평가**를 수행하고 평가 데이터·모델 fingerprint를 고정했다.
+
+**결과:** 50k QLoRA의 고정 holdout 500건 CER은 **9.1435→8.2708%**로 줄었으나 WER은 **16.1931→16.2937%**로 조금 악화됐다. 독립 Test B 500건에서 50k→B0 정제 후 CER **5.6038→5.3738%**, WER **13.5489→13.1213%**로 개선됐다. 71592 validation에서 C1·C2 결과는 사실상 유사했지만, 기존 119 retention WER은 **C1 17.1378%, C2 16.8062%**로 C2가 망각을 덜 일으켜 **상대적 실험 후보 C2를 선택**했다(기존 B0는 **15.3344%**, 여전히 더 좋음). 선택 이후 봉인된 71592 최종 test **1,233건에서 C2 CER 2.5876%, WER 9.7740%**를 보고했다. 단, 같은 test의 B0 값은 없어 직접 개선율을 산출할 수 없다.
+
+**실사용 및 운영 후보 검증:** 1인 녹음 전체 30건 raw에서 B0→C2의 CER은 **16.03→15.14%** 개선됐지만 WER은 **19.59→20.91%**로 악화됐다. 숫자·영문 stress를 제외한 24건의 발화형 정규화 WER은 **11.90→10.71%**, 기술 질문 8건은 **20.11→11.73%**였다. 별도 모델×beam 9조건에서 **large-v3-turbo beam1**이 동일 녹음의 core 정규화 CER/WER **3.29/6.63%**, RTF **0.020**으로 우세해 다음 서비스 추론 실험 기준선으로 삼았다. 이 30건은 단일 화자 대본 낭독·모델 선택용 devset이므로 다화자/운영 정확도로 일반화하지 않았다.
+
+**개인 기여와 한계:** GitHub의 학습·평가 PR 작성자는 **nanocode00**, STT 원본 Worklog는 **김재훈/ChatGPT 작업**으로 확인됐다. 재학습 계보 구성과 도메인 적응/재현성 검증은 개인 주도 경험으로 볼 수 있다. 그러나 기존 legacy 6k는 같은 adapter의 연속 학습이 아니고, C2가 기존 성능을 완전히 보존하지도 않았으며 **C2가 운영 기본 STT로 승격됐다고 주장하지 않는다.** 모델 학습과 large-v3-turbo의 beam/prompt/runtime 추론 최적화도 구분한다.
+
+근거: [학습·선정 계보](https://github.com/aihuman-7th/proj2-3/blob/main/docs/stt-finetuning-lineage.md) · [C1/C2 실험](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-22_aihub71592-domain-adaptation.md) · [실사용 평가](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-27_real-user-recording-eval.md) · [model×beam 평가](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-28_real-user-model-beam-matrix.md).
 
 ## 기타 경험과 후속 검증
 
