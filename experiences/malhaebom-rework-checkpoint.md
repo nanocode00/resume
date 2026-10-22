@@ -72,6 +72,16 @@
 
 ## 3-2. MB-02 — Prompt·Skill·MCP·서버 정책 분리 (검증 완료: 2026-10-21)
 
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄은 답변·공고·면접 대화 등 여러 입력을 LLM에 연결하고 있었고, Prompt 역할 지시와 도메인 Skill 규칙을 분리하며 MCP 조회·서버 검증의 신뢰 경계를 명확히 해야 했다. 핵심 코드 개발은 팀원과 AI 코딩 도구를 포함한 공동 작업이었다.
+2. **문제:** 규칙을 파일별로 분리하더라도 잘못된 템플릿 슬롯이 system prompt에 그대로 남을 수 있었다. 별도의 D6 검증 하네스는 실제 API에 없는 필드·헤더 때문에 정상 호출을 실패로 간주하거나, HTTP 200만으로 DB 저장 성공을 주장해 **거짓 음성·거짓 양성**을 만들 위험이 있었다.
+3. **판단:** 신뢰할 수 있는 것은 서버가 고정한 시스템 규칙·권한·검증 계약이며, Prompt/Skill·MCP 도구 결과·LLM 출력을 무비판적으로 성공 근거로 사용할 수 없다. 모델 입력의 변수 검증을 실패 우선으로 설계하고, **HTTP 성공·출력 계약 통과·실제 DB 저장**은 각각 별개의 검증 조건으로 다뤄야 한다.
+4. **조치:** 개인 계정 `nanocode00`으로 팀원 구현 [PR #119](https://github.com/aihuman-7th/proj2-3/pull/119)의 `{{SKILL_TEXT}}`·`{{skill_text }}` 우회 사례를 정확히 짚어 미지원 슬롯 거절과 회귀 테스트를 요청했다. [PR #116](https://github.com/aihuman-7th/proj2-3/pull/116)에서는 테스트 계약 오류를 세 차례 수정 요청해 검증 범위를 바로잡았고, [PR #123](https://github.com/aihuman-7th/proj2-3/pull/123)에 사용자·외부 원문·MCP·LLM 출력의 신뢰 경계를 문서화했다.
+5. **결과:** #119의 템플릿 검증 패치 및 **PR 브랜치 기준 526개 백엔드 테스트 통과 기록**, #116의 검증 목표를 **Agent HTTP 계약 확인**으로 정정하고 DB persistence는 **별도 수동 SQL 확인**으로 분리한 결과를 확인했다. **결함 발견·수정 요청·검증 기준 정립은 개인 기여**, 실제 분리·MCP 하네스 주요 코드 구현은 팀원 기여다. 이를 운영 전체 품질·보안성 입증으로 확대하지 않는다.
+
+
 ### 구현 구조의 사실 관계 — 팀 전체 시스템
 
 - [AGENT_REPORT 4·5장](https://github.com/aihuman-7th/proj2-3/blob/main/docs/AGENT_REPORT.md)과 코드 대조: `prompts/`는 모델의 역할·출력 형식·입력 취급, `skills/`는 면접 유형별 기준·근거 인용·보류 규칙, `backend/app/services/coaching_runtime.py`는 provider 요청·재시도·관측 연결, 서버 출력 검증은 `backend/services/llm.py` 및 Pydantic 계약, `mcp_server/server.py`는 권한 제한 읽기 도구.
@@ -120,7 +130,15 @@
 
 **커밋 계정의 의미:** #36/#37/#40/#41/#47이 사용자 명의이며, 문서상 9/21 다양성 및 1차 서비스 실험의 작업자는 Codex, 같은 날 Docker·로컬 Supabase 실험은 Antigravity다. 따라서 **AI 코딩 도구를 사용해 평가 조건·실험·수정·PR을 주도적으로 수행한 경험**으로 기술한다. 본인이 모든 라인을 수작업으로 작성했다고 주장하지 않는다.
 
-### 문제 → 접근 → 실행 → 결과
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄의 초기 평가 기반과 여러 모델 실험은 존재했지만, 접근 가능한 외부 모델을 폭넓게 비교하고 실서비스 기본 모델을 선택하는 **연결된 재현 절차**는 부족했다. 기존 코칭 계약·평가셋은 서정현 등 팀원이 구축한 토대였다.
+2. **문제:** OpenRouter에서는 모델별 실제 호출 가능 여부와 structured output 호환성, 지연·비용이 달랐다. 30건 독립 평가의 성공이 FastAPI·MCP·DB 경로의 성공을 보장하지 않았고, 두 서비스 실험의 서로 다른 결과와 `.env.example`의 불일치는 기본 모델 결정을 왜곡할 수 있었다.
+3. **판단:** 단일 품질 점수나 최저 호출비용 대신 **사전 통과 게이트 → 동일 조건 계약·지연·비용 재측정 → 실제 코칭 경로 검증**으로 좁혀야 한다. 계약 준수와 의미 품질, 비용 확인값과 실제 총액, 독립 하네스와 Docker 통합 실행의 표본은 분리해 판단한다.
+4. **조치:** Codex·Antigravity를 활용한 내 PR [#36](https://github.com/aihuman-7th/proj2-3/pull/36)·[#37](https://github.com/aihuman-7th/proj2-3/pull/37)·[#40](https://github.com/aihuman-7th/proj2-3/pull/40)·[#41](https://github.com/aihuman-7th/proj2-3/pull/41)·[#47](https://github.com/aihuman-7th/proj2-3/pull/47)로 **40모델 사전검증·22모델 660건 본평가**, Final Four **120건 별도 재실행**, 후보 2종 서비스 경로 **정상/경계/실패 유도 각 3건** 확인을 수행했다. `temperature=0` 파라미터 충돌에 따른 OpenRouter 404를 분석해 model-default로 맞추고, 제한된 JSON code fence만 보정했다. 팀원 리뷰에 따라 실행별 결과와 기본 환경 설정도 정합화했다.
+5. **결과:** Final Four에서 Flash Lite는 **30/30 계약 준수·p50 3.41초**, Luna는 **29/30·p50 9.36초**. Docker·로컬 Supabase·MCP/DB 통합 경로에서 Flash Lite **3/3·p50 3.44초**, Luna **초기 1/3·code fence 보정 후 2/3**을 확인해 **Flash Lite를 기본 후보로 선정하고 `.env.example`·README에 반영**했다. 이는 합성·로컬 표본의 안정성 근거이지, 최종 운영 사용자 의미 품질 100% 검증은 아니다.
+
+### 실험·결정의 상세 근거
 
 1. **문제:** 모델 선택을 출력 계약 하나나 정성적 선호만으로 결정할 수 없고, OpenRouter 모델의 실제 접근 가능성·스키마 호환성·비용·지연·서비스 통합 안정성이 서로 다르다. 과거 6종 평가·Basic/Premium 실패 복구 실험은 **다른 목적과 조건**이므로 직접 한 표로 합치지 않는다.
 2. **실험 설계:** 기존 Dataset v2 합성 30건·Prompt v3·고정 Skill/criteria·strict JSON Schema/서버 validator를 재사용. 인증된 모델 목록에서 text→text 및 `response_format` 지원 모델을 추리고 developer 다양성에 따라 선정한 뒤, 정상/경계/실패 유도 **3건 preflight → PASS 모델만 30건 본평가**를 진행. 재시도 상한·atomic JSON 저장·중단 후 재개·모델 기본 생성 설정과 `--live` 없는 dry-run을 둠.
