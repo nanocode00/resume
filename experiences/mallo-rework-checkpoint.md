@@ -18,7 +18,7 @@
 | 작업군 | 주제 | 시작 근거 | 귀속/추가 검증 | 상태 |
 | --- | --- | --- | --- | --- |
 | **MA-01** | 고령 사용자 조사·문제 정의·PRD/TRD·MVP 범위 | [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83), `docs/prd.md`, `docs/survey-pipeline-update.md` | 설문 실시·분석·결정·최종 배포 구현 분리 | **1차 검증 완료** |
-| **MA-02** | OrderCommand·Validator·결정론적 Order Engine | [PR #23](https://github.com/aihuman-7th/proj1-d/pull/23), [#55](https://github.com/aihuman-7th/proj1-d/pull/55) | 실제 명령 구현·메뉴 가격 SSOT·원자성, AI 코딩 협업 | 대기 |
+| **MA-02** | **OrderCommand 계약·결정론적 주문 관리 구현** | 개인 [#23](https://github.com/aihuman-7th/proj1-d/pull/23) 문서·개인 [#55](https://github.com/aihuman-7th/proj1-d/pull/55) 코드/테스트·병합 시점 snapshot | **A: 설계·Intent 구현 / 팀원 2명 승인**; 최초 6필드·동일 Intent batch와 이후 10필드·복합 Intent 지원 구분 | **검증 완료** |
 | **MA-03** | STT→NLU→주문→TTS 계약·VoicePipeline·Mock E2E | [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68), [#69](https://github.com/aihuman-7th/proj1-d/pull/69) | Mock/Real 호출, 297 tests가 무엇을 테스트하는지 구분 | 대기 |
 | **MA-04** | MeloTTS·Qwen3-TTS baseline, 친절체 학습과 모델 선정 | [PR #63](https://github.com/aihuman-7th/proj1-d/pull/63), [#71](https://github.com/aihuman-7th/proj1-d/pull/71), [#152](https://github.com/aihuman-7th/proj1-d/pull/152) | G_2000 비교와 G_2800 운영 벤치마크 서로 다른 설정 | 대기 |
 | **MA-05** | Adaptive TTS Level 0~2·한국어 수사 정규화·쇼케이스 | [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97), [#116](https://github.com/aihuman-7th/proj1-d/pull/116), [#150](https://github.com/aihuman-7th/proj1-d/pull/150) | 청음 체감 개선 vs 계산된 RTF·출력 호환성 | 대기 |
@@ -44,9 +44,33 @@
 
 - **직접 확인:** 팀장 역할, 설문→기능 우선순위 번역 문서(PR #83), PRD/TRD 계약 및 종료 후 정책 정합성.
 - **미확인:** 표본 13명 개인 직접 모집/인터뷰 수, 실제 70대 이상 검증, 설문 전후 제품 사용성 인과 개선·SUS, Undo/Pending State의 운영 구현. **초기 설문 n=13**과 **프로젝트 최종 사용성 평가 n=13**은 원본·실행 조건을 확인하기 전 결합하지 않는다.
-- **다음 MA-02:** 같은 원칙을 실제 `OrderCommand[]` 계약과 [Order Engine #55](https://github.com/aihuman-7th/proj1-d/pull/55)에서 어떻게 구현했는지 PR diff·테스트·원래 팀원 역할을 세분해 조사한다.
+- **MA-02 검증 완료:** 후속 섹션에서 #23 문서 계약, #55 초기 결정론적 엔진 구현과 후속 기능 차이를 병합 당시 코드 기준으로 확인했다.
 
 원본: [팀 README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md) · [PRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/prd.md) · [TRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/trd.md) · [Task/역할](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tasks.md) · [설문](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md) · [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
+
+## 3-2. MA-02 — OrderCommand 계약과 결정론적 주문 상태 보호 (2026-10-22 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로의 NLU는 음성 주문에서 메뉴·온도·수량을 추출하지만, 실제 메뉴 DB·단가·장바구니 상태는 일반 코드가 관리하는 카페 주문 서비스다. 초기 기능에는 `ADD_ITEM`을 중심으로 Mock Pipeline이 있었고, 사용자에게는 주문 후 **수량 변경·삭제·옵션 변경·내역 확인·확정·취소**가 필요했다.
+2. **문제:** NLU·PRD·TRD 문서마다 OrderCommand의 필드·Intent·오류 구조·복수 메뉴 처리 계약이 다르면 동일 발화도 모듈마다 다르게 실행될 수 있다. LLM에 금액이나 Cart의 직접 수정 권한을 주면 잘못된 수량·존재하지 않는 메뉴·불가능한 온도·모호한 삭제 대상이 **검증 없이 주문 상태를 오염**시킬 수 있다. 당시 엔진은 추가 이외의 주문 관리 Intent를 실행하지 못했다.
+3. **판단:** NLU 정상 결과는 **단일 메뉴도 `OrderCommand[]`**, 실패는 `OrderCommandError`로 나누고, 단일 메뉴 명령의 `request_id/intent/target_item_id/category_id/quantity/temperature` **최초 6개 필드를 명시**해 생략/추가 필드 처리와 null 규칙을 고정한다. **가격·총액·사용자 확인 여부는 NLU가 결정하지 않고 Menu DB·Order Engine이 결정**한다. 한 발화의 복수 `ADD_ITEM`은 같은 메뉴·온도 중복을 합치고, Batch를 **전부 검증한 후 복사본 Cart에만 실행**하며, 실패하면 기존 Cart를 반환해야 한다. 최초 구현의 범위에서는 **서로 다른 Intent 혼합 실행을 거부**한다.
+4. **조치:**
+   - **개인 설계 PR [#23](https://github.com/aihuman-7th/proj1-d/pull/23), MERGED 2026-08-14:** 김재훈(`nanocode00`)이 `docs/specs/order-command.md`의 정상 `OrderCommand[]`/실패 `OrderCommandError`, 6개 필드, 메뉴별 Command 분리, 동일 메뉴·온도 합산, Batch 원자성, `AMBIGUOUS_TARGET`/온도 누락 시 무변경·P0 재입력/P1 Clarification 책임 경계를 문서로 확정하고 PRD/TRD/메뉴/Tasks를 정합화. **변경 파일 7개는 전부 Markdown**이므로 #23을 런타임 Schema·Validator 구현이라고 주장하지 않는다.
+   - **개인 구현 PR [#55](https://github.com/aihuman-7th/proj1-d/pull/55), MERGED 2026-08-18:** `src/domain/conversation.py`의 `ConversationAgent.execute()`에서 `REMOVE_ITEM`, `UPDATE_QUANTITY`, `UPDATE_OPTION`(당시 **HOT↔ICED만**), `QUERY_CART`, `CONFIRM_ORDER`, `CANCEL` 실행 분기를 구현했다. `_execute_add_item`은 메뉴/수량/온도 전체 검사 뒤 `new_cart = cart.copy()`에 반영했으며, 기존 Cart에서 삭제/수정도 복사한 상태만 변경하도록 구현했다. 다른 Intent 혼합은 `INVALID_COMMAND`로 거부했다. 한국어 받침에 따른 조사·수량 표현을 추가해 TTS용 안내 메시지를 반환했고 `tests/unit/test_order_engine_operations.py`에서 성공·오류·복구 상태를 검증했다.
+   - **실제 리뷰·테스트:** PR #55에는 **윤태현(`surf7978`)·류승민(`Padong47`) 2명 APPROVED**가 남아 있다. PR 본문 기록 `PYTHONPATH=src python3 -m pytest`는 **70 passed**이며, 이는 저장소 테스트 당시 전체 숫자이지 '신규 테스트 70개'가 아니다. **이번 이력서 조사에서 CI/pytest를 다시 돌렸다는 주장은 하지 않는다.**
+5. **결과:** 핵심 주문 관리 **6종 Intent**를 LLM 비의존 결정론적 상태 전이로 구현했으며, 존재하지 않는 항목 삭제는 `MENU_NOT_FOUND`, 0 이하 수량은 `INVALID_QUANTITY`, 미지원 온도는 `INVALID_OPTION`, 빈 Cart 확정은 `INVALID_COMMAND`로 거부했다. 기존 Cart를 보존하면서 메뉴 조회와 최종 금액 안내를 제공하도록 구성했고, 원본 PR #55에 **70개 테스트 통과·팀원 2인 승인 후 병합**의 근거가 남았다. **실제 PG 결제 연동이나 모델 음성 인식·운영 사용자 전체 주문 성공률은 이 PR의 성과가 아니다.**
+
+### 실제 병합 시점과 이후 발전의 구별 (중요)
+
+- **2026-08-14의 #23:** 계약 **문서** 최초 6필드 정의; `schemas/order-command.schema.json` 작성 PR이 아니며 실제 Schema runtime 검증은 관련 후속 코드의 소유권을 따로 조사해야 한다.
+- **2026-08-18의 #55:** `ConversationAgent`는 초기 6종 관리 Intent 구현, `UPDATE_OPTION`의 옵션은 **온도 변경만**, 혼합 Intent 배치는 일괄 거부. `_execute_remove_item`·`_execute_update_quantity`·`_execute_update_option`은 **첫 명령 하나만 소비**했으므로, #23에서 목표로 서술한 '모든 Intent의 복수 명령 원자 실행'이 처음부터 구현된 것은 아니다. **복수 `ADD_ITEM`에 대한 유효성 일괄 검사·Cart 복사 후 반영**이 코드로 확인되는 실제 원자성이다.
+- **원본 #55의 모호성 경계:** 초기 삭제/수량 변경은 **온도 미지정 시 첫 번째 matching Cart line을 선택**할 수 있어, 같은 메뉴 HOT·ICED 동시 존재 시 `AMBIGUOUS_TARGET`을 모든 경로에서 차단하지 않았다. #23에는 모호성 차단 **설계 기준**이 기록됐고, 현재 `tests/unit/test_order_engine_operations.py`에는 모호성 거부 회귀 테스트가 추가돼 있다. **현재 동작을 8/18의 초기 #55 개인 구현 성과로 소급하지 않는다.**
+- **2026-10-22 조회한 최신 `main`:** 명령 스키마는 **실제 required 10개 필드**(`request_id,intent,target_item_id,category_id,quantity,temperature,query_tags,detail_fields,options,fulfillment_type`)까지 확장됐다. 현재 Spec 본문에 '**9개 필드**'라고 쓰였으나 바로 아래 표는 **10개**를 열거하는 내부 문서 불일치가 있어 최신 Schema를 기준으로 확인했다. `size`·`extra_shots`·`syrup_pumps` 등의 필드는 API 스키마에 있어도 **최종 MVP에 Size 음성 주문/변경이 포함됐다는 근거는 아니다**(PRD에서 명시 제외).
+- **비교 시점 고정:** 초기 #55 병합 커밋 `e039f6552ee82b1c61612ad00a61130e91b75310`의 `src/domain/conversation.py`와 243줄짜리 `tests/unit/test_order_engine_operations.py`를 확인했다. 현재 1227줄 엔진/554줄 테스트의 추가 기능을 모두 #55 개발 성과로 합산하지 않는다.
+- **직무 활용:** 'LLM을 통해 주문을 이해하되 상태 변경은 코드가 검증'이라는 **AI-제어권 분리·SSOT·불변 조건 기반 테스트**를 주력 서사로 활용한다. 의도/엔진 계약과 실제 코드 간 시간차 및 초반 모호성 누락도 질문받으면 설명 가능하도록 기록한다.
+
+원본: [PR #23](https://github.com/aihuman-7th/proj1-d/pull/23) · [PR #55](https://github.com/aihuman-7th/proj1-d/pull/55) · [#55 병합 시점 코드](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/src/domain/conversation.py) · [#55 병합 시점 테스트](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/tests/unit/test_order_engine_operations.py) · [최신 OrderCommand 스키마](https://github.com/aihuman-7th/proj1-d/blob/main/schemas/order-command.schema.json) · [최신 주문 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/order-command.md).
 
 ## 4. 진행 원칙
 
