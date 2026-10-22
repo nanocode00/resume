@@ -8,8 +8,8 @@
 
 - **기간:** 2026-09-18 ~ 2026-10-08 (프로젝트 본 일정). 10월 10~12일 저장소·배포 동기화 및 종료 정리는 별도 후속 작업.
 - **팀:** 곽호준·김재훈·서정현, 3인 ([팀 README](https://github.com/aihuman-7th/proj2-3/blob/main/README.md)).
-- **개인 기여, 직접 기록 확인:** 합성 평가셋 30건 사람 기준 검토·ground truth 교정; 인증된 채용공고 원문 분석 E2E 재현 및 보안 처리; **Prompt 템플릿 변수 검증 취약점과 MCP/Agent E2E 테스트의 거짓 양성·음성 검출 리뷰, 신뢰 경계 문서화**; 체크포인트/평가 근거 정합화와 PR 협업.
-- **개인 기여, 추가 귀속 검증 중:** 다수 모델 후보 평가 실행과 기본 후보 선정, Prompt/Skill 평가 설계·실행, Whisper Medium QLoRA 실험, API/Agent 통합 검증. 프로젝트 산출물이 존재하지만 단계별 커밋·학습 실행 주체를 더 확인해야 한다.
+- **개인 기여, 직접 기록 확인:** **AI 코딩 도구를 활용한 OpenRouter 모델 40종 사전검증·22종 660건 본평가, 4종 120건 재측정과 코칭 서비스 후보 통합 검증·기본 모델 선정**; 합성 평가셋 30건 사람 기준 검토·ground truth 교정; 인증된 채용공고 원문 분석 E2E 재현 및 보안 처리; **Prompt 변수 검증 결함 및 MCP/Agent E2E 테스트의 거짓 양성·음성 검출 리뷰, 신뢰 경계 문서화**.
+- **개인 기여, 추가 귀속 검증 중:** Prompt/Skill A/B 평가 설계·실행, Whisper Medium QLoRA 실험, 기타 API/Agent 통합 검증. 프로젝트 산출물은 존재하지만 단계별 커밋·학습 주체를 계속 대조한다. **초기 기본 모델 평가 하네스와 일부 별도 모델 평가 확장은 팀원 기여**로 구분한다.
 - **프로젝트 기술:** React·TypeScript·Vite, FastAPI·Pydantic, Docker Compose, Supabase, FastMCP, OpenRouter, Langfuse, Whisper/CTranslate2, Cloud Run·Vercel.
 - **범위:** 말해봄 Mk.2는 RAG·벡터 DB·LangGraph를 사용하지 않았다. 추후 의료 RAG 프로젝트와 혼동하지 않는다.
 
@@ -53,11 +53,11 @@
 
 근거: [PR #119 코드 리뷰](https://github.com/aihuman-7th/proj2-3/pull/119#discussion_r4139564132) · [PR #116 수정 요청과 최종 승인](https://github.com/aihuman-7th/proj2-3/pull/116) · [신뢰 경계 문서](https://github.com/aihuman-7th/proj2-3/blob/main/docs/TRUST_BOUNDARY.md).
 
-### 3. LLM 후보 비교에서 형식 안정성·지연·비용 분리 — 프로젝트 실험 확인, 개인 실행 범위 재확인 필요
+### 3. OpenRouter 후보 대규모 탐색부터 서비스 기본 모델 선정까지 — 개인 기여 확인
 
 **문제:** 계약을 충족하는 생성 모델이라도 코칭 지연, 비용, 오류/실패 유도 입력에서의 형식 유지 능력이 다르다.
 
-**실험:** 합성 Dataset v2 30건, 고정 Prompt/Skill/Schema와 모델별 기본 생성 설정에서 Final Four를 재실행했다. 2026-09-21 결과:
+**실험 설계·진행:** 기존 팀 평가 하네스와 Dataset v2 합성 30건을 재사용해 OpenRouter 제공 모델을 discovery → 3건 preflight → 통과 모델만 30건 평가로 단계화했다. **40개 모델을 preflight하고 22개 통과 모델을 총 660건 평가**, 이후 별도의 고정 Prompt/Skill/Schema·모델 기본 생성 설정으로 Final Four 4×30=120건을 재실행했다. API 호출 재개/결과 저장·비용 누락 보존·dry-run 기본값·재현 경로를 구축했다. 2026-09-21 Final Four 결과:
 
 | 후보 | 계약 준수 | 완료 지연 p50 / p95 | 알려진 30건 비용 |
 | --- | ---: | ---: | ---: |
@@ -66,9 +66,11 @@
 | GPT-5.6 Luna | 29/30 | 9.36 / 13.77초 | $0.039149 |
 | GPT-5.6 Terra | 10/30 | 1.18 / 8.29초 | **최소** $0.105707 |
 
-Terra의 20건 실패는 request/schema/integration 단계 실패로, 의미 품질 불합격으로 단정하지 않는다. 3건의 로컬 Docker/Supabase/MCP 경로 추가 측정에서 Flash Lite는 **3/3**, Luna는 최초 **1/3**, 제한된 JSON envelope 보정 뒤 **2/3** 통과했다. 응답 지연·계약 안정성을 기준으로 Flash Lite를 코칭 기본 후보로 선정했다. **30건 생성 평가와 3건 서비스 경로 검증은 다른 모집단·조건**이다.
+**서비스 통합 검증·선정:** Terra의 20건 실패는 request/schema/integration 단계 실패로 의미 품질 불합격으로 단정하지 않았다. FastAPI 독립 하네스 3건씩에서는 Flash Lite·Luna 모두 계약 3/3이었지만, **Docker+로컬 Supabase·stdio MCP·DB 통합 경로**에서는 Flash Lite **3/3(p50 3.44초)**, Luna 최초 **1/3** 및 JSON code fence 보정 후 **2/3**을 기록했다. 최초 `temperature=0`과 OpenRouter 지원 설정의 충돌로 발생한 HTTP 404를 모델 기본 설정에 맞춰 해결하고, 보수적인 JSON envelope 복구만 허용했다. **Flash Lite를 기본 코칭 후보로 결정해 `.env.example`·README에 반영**했다. 팀원 PR 리뷰에서 Luna 두 실행의 3/3·2/3 혼용과 환경 기본값 불일치를 지적받아 재현 기록·설정을 보완했다. **계약 30/30은 코칭 의미 품질 100%를 뜻하지 않고**, 3건 서비스 결과는 전체 사용자 품질 보증이 아니다.
 
-근거: [Final Four](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-final-four.md) · [평가 보고서 13장](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
+**기여 귀속:** 다양성 평가 core·CLI [PR #36](https://github.com/aihuman-7th/proj2-3/pull/36)·[#37](https://github.com/aihuman-7th/proj2-3/pull/37), 재현/선정 문서 [#40](https://github.com/aihuman-7th/proj2-3/pull/40)·[#41](https://github.com/aihuman-7th/proj2-3/pull/41), 후보 통합 [#47](https://github.com/aihuman-7th/proj2-3/pull/47)은 모두 `nanocode00` 커밋이다. **Codex·Antigravity를 통해 구현/실행한 부분**과 내 실험 운영·선정 판단을 구분하며, 초기 하네스 [#19](https://github.com/aihuman-7th/proj2-3/pull/19)는 서정현의 팀원 구현으로 인정한다.
+
+근거: [다양성 실험](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-model-diversity.md) · [Final Four](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_openrouter-final-four.md) · [서비스 통합](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-21_service-candidate-integration.md) · [평가 총괄](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
 
 ### 4. Prompt/Skill 변경의 회귀를 측정하고 승격 보류 — 프로젝트 실험 확인, 귀속 재확인 필요
 
