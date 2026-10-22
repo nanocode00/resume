@@ -175,6 +175,24 @@
 
 근거: [평가 결과 Langfuse export](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-28_1540_langfuse-evaluation-export.md) · [실제 버전 기록 정합성](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-02_coaching-version-provenance.md) · [10/8 관리형 Prompt 운영 관측](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_d10-production-readonly-evidence.md) · [10/9 요청–Trace 연결](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/request-trace-linkage-2026-10-09.md).
 
+### 9. UI 테마·전사문 가독성 리뷰와 독립 쇼케이스 웹사이트 구현 — 개인 역할 구분 확인
+
+**상황:** 말해봄은 음성 면접 연습·전사 확인·코칭·재답변·기록 기능을 갖춘 상태였지만, 처음 방문하는 이용자에게 서비스 목적을 설명하는 콘텐츠와 제품 UI의 시각적 일관성이 필요했다. 라이트/다크 테마와 시작·녹음·전사 상태 화면 개선이 검토 대상이었고, 11페이지 랜딩 개선 PDF가 별도 소개 사이트 설계의 기초가 됐다.
+
+**문제:** UI 테마 구현 과정에서 **정의되지 않은 CSS 변수, 다크 모드에 연결되지 않은 화면별 고정색, 전사문 편집기의 어두운 배경/글자색 cascade 충돌**이 발견됐다. 소개 사이트에는 기획 목업, 당시 서비스 데모 이미지, 실제 운영 기능이 섞여 사용자에게 검증되지 않은 기능·성능·데이터 보관 정책을 확정된 내용처럼 보여줄 위험이 있었다.
+
+**판단:** 제품 UI 리뷰에서는 화면 전체 색상 교체만 확인하지 않고 **CSS 토큰 유효성·개별 입력 상태의 대비·기존 녹음/연습/기록 기능 보존**을 검증하기로 했다. 제품 코어와 배포를 변경하지 않으면서 **의존성 없는 정적 HTML/CSS/JS로 소개 콘텐츠를 독립 제공**, 브랜드 보라색·마스코트·상태 이미지 등 기존 자산을 재사용하고 **기획용 UI/실서비스 예시 및 확인된/미확인 정보를 구분**하기로 했다.
+
+**조치:** [UI 개선 PR #211](https://github.com/aihuman-7th/proj2-3/pull/211)에서 CSS 미정의 토큰 3개와 다크 모드의 공통 화면 대비 누락을 지적했고, 후속 리뷰에서 `.transcript-editor`의 기존 고정 글자색이 새 dark selector보다 specificity가 높아 **전사문을 읽기 어려워지는 결함**을 발견해 다시 수정 요청했다. 마지막 리뷰에서 정상 입력 **15.29:1**, 비활성 **8.46:1** 대비를 확인하고 승인했다. 이 PR의 ThemeProvider·홈 화면·상태 이미지 구현 자체는 **팀/코딩 도구 작업**, 내 직접 기여는 결함 발견·재검토·승인이다.
+
+별도 [PR #214](https://github.com/aihuman-7th/proj2-3/pull/214)는 **nanocode00 명의 3개 커밋**으로 11쪽 랜딩 개선 기획을 **서비스 소개와 프로젝트 소개 2개 정적 페이지**로 제작했다. Light/Dark/System 테마, 반응형 메뉴, FAQ, 연습 시작 CTA, 사용 흐름/기획용 3단 코칭 예시를 구성하고, 제품 로고·마스코트·녹음/전사 캐릭터·데모 4장·배경을 최적화해 재사용했다. 정적 파일·앵커·이미지 시그니처 검사 도구를 추가하고 프로젝트 기간을 확정하되 실제 삭제 정책으로 검증하지 못한 **24시간 보관 문구는 공개 확정 정보로 사용하지 않았다**. 별도 [개인 쇼케이스 저장소](https://github.com/nanocode00/malhaebom-showcase)에도 정적 사이트 파일을 보존했다.
+
+**결과:** UI 리뷰에서 세 종류의 실제 표시 오류를 수정 요청해 다크 모드의 전사 편집기 가독성과 공통 스타일 일관성 개선을 확인했다. 개인 정적 사이트는 2개 페이지·최적화된 브랜드/제품 자산·반응형/테마·공개 전 검증 체크리스트를 포함했고, 최종 정적 검사에서 **서비스 18개 ID·31개 링크/자산, 프로젝트 7개 ID·30개 링크/자산**, 로컬 HTTP 200과 빌드 불필요 정적 검증을 통과했다. 별도 GitHub 저장소 소스도 확인했다. 실제 GitHub Pages 현재 접근·운영 사용량은 이번 조사에서 재측정하지 않았다.
+
+**기여 경계:** PR #211에서 작성자 기록의 **프런트 181개 테스트·빌드 통과**는 확인했지만 나는 당시 Windows npm/WSL 설치 환경 문제로 테스트를 독립 재실행하지 못했다. **10월 10일 이후** 소개 화면을 운영 React/Vite의 `/` 진입점 및 로그인/연습 경로에 통합한 [PR #240](https://github.com/aihuman-7th/proj2-3/pull/240)·[#241](https://github.com/aihuman-7th/proj2-3/pull/241), 소개 콘텐츠 후속 [#251](https://github.com/aihuman-7th/proj2-3/pull/251)은 **곽호준 작성 팀 작업**으로, 내 10월 8일 독립 사이트 제작과 구분한다. 이 후속 통합을 10월 8일 이전 개인 기능 구현이나 실제 Google 로그인 전체 검증으로 주장하지 않는다.
+
+근거: [UI 리뷰 #211](https://github.com/aihuman-7th/proj2-3/pull/211) · [쇼케이스 개인 PR #214](https://github.com/aihuman-7th/proj2-3/pull/214) · [10/8 소개 사이트 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_malhaebom-intro-site.md) · [개인 쇼케이스 저장소](https://github.com/nanocode00/malhaebom-showcase) · [10/10 팀 통합 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-10_showcase-intro-integration.md).
+
 ## 기타 경험과 후속 검증
 
 - 실제 서비스는 운영 배포·소개 페이지, OAuth, 코칭 API, 답변 revision, MCP 조회, Langfuse trace, 이력서 PDF 지원 기능까지 확장됐다. **팀 전체 제품 범위**와 해당 시점의 운영 확인을 먼저 적고 개인 코드 기여를 나중에 연결한다.
