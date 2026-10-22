@@ -49,7 +49,7 @@
 
 **조치:** [PR #149](https://github.com/aihuman-7th/proj2-3/pull/149)에서 인증 E2E runner에 **환경변수 우선·Git ignored JWT 토큰 파일 fallback·POSIX 0600 권한 검사**를 도입하고, 정상 파일·환경변수 우선·과도한 권한(0644) 거부 **3개 단위 테스트**를 추가했다. NCS 장애 시 재시도하고, PlayMCP 인증 503 시 `JOB_SEARCH_PROVIDER=web`으로 전환했으며, 컨테이너/API 재생성 후에는 로그인 브라우저의 최신 JWT를 사용했다. 결과에는 인증 상태·건수·검증 통과 여부만 기록했다.
 
-**결과:** 실제 **로컬 Supabase 로그인 사용자 JWT**로 `NCS skill-server 선택 → 공고 추천 3건 → 사람인 공고 원문 재조회 → 요구사항 5건 추출 및 source quote 검증 통과 → 개인 `private_job` 저장·목록 조회 → 요구사항 2개 선택 → `preset-04` 연습 세션 생성`을 **로컬 API E2E 1회** 성공했다. 해당 PR은 **JaeHun Kim/nanocode00 작성, 서정현 승인·CI 통과 후 병합**됐다. 이 경로는 PlayMCP **직접 성공이 아닌 web fallback 성공**이며 운영·브라우저 클릭 전체 검증도 아니다.
+**결과:** 실제 **로컬 Supabase 로그인 사용자 JWT**로 **NCS `skill-server` 선택 → 공고 추천 3건 → 사람인 공고 원문 재조회 → 요구사항 5건 추출·원문 quote 검증 통과 → 개인 `private_job` 저장·목록 조회 → 요구사항 2개 선택 → `preset-04` 연습 세션 생성**을 **로컬 API E2E 1회** 성공했다. 해당 PR은 **JaeHun Kim/nanocode00 작성, 서정현 승인·CI 통과 후 병합**됐다. 이 경로는 PlayMCP **직접 성공이 아닌 web fallback 성공**이며 운영·브라우저 클릭 전체 검증도 아니다.
 
 **후속 작업 및 한계:** [PR #167](https://github.com/aihuman-7th/proj2-3/pull/167)의 운영 HTTP 로그 증거 재정리는 **곽호준 기여**이고 새 연속 E2E 실행이 아니며, [PR #186](https://github.com/aihuman-7th/proj2-3/pull/186)의 Windows 토큰 파일 fallback 금지는 **서정현 구현·내 리뷰**다. 이후 실제 운영 브라우저에서 공고 분석과 연습 기능 성공을 확인한 수동 보고는 있으나 **같은 요청의 PlayMCP 호출 로그와 연계된 증거는 별도**다. 내 검증 결과를 제품 전체·모든 provider·운영 사용자 E2E 성공률로 확대하지 않는다.
 
