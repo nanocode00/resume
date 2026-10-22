@@ -148,24 +148,32 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 근거: [Level 쇼케이스 #97](https://github.com/aihuman-7th/proj1-d/pull/97) · [한국어 발화 정책 수정 #116](https://github.com/aihuman-7th/proj1-d/pull/116) · [교차 지연 실측 #150](https://github.com/aihuman-7th/proj1-d/pull/150) · [MA-05 검증 원장](mallo-rework-checkpoint.md).
 
-## 4. STT fine-tuning/선정에도 직접 참여
+## 4. MA-06 — Whisper Medium QLoRA 추가 실험·STT 후보 선정·서빙 전환 (검증 완료)
 
-공식 STT Lead는 별도로 있었지만 후반 통합 단계에서 학습 자산을 직접 받아 추가 실험과 production selection을 수행했습니다.
+**상황:** 음성 주문 모델은 방언·메뉴명·수량뿐 아니라 **잡음이 있는 카페 환경에서 주문 의도를 놓치지 않아야** 했다. STT 담당 팀원 윤태현이 기존 방언 전처리, 화자 단위 분할, Whisper Medium QLoRA·도메인 적응 모델의 초기 연구를 진행했고, 프로젝트 후반 통합 단계에서 나는 **추가 학습·후보 비교·서비스 모델 결정과 서빙 연결**을 맡았다.
 
-직접 작업 기록:
+**문제:** 초기 STT의 CER/WER와 synthetic domain 평가는 **카페 잡음 수준별 안정성**을 직접 보여주지 못했다. 로컬에는 Golden500 HPF·Train65·cafe-adapt·kiosk-test·speaker-split·ONNX·merged BF16 등 학습 단계/모델 계보가 다른 후보가 다수 있었으며, **동일 가중치·중복 체크포인트·다른 평가 split/decoder**를 섞으면 정확한 모델 비교가 불가능했다. 학습 중 Test를 반복 조회하면 검증의 독립성도 훼손된다.
 
-- Whisper Medium QLoRA Train65 continuation smoke
-- clean 16 + cafe 16 = 32 sample
-- cafe SNR 15 / 10 / 5dB contract 확인
-- 1 step, batch 8 학습
-- adapter tensor **288 / 288 변경 확인**으로 실제 update 검증
-- Train65, cafe-adapt, golden500 HPF, kiosk-test, speaker-split, fast-exp artifact sweep
-- candidate benchmark 후 Train65 merged BF16을 production 기본 runtime으로 전환
-- baseline/QLoRA rollback path 유지
+**판단:** **팀원 초기 연구와 내 후반 재검증을 구분**하고, 재학습 시 Validation만으로 하이퍼파라미터 후보를 선택한다. 모델 후보 비교는 **동일 디코딩·데이터셋, Clean/Cafe 15·10·5dB**, corpus CER/WER·latency, 동일 adapter SHA 중복 제외와 provider별 지연을 사용한다. 실제 서빙에서는 PEFT 의존성/모델 로드 복잡도를 줄이기 위해 **BF16 merged Train65**를 기본으로, 기존 도메인 merged 및 baseline을 롤백 경로로 유지한다.
 
-후반 candidate sweep에서 Train65 `lr=2e-5, ep=2`는 clean CER **0.135667**, cafe5 CER **0.205689**로 안정적인 후보였고, cafe-adapt는 cafe15 CER **0.150802**로 특정 노이즈 조건에서 근소하게 우세했습니다.
+**조치:** 2026년 8월 22~26일 이전 대화의 직접 실험 기록에서 RTX 5070 Ti 기반 **Golden-500 HPF Whisper QLoRA 17회 실험을 모두 실행**, Train 350 / Validation 77을 사용하고 Test 73은 열지 않았다. 검증 기록의 한 후보는 **LR 3e-5·5 epoch·warmup 50·grad accumulation 8·seed 42에서 Validation CER 0.205863·WER 0.480094**였다. 사용자 지시대로 실행 결과 문서만 보존하고 추가 학습과 Test 재실행·모델/원음 바이너리 Git 업로드는 하지 않았다. 이 17회는 **개인 실행을 확인한 과거 대화 기록**이며, 모든 체크포인트의 공개 Git 원시 로그 검증을 완료한 것은 아니다.
 
-저장소 전체 STT worklog에는 더 이른 단계의 QLoRA 학습, speaker-level split, 도메인 TTS data 추가학습도 기록되어 있으나 이 전체 파이프라인을 개인 기여로 주장하지 않습니다.
+그다음 **32개 STT 후보를 탐색·SHA 중복 검사**한 뒤 평가 가능한 부분집합을 **Clean-kiosk 및 Cafe 15/10/5dB 조건**에서 비교했다. 실제 서버 후보로 선택한 **`whisper-medium-qlora-train65-v1-lr2e-5-ep2-merged-bf16`**의 소음 조건별 수치는 다음과 같다.
+
+| Train65 후반 후보 평가 | CER | WER |
+| --- | ---: | ---: |
+| Clean-kiosk | **0.1357** | 0.4115 |
+| Cafe 15dB | 0.1512 | 0.4370 |
+| Cafe 10dB | 0.1679 | 0.4695 |
+| Cafe 5dB | **0.2057** | 0.5137 |
+
+이후 개인 [PR #214](https://github.com/aihuman-7th/proj1-d/pull/214)로 `WhisperMediumSTT` 기본 선택값을 **`train65`**로 전환하고, 로컬 CUDA **BF16 모델 로드·약 1457.6MiB VRAM**을 확인했다. 구형 `qlora`·`baseline` 모델은 rollback용으로 유지하고 `benchmark_stt_candidates.py`, runtime·테스트를 추가했다. 개인 [PR #218](https://github.com/aihuman-7th/proj1-d/pull/218)에서는 Windows/WSL 경로와 legacy 데이터 위치의 호환, Whisper `attention_mask` 명시, deprecated `dtype` 인자, Validation/Test CSV 입력을 보완해 **STT 단위 테스트 전체 133개 통과**로 기록했다.
+
+**결과:** 동일 모델을 **Clean/Cafe 환경의 잡음 증가에 따라 평가하고 운영할** 근거를 확보해 `Train65 lr=2e-5·2epoch BF16 merged`를 기본 STT로 선정했다. [8/27 최종 자산 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md)에서는 선택한 1.52GB 모델의 SHA256 provenance, 8/26 후보 leaderboard(가혹 Cafe5 부근 **CER 0.2056/WER 0.5137**), 실서빙 모델 경로와 rollback 모델을 구분했다. **후반의 독립 STT 후보 선정·검증·서비스 전환**이라는 개인 성과가 PR/자산 감사와 이전 실험 대화에 함께 남아 있다.
+
+**개인 기여·평가 경계:** 초기 경상도 방언 preproc 500개·Whisper base/small/medium 비교·화자 누출 수정과 초기 도메인 QLoRA/BF16 merge·ONNX 변환은 **윤태현 개인 PR #27/#31/#32/#58/#67** 등과 연결되며 내 독자 개발로 주장하지 않는다. **Golden500 17회 Validation CER 0.2059**와 **Train65 Clean CER 0.1357**은 평가 모집단이 다르므로 '학습으로 0.2059→0.1357 개선'이라 쓰지 않는다. [최종 발표용 정량 표](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md)의 **CER 0.1131/WER 0.3352·메뉴 Recall 89.5%** 역시 기존 팀 도메인 모델의 **서로 다른 평가 조건**에 귀속해 Clean/Cafe 결과의 개선율로 재사용하지 않는다. 후보 32개는 **탐색 수**이지 32개 모두를 각 noise set 300개에서 실행했다는 뜻이 아니다. 원시 후보 비교 로그 일부는 로컬/당시 대화 증거이며 공개 Git의 모든 run이 복제되지는 않았다. 온라인 카페 고령자 음성 데이터의 실제 성능 개선, 전체 주문 E2E 지연 달성 및 배포 서비스의 영속적 작동은 별도 MA-09/10 검증 대상으로 남긴다.
+
+근거: [후반 STT 서빙·벤치마크 #214](https://github.com/aihuman-7th/proj1-d/pull/214) · [STT 평가 스크립트 개선 #218](https://github.com/aihuman-7th/proj1-d/pull/218) · [모델 자산·결과 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) · [STT 팀 Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/stt.md) · [검증 원장 MA-06](mallo-rework-checkpoint.md).
 
 ## 5. NLU QLoRA 학습에도 직접 참여
 
