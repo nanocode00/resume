@@ -33,7 +33,7 @@
 | MB-06 | 로그인 사용자 공고 원문 분석 E2E | **개인 PR #149**, 로컬 redacted 증거·10/1 Worklog·팀 리뷰; 별도 팀원 PR #167·#186 | **A(인증 API E2E 도구·실측·장애 분리) / T(운영 로그 문서화·Windows 보강)** | **검증 완료** — PlayMCP 직접/브라우저 UI/운영 동일 요청 입증은 미확인 |
 | MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | **개인 PR #112·#114·#115·#118 / 개인 리뷰 #122**, 팀원 PR #39·#116·#117·#172 | **A(통합 테스트·인증 사용자 검증·저장 거짓 양성 리뷰) / T(핵심 Agent·MCP 코어)** | **검증 완료** — fixture·로컬 JWT live·Cloud trace·DB 행 검증·운영 배포의 수준 구분 |
 | MB-08 | Whisper Medium 50k → B0 → C2 학습 | **개인 PR #23~34·#51~56·#69~73·#146**, 50k/clean/71592/실사용 모델×beam 실험·리뷰 | **A(개인 주도 학습·데이터/평가 파이프라인·상대적 모델 선택)** | **검증 완료** — legacy adapter 단절, sealed test, retention 회귀, 단일 화자, 운영 기본 미교체 |
-| MB-09 | 실제 마이크/STT·NLU·Supabase 통합 E2E | checkpoint, EVAL_REPORT, 일부 worklog | T/B | 인증 사용자 부분 E2E와 운영 전체 E2E 분리 |
+| MB-09 | **WAV 업로드·STT/VAD·전사·코칭·비교 로컬 E2E 및 분석 지연** | 개인 PR #47·#104·#106·#115; 9/21·9/28·9/29 Worklog | **A(서비스 경로 검증·벤치마크·회귀 판정) / T(제품 핵심 STT·UI 기능)** | **검증 완료** — 마이크 실녹음·Hosted Supabase 운영 전체 E2E 미확인, MB-03/07 결과 중복 집계 금지 |
 | MB-10 | Langfuse Prompt/trace·운영 관측 | AGENT_REPORT, 10/8~10/9 운영 증거 | T/B | 직접 운영 trace 확인/배포와 팀 공통 관측 분리 |
 | MB-11 | UI/UX 개선과 소개 페이지·배포 | 10/10 README, 운영 비교 PR, 별도 showcase 저장소 | T/B | 개인 제안·목업·별도 showcase 설계와 팀 프론트 구현 구분 |
 | MB-12 | D1~D12 체크포인트·PR·CI 협업/종료 | 10/1 개인 Worklog, PR/CI 기록 | A/B | 직접 처리한 리뷰·브랜치·테스트·병합 대표 3~5건 선정 |
@@ -290,6 +290,34 @@
 
 ---
 
+## 3-9. MB-09 — 로그인 사용자 WAV/STT·전사·코칭·비교 및 서비스 지연 진단 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄은 프런트 연습 화면에서 공고·질문을 선택하고 음성을 입력해 **비동기 분석 작업 생성 → VAD/STT → 전사문 확정 → Agent 코칭 → `coaching_runs` 저장 → 1차·2차 비교**를 보여주는 제품으로 통합 중이었다. 개별 STT/Agent 단위 기능만으로 실제 사용자의 연속 경로와 체감 지연을 알기 어렵고, 인증·로컬 Supabase 연계도 필요했다.
+2. **문제:** 로컬 Docker/ Supabase 통합 초기에 **service-role credential 구성이 잘못돼 DB 접근 401**, 경로 검증 중 별도 시점에 **Storage schema 및 `coaching_runs.criteria_version` migration 누락**이 발생했다. 모델 출력/HTTP 200만 보면 전사 확정·실제 DB 저장·비교 렌더링 누락을 놓칠 수 있다. 또한 **STT 단일 추론 속도**는 음성 업로드·작업 생성·polling·VAD·DB 저장까지 포함한 **사용자 체감시간**과 다르며, Cloud Run의 CPU 수나 이미지 크기를 줄여도 운영 저장소 성능이 좋아졌다고 단정할 수 없다.
+3. **판단:** (a) **실제 로그인 JWT를 사용한 로컬 제품 기능 E2E**, (b) **WAV를 사용한 1차 코칭→재답변 저장·비교**, (c) **/analysis-jobs 업로드→terminal 서비스 지연 benchmark**, (d) **Hosted Supabase/RLS/Storage 포함 배포 E2E**를 구분해 근거를 모아야 한다. **실제 마이크를 켜서 연속 녹음했다는 검증 근거는 없으므로 WAV 업로드 E2E로 정확히 기재**한다. 1차/2차에서 같은 WAV를 사용하면 말하기 속도·침묵 지표가 그대로인 것이 예상 결과이며, 내용 판정 개선을 **발화 능력 향상**으로 과장하지 않는다. Cloud Run mock storage benchmark 결과를 운영 사용자 DB의 성능으로 취급하지 않는다.
+4. **조치:**
+   - **9/21 로컬 인증 통합:** 김재훈 계정 **[PR #47](https://github.com/aihuman-7th/proj2-3/pull/47)**와 Antigravity 작업 [기록](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-21_2315_local-supabase-candidate-integration-e2e.md)에서 팀원 **[#42](https://github.com/aihuman-7th/proj2-3/pull/42)**의 로컬 Supabase Docker 인증 수정사항을 결합했다. 프런트 `:18080`와 API `:8000`에서 **실제 로컬 사용자 가입/로그인→공고 목록→연습 세션→7초 음성 `POST /analysis-jobs` 업로드·Faster-Whisper/Silero VAD 처리→전사 확정 revision→`POST /api/agent`→stdio MCP·실제 OpenRouter→validator→로컬 Supabase `coaching_runs` 저장·응답**을 확인했다. 인증 환경을 수정한 **#42 원 코드는 곽호준 작성**이며, #47의 주된 개인 변경은 서비스 후보 통합 runner/설정·실험 증거라는 점을 분리한다. 같은 실행의 후보 2종×3건 API 모델 평가는 **MB-03에서만 독립 성과로 집계**한다.
+   - **9/29 실제 로그인 UI 재답변 확인:** 김재훈 개인 **[#115](https://github.com/aihuman-7th/proj2-3/pull/115)**에서 기존 평가용 WAV를 업로드하고 전사 확인 화면에서 **normal/boundary/injection** 입력을 각각 확정해 브라우저 Network의 Agent payload/status와 결과 렌더링을 확인했다. normal 답변에 부족했던 **개인 행동·행동 선택 이유·공고 연결**을 보완한 2차 답변을 제출한 뒤 **1차·2차 내용 비교 카드**에 개선된 criterion 상태와 `여전히 부족한 설명` 안내가 표시되는지 확인했다. **같은 WAV를 1·2차에 재사용**했기 때문에 전달력 지표(319음절/분·긴 침묵 0·반복 0)는 같다고 기록했다. [#115](https://github.com/aihuman-7th/proj2-3/pull/115) 리뷰로 **유효한 `needs_more_info`도 정상 완료로 인정하는 case별 판정과 Worklog/PR 상태 불일치**를 수정했다. 이 Agent 정책 테스트 보정은 **MB-07에도 근거로 사용되므로 중복 성과로 계상하지 않는다**.
+   - **9/28 분석 E2E 병목 측정:** 김재훈 작성 **[#104](https://github.com/aihuman-7th/proj2-3/pull/104)**에서 인증된 `POST /analysis-jobs` 업로드→HTTP 202→terminal polling, warmup 분리, **p50/p95·STT RTF**, 작업/Storage 정리, 내부 **VAD·hint·STT·전달력·persistence 구간 timing**을 수집하는 runner·실험 문서를 추가했다. 이후 **[#106](https://github.com/aihuman-7th/proj2-3/pull/106)**에서 Cloud Run용 CPU-only PyTorch/Whisper pre-baked 이미지 최적화와 추가 리뷰의 **immutable 모델 revision + image label 고정**을 반영했다. 사용자의 오디오·토큰·공고·전사 원문은 로그에 남기지 않았다.
+5. **결과:**
+   - **로컬 제품 경로:** 9/21 **로컬 인증 사용자·7초 업로드·STT/VAD·확정 revision·Agent·DB 저장**의 연속 성공을 확인했다. 9/29 별도 입력에서는 **normal/boundary/injection 3건**에서 `needs_more_info` 기반의 근거 보류 코칭을 확인했고, **1차 저장→코칭→2차 저장→코칭→비교 화면**을 재현했다. 두 날짜의 실행은 **같은 하나의 운용 요청/연속 trace가 아니며** 서로 다른 재현 근거로 보존한다.
+   - **서비스 지연:** 로컬 Docker **CPU/int8, 측정 10회**에서 음성 업로드→terminal **E2E p50 3.670초/p95 3.825초**, 그중 STT p50 **3.370초/p95 3.573초**. CPU Cloud Run benchmark(전용 mock/local storage)에서는 **2/4/8 vCPU E2E p50 21.082/10.717/7.988초**, STT p50 **20.697/10.281/7.596초**로 vCPU 확장에 따른 수익 감소를 확인했다.
+   - **이미지 최적화:** Cloud Run 비교 시 기존 이미지 **3.444GB→1.934GB**, Cloud Build **589.1→266.6초**, 4 vCPU rollout 후 첫 요청 E2E **35.792→17.249초** 기록. 그러나 앞의 크기/지연값은 **모델 revision 고정 전 이미지를 측정**했고, 이후 pinned revision 이미지의 재빌드·동일 조건 재측정은 확인되지 않았다. 이 시간은 **scale-to-zero cold start**가 아닌 rollout 직후 첫 요청이다.
+   - **범위 미완료:** **실제 마이크 녹음부터의 제품 전체 E2E**, hosted Supabase의 운영 JWT/RLS/Storage까지 포함한 **동일 배포 사용자 전체 흐름**, 다중 사용자 부하·독립 사람 의미 품질은 확정하지 않는다. 9/28 Cloud Run 수치는 mock/local 저장소이며, **전역 STT 모델 또는 프로덕션 구성의 최종 승격 근거가 아니다**.
+
+### 개인 작업 귀속과 MB-07/08 중복 방지
+
+- **개인 A:** #47(로컬 후보 서비스 통합·실행 증거, Antigravity 협업), #115(로그인 UI에서 WAV/STT부터 2차 비교 실측·상태 정합성), #104(서비스 레벨 분석 지연 관측 설계·측정), #106(CPU 배포 진단 이미지/모델 revision 보강). 장시간 외부 작업과 실제 실행은 **작업 기록 기반**으로, PR Git author만으로 모든 실행을 수작업 단독 수행했다고 주장하지 않는다.
+- **팀 기여:** 로컬 Supabase 인증 #42는 **곽호준**, 후속 [#116](https://github.com/aihuman-7th/proj2-3/pull/116)/[#117](https://github.com/aihuman-7th/proj2-3/pull/117)의 `analysis_jobs`·MCP·`coaching_runs` 상세 SQL 검증 코드는 **서정현**. 프런트/음성 파이프라인의 주 구현 전체가 김재훈 독자 소유라는 근거는 없다.
+- **다른 작업군과 분리:** 모델 2종×3건 계약·지연·비용 선택은 **MB-03**, Agent/MCP 실패·`needs_more_info`·저장 검증 false positive는 **MB-07**, 50k/B0/C2·STT 1인 개발셋 모델 비교는 **MB-08**. **MB-09 고유 핵심 성과는 WAV 기반 사용자 연속 흐름과 서비스 upload→terminal 전체 지연·CPU 운영 비용 진단**이다.
+- **채용용 서사:** “음성 AI 모델 전체 구현”보다 **이미 구현된 STT·VAD·Agent·Supabase의 사용 경로를 인증 상태에서 실제 검증하고, 체감 지연을 stage별로 분해해 리소스 증설·이미지 최적화의 유효성과 한계를 결정한 경험**으로 제시한다.
+
+원본: [9/21 local E2E](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-21_2315_local-supabase-candidate-integration-e2e.md) · [9/29 live 1차·2차](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1632_d6-agent-live-e2e.md) · [9/28 STT service benchmark](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-28_analysis-e2e-benchmark.md) · [9/28 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-28_analysis-e2e-benchmark.md) · [10/2 근거 경계](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-02_stt-checklist-evidence-refresh.md).
+
+---
+
 ## 4. 확정된 1차 사실
 
 ### MB-04 — 평가 정답 검토
@@ -313,8 +341,8 @@
 
 ## 6. 남은 검증과 다음 진행 지점
 
-1. **MB-01~08 개별 근거 조사·5단계 경험 복원 완료 (8/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
-2. **다음 조사: MB-09 → MB-10 → MB-11 → MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
+1. **MB-01~09 개별 근거 조사·5단계 경험 복원 완료 (9/12).** 모델 평가·계약 리뷰·사람 ground truth·인증 E2E·STT 실험은 각 PR 작성자·동료 리뷰·Worklog·실험 조건을 대조했다. AI 코딩 도구·팀원 기여를 개인 단독 구현으로 혼동하지 않는다.
+2. **다음 조사: MB-10 → MB-11 → MB-12.** 실제 마이크/STT·서비스 E2E, UI·UX/경쟁사·사용자 개선, PR·CI 운영, 마감·홍보/산출물 등의 정확한 작업군은 위 원장 항목의 명칭·근거를 우선해 추적한다.
 3. **12개 작업군 전체 완료 후 누락·중복·귀속 역검증.** 사용자의 UI 제안·평가/검증·PR 운영과 팀원 프론트 구현·운영 배포를 혼동하지 않는다.
 4. **사례 선별.** 모델 평가/선정, 신뢰 계약·검증, 사람 ground truth, STT 실험, 인증 E2E 중 직무별 상위 3~5개 선택.
 5. **전면 근거 검증 뒤** `experiences/malhaebom.md` 채용 요약을 확정하고 `experiences/README.md`, `career-timeline.md`를 업데이트. 마스터 `resume.md`는 나머지 프로젝트 점검 뒤 변경.
