@@ -159,6 +159,22 @@
 
 근거: [로컬 Docker 인증 흐름](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-21_2315_local-supabase-candidate-integration-e2e.md) · [실제 사용자 3종·재답변 비교](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-29_1632_d6-agent-live-e2e.md) · [분석 E2E benchmark](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/stt/2026-09-28_analysis-e2e-benchmark.md).
 
+### 8. Langfuse 실행 버전 정합성·운영 Trace 검증 — 개인 작성 및 리뷰 기여 확인
+
+**상황:** 말해봄은 코칭 모델의 Prompt·Skill·토큰·비용·지연·재시도를 Langfuse에서 관측하고, 실제 코칭 결과를 Supabase `coaching_runs`에 저장하는 구조였다. 개발자의 로컬 Prompt/Skill 버전과 관리형 Langfuse Prompt label, DB에 남는 버전 정보가 일치한다는 보장이 부족했다.
+
+**문제:** 기본 Skill 카탈로그가 `interview-coach-v6.1-domain-rules`로 바뀌어도 관측 상수는 오래된 `interview-coach-v6`을 반환할 수 있었고, 관리형 Prompt를 사용해도 DB는 `COACHING_PROMPT_VERSION` 환경변수를 독립적으로 읽어 **실제로 사용하지 않은 Prompt 버전을 저장**할 수 있었다. 운영 Langfuse 화면의 JSON 검증 통과가 어느 Cloud Run revision/DB 행/코칭 의미 품질과 연결되는지도 구분되지 않았다.
+
+**판단:** 실제 서비스 실행에서 선택한 **effective Prompt·Skill version을 단일 기준으로 관측과 DB 저장에 전달**해야 한다. 이미 끝난 합성 모델 평가는 provider를 다시 호출하지 않고 Langfuse로 옮기며, 원본 latency·cost를 새 호출값으로 위장하지 않는다. 운영 증거도 **같은 Langfuse trace 안에서 Prompt generation과 validator가 연결된 것**, **사이트 요청의 HTTP header·Langfuse·Cloud Run 로그가 직접 연결된 것**을 별도 단계로 다룬다.
+
+**조치:** 개인 [PR #101](https://github.com/aihuman-7th/proj2-3/pull/101)에서 모델 비교 저장 결과의 마지막 attempt·case·repeat·quality Score·원래 지연/비용을 Langfuse Experiment로 옮기는 도구를 작성하고 **합성 Dataset 전용·dry-run 기본·provider 재호출 없음**을 강제했다. [PR #162](https://github.com/aihuman-7th/proj2-3/pull/162)에서는 실제 코칭 서비스가 선택한 관리형 Prompt·Skill 버전이 Langfuse와 `coaching_runs`에 일치하도록 관측 상수·runtime·저장 함수 및 회귀 테스트를 수정했다. [PR #114](https://github.com/aihuman-7th/proj2-3/pull/114)로 인증 사용자 코칭의 네트워크 오류·재시도·정상 provider 호출 뒤 DB migration 오류를 trace 단계별로 기록했다. [PR #216](https://github.com/aihuman-7th/proj2-3/pull/216)에서는 10월 8일 사용자 제공 Langfuse 화면에서 **관리형 Prompt 숫자 @4 `production` 라벨과 실제 같은 trace의 generation·validator**를 대조했다. 팀원 곽호준이 작성한 [PR #221](https://github.com/aihuman-7th/proj2-3/pull/221)의 HTTP 요청–Langfuse–Cloud Run ID 연결은 **코드/테스트/실제 200·422 증거를 리뷰해 승인**했다.
+
+**결과:** 버전 정합성 회귀 테스트를 포함한 Langfuse SDK v4.15.1 **70건 테스트 통과**가 확인됐고, Experiment export는 mock 2후보×2반복×30건 **120회 저장 결과에 대한 4개 run 계획 dry-run**을 통과했다(**원격 apply 미실행**). 로컬 인증 사용자 Langfuse 관측에서는 네트워크 오류의 2번 전송 시도·1회 재시도, 그리고 provider/validator 정상이어도 DB migration 누락 시 persistence가 실패하는 원인을 분리했다. 10월 8일 운영 Langfuse 한 코칭 trace에서 **Gemini Flash-Lite, 관리형 Prompt @4, 약 8.19초·24,266 tokens·$0.006809, `valid=true`·오류 0**을 확인했다. 이어 10월 9일 운영 사이트의 **준비 채팅 200(모델 호출 1회)과 스키마 오류 422(모델 호출 0회)**에서 HTTP·Langfuse·Cloud Run 로그가 같은 요청 ID로 연결된 증거를 리뷰했다.
+
+**개인 기여 및 한계:** #101·#114·#162·#216은 **nanocode00 명의 작성 커밋**이며 #221의 기능 구현·운영 배포는 **곽호준 작업**, 내 역할은 리뷰다. 10/8 Prompt @4의 **release/rollback을 직접 수행하지 않았고**, 그 당시 코칭 trace의 Cloud Run revision·실제 Skill bundle SHA·`coaching_runs` DB 행은 확인하지 못했다. 10/9 운영 요청 연결은 **준비 채팅**으로, 코칭·마이크·STT 전체 E2E나 응답의 사람 품질 검증이 아니다. `production` 라벨·코드 v4/v5·Langfuse 숫자 @4는 별개이며, 계약 검증 PASS가 의미 정확도를 보장하지 않는다.
+
+근거: [평가 결과 Langfuse export](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-28_1540_langfuse-evaluation-export.md) · [실제 버전 기록 정합성](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-02_coaching-version-provenance.md) · [10/8 관리형 Prompt 운영 관측](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_d10-production-readonly-evidence.md) · [10/9 요청–Trace 연결](https://github.com/aihuman-7th/proj2-3/blob/main/docs/evidence/request-trace-linkage-2026-10-09.md).
+
 ## 기타 경험과 후속 검증
 
 - 실제 서비스는 운영 배포·소개 페이지, OAuth, 코칭 API, 답변 revision, MCP 조회, Langfuse trace, 이력서 PDF 지원 기능까지 확장됐다. **팀 전체 제품 범위**와 해당 시점의 운영 확인을 먼저 적고 개인 코드 기여를 나중에 연결한다.
