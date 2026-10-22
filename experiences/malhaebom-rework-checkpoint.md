@@ -29,7 +29,7 @@
 | MB-02 | Agent의 Prompt·Skill·MCP·서버 정책 분리 | PR #119의 직접 인라인 리뷰, PR #116의 3차 수정요청, PR #123 신뢰 경계 문서; 실제 코드 및 테스트 | **A(검토·신뢰 경계 문서) / T(주요 코드 구현)** | **검증 완료** — 핵심 구현 PR 작성은 팀원; 검증 계약 결함 지적과 문서화는 개인 귀속 |
 | MB-03 | OpenRouter 다양성 탐색·Final Four·서비스 후보 선정 | 사용자 커밋 PR #36/#37/#40/#41/#47, 팀원 리뷰, 실험·서비스 E2E Worklog | **A(실험 구현·운영 및 후보 선정 흐름) / T(기존 평가 기반)** | **검증 완료** — Codex/Antigravity 보조 개발을 명시; 계약·비용·E2E 근거의 모집단 분리 |
 | MB-04 | 합성 평가셋 30건의 정답 사람 검토·정정 | **PR #126**·dataset v2·reviewer-assignment·9/30 offline regrade | **A(직접 검토·정정·재채점 확인)** | **검증 완료** — 30건 사람 검토와 저장 출력 90건 재채점 분리, PR #125 폐기·#123 revert 기록 확인 |
-| MB-05 | Prompt/Skill A/B 및 회귀 대응 | 10/2 30건, 10/6 Skill smoke | T/B | 직접 만든 harness/실험 실행과 팀 검토·프롬프트 작성 분리 |
+| MB-05 | Prompt/Skill A/B 및 회귀 대응 | PR #155 리뷰, #185(공동 PR의 본인 작성 1·5~9), #189, #215; 10/2 30건·10/6 Skill smoke·10/8 D11 3건 | **A(단일 Skill A/B·검증 기준·결과 기록·추가 실험 정리) / R(10/2 팀원 A/B 리뷰)** | **검증 완료** — 변경 효과보다 회귀·미검증 범위의 정확한 판정 중점 |
 | MB-06 | 로그인 사용자 공고 원문 분석 E2E | 10/1 14:00 김재훈 Worklog, 토큰 0600 검증 | **A** | 해당 PR 번호·diff, 반복 재현 여부 확인 |
 | MB-07 | FastMCP stdio/HTTP, /api/agent, DB 저장 | AGENT_REPORT, CURRENT_STATE, 서버 코드, PR | T/B | stdio 도구 기여/통합 검증과 구현 코드 책임 구분 |
 | MB-08 | Whisper Medium 50k → B0 → C2 학습 | stt-finetuning-lineage, 50k/C2 실험 | T/B | 본인 수행 train configs/로그/checkpoint SHA, 운영 모델 선택 |
@@ -181,6 +181,33 @@
 - **이력서 가치: 주력 보완 사례.** '점수를 개선했다'가 아니라 **정답표 오류를 검출하고, 인과 귀속과 관찰/미관찰을 구분하며, 결과 재측정에서 입력·모델 호출 통제를 지켰다**는 신뢰성 있는 평가 엔지니어링 판단 사례로 제시한다.
 
 원본: [D4 사람 검토표](https://github.com/aihuman-7th/proj2-3/blob/main/evals/reviewer-assignment.md) · [D4 Worklog](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-09-30_d4-human-review.md) · [offline 재채점](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-09-30_d4-boundary17-offline-regrade.md) · [EVAL_REPORT §3-2](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
+
+---
+
+## 3-5. MB-05 — Prompt/Skill A/B·회귀 판정 및 후보 승격 보류 (검증 완료: 2026-10-22)
+
+### 5단계 경험 서사 — 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말해봄은 구조화 코칭 출력의 계약 준수·의미 판정·인용 근거·비용·지연을 모두 관리해야 했다. 영문 Prompt v4→v5, 단일 Skill 규칙, D11 인젝션 방어는 **서로 다른 실험**이며, Prompt·Skill 변경 및 기준 검증에는 팀원과 AI 코딩 도구의 작업도 포함돼 있었다.
+2. **문제:** 모델 출력이 JSON·Pydantic 계약을 통과하더라도 **개인 행동, 결과 확인, 질문 적합성에 대한 의미 판정**이 회귀할 수 있었다. 일부 사례 개선이나 비용 절감만 보면 부작용을 놓친다. 또한 단일 Skill 규칙 A/B의 최초 자동 게이트는 목표 `problem_context`만 확인해 `own_action`·`result_verification` 개선을 놓칠 수 있었고, 합산점수만 비교하면 한 기준의 회귀를 다른 기준 개선이 가릴 수 있었다.
+3. **판단:** 변경을 채택하려면 **동일 모델·Skill·Dataset·schema·생성 설정에서 비교**하고, 결과 계약·종합 자동 통과·기준별 C/A/V와 인용·비용·지연을 함께 확인해야 한다. 단일 Skill 규칙은 **최소 한 target criterion 개선 + 각각의 target criterion 무회귀**를 자동 KEEP 후보 최소조건으로 두고, 사람 검토까지 통과해야 최종 KEEP한다. 값이 나빠지면 확대 실험을 조기 중단하며, 재시도 횟수/설정이 다른 인젝션 실험을 공정한 방어 성공률로 계산하지 않는다.
+4. **조치:** 
+   - **10/2 동일 Skill 30건 Prompt 비교:** `coaching-v5-skill-owned`과 이전 영문 v4를 비교하는 코드·실험 보고서는 **곽호준 작성 [PR #155](https://github.com/aihuman-7th/proj2-3/pull/155)**. 김재훈은 [직접 PR 리뷰](https://github.com/aihuman-7th/proj2-3/pull/155)에서 조건·자동 회귀·미완료 사람/운영 검증 표기를 확인하고 승인했다. **원시 결과는 당시 검토 환경에서 독립 재계산하지 못했음**을 리뷰에 남겼다. 이를 김재훈 단독 60콜 실행으로 귀속하지 않는다.
+   - **10/6 단일 Skill 규칙 라운드:** **[PR #185](https://github.com/aihuman-7th/proj2-3/pull/185)**의 9개 커밋 중 **김재훈이 초기 단일 Skill 규칙 A/B runner/테스트 준비(1번), target C/A/V 전체 집계(5번), criterion별 무회귀 게이트(6번), 최신 main 정합화(7~9번)**를 작성했고 **2~4번은 서정현 작성**. 서정현의 수정 요청으로 목표를 1개 기준에서 전체 C/A/V로 확대하고, 평균 개선에 가려진 개별 회귀를 차단했다. **[PR #189](https://github.com/aihuman-7th/proj2-3/pull/189)**는 **김재훈 단독 커밋**으로 실제 `coach-boundary-19` baseline/candidate 각 1회 smoke 결과를 기록했다.
+   - **10/8 신규 D11 인젝션 3건:** [PR #215](https://github.com/aihuman-7th/proj2-3/pull/215)는 **김재훈 계정**에서 가변 재시도·오류를 포함한 Prompt v4/v5 실험 기록과 `run_d11_v5_extra_once.py`를 보존했다. 이전 실패 02·03을 각각 **추가 1회만** 호출하고 기존 raw를 덮어쓰지 않았다. 공식 독립 평가자 없이 기존 **단일 검토자 승인 정답**을 사용한 점을 유지한다.
+5. **결과:**
+   - **10/2 30건×2:** 계약 양측 **30/30**이나 종합 자동 통과 **22/30→20/30**, intent/C/A/V 판정 **116/120→107/120**, p95 **4.621→4.622초**, 알려진 비용 **$0.19638110→$0.17027067**. 약 **13.3% 비용 감소에도 회귀**가 발생하므로 v5의 **품질 개선 승격을 DISCARD/보류**로 기록. **그 시점 운영 기본 변경·롤백 조치는 아님.** 작성/호출은 PR #155 팀원 담당, 개인은 해당 결과와 근거를 검토한 역할.
+   - **10/6 Skill 1문장 후보 smoke:** 계약 양쪽 **1/1**, target criterion 일치 **2/3→1/3**, label accuracy **75%→50%**, 기록 비용 **$0.0120988**. 목표인 `problem_context`은 그대로 불일치했고 오히려 직접 행동 `own_action`이 `met→partial`로 후퇴. 자동 게이트 **`DISCARD_CANDIDATE`**가 작동해 계획한 **전체 30건×2회 확대 실행은 하지 않음**. 사람 검토 후 최종 폐기 확정은 별도 단계로 남음.
+   - **10/8 D11 3건 인젝션:** 초기/1회 보정 시점은 v4 계약·기대판정 **3/3**, v5 **1/3**; 02·03을 각각 세 번째로 추가 호출해 **사례별 마지막 유효 시도 기준** v5 계약 **3/3**, 기대 intent/C/A/V 전체 일치 **2/3**. v5 02는 `own_action=met`으로 사람 기대 `partial`과 다름. **최초 성공률과 최종 유효 응답률을 섞지 않으며**, 재시도 횟수·timeout이 달라 독립 사람 확인/공식 Dataset 승격/방어 효과 확정/운영 배포 검증을 주장하지 않는다.
+
+### 기여 귀속·재현성 및 미확인 범위
+
+- **확인된 개인 코드·실험 책임:** 단일 규칙 A/B gate 및 검증 기준 강화([#185](https://github.com/aihuman-7th/proj2-3/pull/185)), 목표 회귀 실측·확대 실행 보류([#189](https://github.com/aihuman-7th/proj2-3/pull/189)), D11 신규 3건 추가 호출 결과/재현 runner 문서화([#215](https://github.com/aihuman-7th/proj2-3/pull/215)).
+- **팀원 귀속:** 10/2 60호출 영문 v4/v5 측정 구현/기록 [#155](https://github.com/aihuman-7th/proj2-3/pull/155) **곽호준**; [#156](https://github.com/aihuman-7th/proj2-3/pull/156) Gemini structured schema·평가 후속 수정, [#158](https://github.com/aihuman-7th/proj2-3/pull/158) JSON 절단 관측, [#160](https://github.com/aihuman-7th/proj2-3/pull/160) 4096-token 기록, [#161](https://github.com/aihuman-7th/proj2-3/pull/161) 사람 리뷰 pack 준비는 **서정현** 작성. 김재훈은 이 PR들을 **구현 수준·CI·판정 한계에 따라 리뷰/승인**했으나 코드를 단독 구현했다고 주장하지 않는다.
+- **다른 조건 분리:** 10/2 페어 비교 **max 2048·timeout 45s·계약 30/30**, 별도 10/2 v5 2048·60s **29/30**, 별도 v5 4096·60s **30/30**은 다른 실행. 10/6 당시 배포 이미지 Prompt v4·Skill v6 기반 **30×3·90/90 계약·57/90 자동 통과** 역시 10/2 Prompt v4/v5 교체 효과 측정이 아님.
+- **채용 활용 판단:** **개인 수행 A — 사전 정의한 합격 조건이 회귀를 가리는 문제를 발견/수정하고 목표 smoke의 퇴행을 확인해 추가 실험 비용을 통제**한 사례가 가장 강함. 10/2 v5 회귀 결과는 팀 작업을 검토한 사례로 분리. 신규 인젝션 3건은 독립 사람 검토 미완료로 잠정 증거에만 사용하며 '방어 개선 성공' 금지.
+
+원본: [10/2 Prompt 비교](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-10-02_latest-english-v5-comparison.md) · [10/6 단일 규칙 smoke](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-06_single-skill-rule-offtopic-cav.md) · [10/8 D11 A/B](https://github.com/aihuman-7th/proj2-3/blob/main/docs/experiments/2026-10-08_d11-injection-prompt-ab-provisional.md) · [10/8 추가 재시도](https://github.com/aihuman-7th/proj2-3/blob/main/docs/worklogs/2026-10-08_d11-v5-extra-retries.md) · [EVAL_REPORT](https://github.com/aihuman-7th/proj2-3/blob/main/EVAL_REPORT.md).
 
 ---
 
