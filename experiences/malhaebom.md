@@ -1,6 +1,6 @@
 # 말해봄 Mk.2 — 근거 기반 AI 면접 코칭 에이전트
 
-> **경험 복원 1차 초안 (2026-10-21).** 확정된 개인 기여와 팀 전체 구현·실험 결과를 분리했다. 코드·PR 작성 주체를 추가 대조하기 전에는 이 문서의 미확정 항목을 제출용 이력서에 그대로 사용하지 않는다.
+> **2026-10-22 검증된 개인 기여 원본(12개 작업군·대화 누락 감사·작업군 간 귀속/중복 교차검증 완료).** 아래는 지원 직무에 따라 선택 가능한 경험 데이터베이스이며, 마스터 이력서 문안의 최종 확정이나 모든 운영 E2E·제출 증거 완료를 의미하지 않는다.
 
 ## 채용용 경험 요약 — 검증된 범위
 
@@ -8,8 +8,8 @@
 
 - **기간:** 2026-09-18 ~ 2026-10-08 (프로젝트 본 일정). 10월 10~12일 저장소·배포 동기화 및 종료 정리는 별도 후속 작업.
 - **팀:** 곽호준·김재훈·서정현, 3인 ([팀 README](https://github.com/aihuman-7th/proj2-3/blob/main/README.md)).
-- **개인 기여, 직접 기록 확인:** **AI 코딩 도구를 활용한 OpenRouter 모델 40종 사전검증·22종 660건 본평가, 4종 120건 재측정과 코칭 서비스 후보 통합 검증·기본 모델 선정**; 합성 평가셋 30건 사람 기준 검토·ground truth 교정; 인증된 채용공고 원문 분석 E2E 재현 및 보안 처리; **Prompt 변수 검증 결함 및 MCP/Agent E2E 테스트의 거짓 양성·음성 검출 리뷰, 신뢰 경계 문서화**.
-- **개인 기여, 추가 귀속 검증 중:** Prompt/Skill A/B 평가 설계·실행, Whisper Medium QLoRA 실험, 기타 API/Agent 통합 검증. 프로젝트 산출물은 존재하지만 단계별 커밋·학습 주체를 계속 대조한다. **초기 기본 모델 평가 하네스와 일부 별도 모델 평가 확장은 팀원 기여**로 구분한다.
+- **개인 주도(작성/실험/판단 근거 확인):** AI 코딩 도구와 함께 OpenRouter **40모델 사전검증·22모델×30건(660건) 본평가·4모델×30건(120건) 별도 평가**, Gemini Flash-Lite를 로컬 코칭 **기본 후보**로 선정; Whisper Medium QLoRA 50k 재학습·면접 도메인 적응과 기존 성능 유지율 비교; 인증 JWT 기반 원문 공고 검증 API E2E runner·CI 정책 재실행 경합 수정 및 Product CI 구성. **모든 코드를 수작업 단독 작성했다는 뜻은 아님**.
+- **개인 직접 품질 판단/리뷰:** 합성 30건의 Ground Truth 검토·경계 정답 교정, MCP/Agent/DB 테스트에서 **기존 DB 행을 새 저장 성공으로 오인하는 결함**을 PR 리뷰로 발견·수정 요청, Prompt/Skill 후보 회귀 시 확대 평가 중단, Langfuse 실제 선택 Prompt·Skill 버전 기록 정합화, UI 정보구조 기획·정적 쇼케이스 제작. **코어 Agent, DB 저장 verifier 수정, 서비스 React 화면 통합 등은 팀원 구현으로 구분**한다.
 - **프로젝트 기술:** React·TypeScript·Vite, FastAPI·Pydantic, Docker Compose, Supabase, FastMCP, OpenRouter, Langfuse, Whisper/CTranslate2, Cloud Run·Vercel.
 - **범위:** 말해봄 Mk.2는 RAG·벡터 DB·LangGraph를 사용하지 않았다. 추후 의료 RAG 프로젝트와 혼동하지 않는다.
 
@@ -21,6 +21,33 @@
 
 근거: [프로젝트 정의](https://github.com/aihuman-7th/proj2-3/blob/main/docs/PROJECT_OVERVIEW.md) · [에이전트 역할·구현 보고서](https://github.com/aihuman-7th/proj2-3/blob/main/docs/AGENT_REPORT.md) · [현재 구현](https://github.com/aihuman-7th/proj2-3/blob/main/docs/CURRENT_STATE.md).
 
+## 채용용 핵심 사례 5선 — AI Agent/Backend 기준
+
+> 2026-10-22 전체 MB-01~12 및 대화·PR·실험 근거 교차검증 후 선별. 이 다섯 사례의 기록된 성과를 서로 다른 PR·실험으로 집계하며, 아래 상세 10개 항목은 증명용 원본 사례로 유지한다. **실제 이력서 한 프로젝트에서는 3~5개 bullet만 선택**한다.
+
+| 우선 | 내 기여(5단계 경험 원본 참조) | 핵심 근거와 확인 범위 |
+| --- | --- | --- |
+| **1. 모델 평가 체계** | 모델 후보의 계약·지연·비용·서비스 호환성을 평가해 **로컬 기본 후보**를 선정 | [MB-03, PR #36/#37/#40/#41](https://github.com/aihuman-7th/proj2-3/pull/41): 40모델 preflight, 22×30=660건, 별도 Final Four 4×30. Flash-Lite 30/30 계약·로컬 3/3; 운영 품질 보장은 아님 |
+| **2. Agent 신뢰성 검증** | MCP scope/실제 stdio 호출을 검증하고 **과거 DB 행으로 저장 성공을 오판하는 테스트 결함**을 발견해 수정 요청 | [MB-07, PR #112](https://github.com/aihuman-7th/proj2-3/pull/112) 개인 통합 테스트 + [#122](https://github.com/aihuman-7th/proj2-3/pull/122) 코드 리뷰. Verifier 구현·수정은 서정현 |
+| **3. STT 도메인 적응** | Whisper Medium QLoRA 학습·데이터 정제·replay/retention·봉인 평가를 설계·실행 | [MB-08, PR #51~56](https://github.com/aihuman-7th/proj2-3/pull/56): C2 71592 최종 1,233건 WER 9.77%; 기존 119 retention은 B0 15.33%→C2 16.81% **악화**. 운영 교체 아님 |
+| **4. 인증 API E2E** | JWT 보호를 적용한 자동 검증으로 공고 원문·quote·개인 DB 저장·연습 세션 생성 연결 | [MB-06, PR #149](https://github.com/aihuman-7th/proj2-3/pull/149): 로그인 로컬 API E2E 1회 성공, 토큰 파일 0600 가드 3테스트. PlayMCP 503 후 기존 web fallback, 배포 브라우저 E2E 아님 |
+| **5. 개발 품질 게이트** | PR 본문 수정 시 최신 HEAD 정책 검사 재실행의 **race condition**을 해결하고 제품 backend/frontend CI 구성 | [MB-12, PR #48](https://github.com/aihuman-7th/proj2-3/pull/48)·[#137](https://github.com/aihuman-7th/proj2-3/pull/137): 동료 승인·병합, 초기 Actions 4 check 통과. 원격 rerun UI E2E·CI 비용 절감액 미확인 |
+
+### 직무별 교체 카드
+
+- **AI 품질/평가 직무:** 4·5번 중 하나 대신 **MB-04 Ground Truth(30건 검토·90개 저장 출력 재채점·정답 교정)** 또는 **MB-05 Prompt/Skill 1건 smoke 회귀 탐지 후 30×2 확대 중단**을 배치한다. MB-05 동료의 v4/v5 30건 본실험을 본인 직접 실행으로 바꾸지 않는다.
+- **MLOps/관측·플랫폼 직무:** 4번 또는 3번을 **MB-10 실제 runtime Prompt/Skill 버전의 Langfuse·DB 기록 일치 수정(PR #162)**으로 교체. 운영 HTTP↔Trace 연결은 팀원 #221 **리뷰** 성과다.
+- **HCI·제품/프런트 직무:** 3번 또는 5번을 **MB-11 채팅 중심 좌/중/우 근거 작업공간 40쪽 UX 기획·CSS 가독성 리뷰·독립 정적 소개 사이트(PR #214)**로 교체한다. React 운영 통합은 동료 구현이다.
+
+### 즉시 활용 가능한 프로젝트 요약(3문장)
+
+> 3인 팀 AI 면접 코칭 서비스에서 OpenRouter 모델 후보의 출력 계약·비용·지연을 비교하는 평가 하네스를 구축하고, 40종 사전검증 후 22종·660건 본평가와 별도 최종 후보 검증으로 로컬 코칭 기본 후보를 선정했습니다. Whisper Medium QLoRA 데이터 정제·도메인 적응과 기존 도메인 WER 회귀를 함께 검증했으며, FastMCP/Agent/DB 통합 테스트와 리뷰에서 저장 성공 오판 결함을 찾아 검증 기준을 강화했습니다. 인증 사용자 공고 원문 분석 API E2E와 HEAD 경합을 방지한 PR 정책·제품 CI를 구성했고, 팀 전체 UI/Agent 구현과 개인 실험·코드 리뷰의 책임 범위를 구분했습니다.
+
+**채용용 표기 금지:** 660건을 서비스 실사용이라고 쓰지 않음 / C2 성능이 모든 기존 음성에서 개선됐다고 쓰지 않음 / DB verifier 수정·운영 React 구현을 내 직접 작성으로 쓰지 않음 / 10/9 AI 보조 채점 95%를 독립 사람 품질 점수로 쓰지 않음 / D12 최종 동결·모든 배포 E2E 완료라고 쓰지 않음.
+
+선정·교차검증 원장: [MB-01~12 및 §3-B 감사](malhaebom-rework-checkpoint.md).
+
+---
 ## 핵심 경험 후보
 
 ### 1. Ground Truth 30건 직접 검토와 재채점 기준 교정 — 개인 기여 확인
@@ -222,7 +249,7 @@
 - 실제 서비스는 운영 배포·소개 페이지, OAuth, 코칭 API, 답변 revision, MCP 조회, Langfuse trace, 이력서 PDF 지원 기능까지 확장됐다. **팀 전체 제품 범위**와 해당 시점의 운영 확인을 먼저 적고 개인 코드 기여를 나중에 연결한다.
 - PR·CI 정책, 체크포인트 동기화, 재현성 문서화 및 출시 증거 관리 경험은 개인 Worklog/PR별로 추가 분류한다. 코드 작성자와 AI 코딩 에이전트, PR 승인·병합 주체를 혼동하지 않는다.
 - 정확도와 안정성 주장 시 **계약 통과 / 규칙 기반 자동 판정 / 사람 평가 / 인증 사용자 부분 E2E / 운영 전체 E2E**를 분리한다. 최신 모델·프롬프트를 단순히 최종 승격·품질 개선으로 서술하지 않는다.
-- 제출용 이력서에 쓸 **개인 주도 핵심 사례 3~5개**는 추가 교차검증 뒤 확정한다.
+- **AI Agent/Backend 기본 핵심 사례 5개와 직무별 교체 사례**는 상단 선별표로 확정했다. 원본 정리와 제출용 최종 1페이지 이력서 편집, 다른 프로젝트 간 우선순위 결정은 별도 단계다.
 
 추가 확인 및 작업 원장: [malhaebom-rework-checkpoint.md](malhaebom-rework-checkpoint.md).
 
