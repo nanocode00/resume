@@ -378,6 +378,18 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 - 최종 **Real Warm 50턴 E2E p95 3.338초 / 30턴이 1.5초 초과**. Interpret network RTT 병목, Requirement 미달([PR #222](https://github.com/aihuman-7th/proj1-d/pull/222))
 - hybrid deployment와 repository cleanup 후 프로젝트 종료
 
+## 채용용 핵심 사례 5선 — AI 시스템/백엔드 기준
+
+| 우선순위 | 사례 | 지원서 핵심 기술/근거 | 과장 금지 |
+| ---: | --- | --- | --- |
+| **1** | **[MA-02] LLM/상태 책임 분리** | NLU `OrderCommand[]` 계약(#23), **결정론적 Cart Engine 6종 명령 구현**(#55), 오류 시 주문 보호/가격 SSOT | 최초 문서 계약과 런타임 Validator 구현은 별개, 초기 혼합 Batch 전부 지원 아님 |
+| **2** | **[MA-07] 0.6B NLU + deterministic guard** | 1.7B의 오류코드 gate 실패를 근거로 0.6B 서비스 후보·Focused124·CUDA12.8 sidecar 선택(#209/#214) | 124건의 Intent100%는 **Guard 포함**, target p95 1.610초 미달 |
+| **3** | **[MA-09] 다중 모델 추론 런타임** | `transformers` 4.27.4/5.15.0 충돌→4프로세스/2가상환경 HTTP Sidecar, `/health`/`/warmup`, Cloudflare→Vercel 연결(#209/#212/#215) | STT Sidecar 최초는 팀원, Gateway는 **ThreadingHTTPServer** |
+| **4** | **[MA-10] 실제 브라우저 E2E 계측** | Mock 측정과 Real 계측 분리, 세션 오염 제거, **Warm50 p95 3.338초·RuleFirst 0.967초/Qwen fallback 3.386초** 병목 규명(#222) | 성능 Requirement 1.5초 **미달**, 모델 최적화 완료가 아니라 실패/원인 확인 |
+| **5** | **[MA-04~05] TTS/한국어 발화 품질 경계** | Melo G_2000 204.1ms/RTF0.0485와 타 TTS 4후보 비교, G_2800 최종, 금액·수량 정규화·3단계 TTS·L0/L1 추가 비용 측정(#71/#116/#150/#152) | GPU TTS 합성 vs 첫 재생/E2E, 친절체 청음 vs 블라인드 사용자 품질 분리 |
+
+**추가 활용:** HCI/Frontend에는 **MA-01 설문 + MA-08 Senior-first UX·stale Cart 방지**, MLOps에는 **MA-06 STT Train65 추가 후보 평가 + MA-12 SHA/라이선스/쇼케이스 인계**, 실사용 안정성에는 **MA-11 실제 마이크·NLU 결제 안전 QA**를 강조합니다. 상세 원본과 12개 작업군 전체 교차감사는 [검증 원장](mallo-rework-checkpoint.md#4-최종-교차감사--개인팀-기여측정-범위진위-2026-10-23)을 참조합니다.
+
 ## 이력서용 핵심 bullet
 
 - 3인 팀 Team Lead로 PRD/TRD와 AI command contract를 정의하고, **LLM과 Cart 상태 변경을 분리한 deterministic Order Engine**을 직접 구현해 STT→NLU→주문→TTS E2E flow 구성
