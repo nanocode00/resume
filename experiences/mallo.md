@@ -59,7 +59,7 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 **문제:** 제품을 Voice-only 또는 무조건 느린 분절형 TTS로 설계하면, 사용자가 겪는 문제인 **옵션 선택의 어려움(8/13), 실수 후 처음부터 다시 주문(7/13), 음성 오인식 불안(6/13), 다시 설명받고 싶은 요구(10/13)**를 충분히 해결하지 못합니다. 표본은 디지털 사용 경험이 높은 60대에 치우쳐 전체 고령층으로 일반화하기 어렵습니다.
 
-**판단:** 기존 STT→NLU→Validator→Order Engine 구조는 유지하면서, **음성으로 탐색 부담을 낮추고 현재 주문의 음성·화면 확인 및 수정·재설명 복구**에 우선순위를 둡니다. 고령 사용자의 상태를 연령/침묵으로 추정하지 않고 **명시적 다시 듣기·천천히 듣기 요청에만 TTS를 적응**시킵니다. LLM이 Cart 금액이나 상태를 직접 변경하지 않게 Order Engine을 SSOT로 둡니다.
+**판단:** 기존 STT→NLU→Validator→Order Engine 구조는 유지하면서, **음성으로 탐색 부담을 낮추고 현재 주문의 음성·화면 확인 및 수정·재설명 복구**에 우선순위를 둡니다. 초기 정책에서는 고령 사용자의 상태를 연령/침묵으로 추정하지 않고 **명시적 다시 듣기·천천히 듣기 요청에만 TTS를 적응**시켰습니다. **후기 구현(PR #225)에는 성공적으로 해석된 대화 4턴 내 명시적 추가 설명 요청 2회를 신호로 한 단계 감속하는 정책이 추가**됐으며, 이는 초기 MA-01 판단과 시점을 구분합니다. LLM이 Cart 금액이나 상태를 직접 변경하지 않게 Order Engine을 SSOT로 둡니다.
 
 **조치:** 개인 명의 [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83)으로 팀이 수집한 초기 설문 분석 결과를 [PRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/prd.md)의 사용자 문제·P0/P1/P2 우선순위 및 [평가 기록](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/evaluation.md)에 연결했습니다. 팀 인터뷰 원본의 모집·조사 전 과정을 직접 수행했다고 PR로 증명되는 것은 아닙니다. 초기 [설문 변경안](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md)의 **UNDO/Pending/Preview**는 기능 제안이며, 최종 MVP에서는 **ORDER_REVIEW의 명시적 주문 확인을 유지하고 별도 Pending Confirmation 상태 머신과 Size 음성 지원은 제외**했습니다.
 
@@ -223,24 +223,29 @@ Qwen3-0.6B의 개인 8/25 **15개 overnight sweep 실험 자산**을 보존하�
 
 모델을 매 요청마다 load하지 않고 resident process로 유지해 model loading cost도 요청 path에서 제거했습니다.
 
-## 7. Senior-first UI/UX pivot
+## 7. MA-08 — Senior-first 9:16 UI·음성/터치 분리와 비동기 Cart 경합 해결 (검증 완료)
 
-모델 지연을 개선하는 과정에서 음성 인식이 잘 되더라도 화면 자체가 복잡하면 고령 사용자의 주문 부담이 남는다는 문제를 확인했습니다.
+**상황:** 고령 사용자에게 음성 주문을 제공하는 말로의 초기 GUI는 카페 녹색·크림색 테마, 대형 Tap-to-talk, 주문 자막·장바구니·TTS 속도 조절로 시작했어. 이후 메뉴 선택·주문 변경·매장/포장·결제 등 사용자 흐름이 늘어나면서 **단일 화면에서 여러 단계의 9:16 세로형 키오스크**로 재설계할 필요가 생겼어.
 
-반영한 항목:
+**문제:** 기존 화면은 상태·주문 결과·다음 행동의 정보 위계가 불명확했고, 마이크 듣기/처리 중인 Overlay와 TTS 안내가 섞이면 사용자가 실제 주문 내역을 확인하기 어려웠어. 특히 **연속 터치·결제 화면 이동·마이크 권한 승인 지연·서버 재연결**이 겹치면 오래된 비동기 결과가 새 주문 상태나 장바구니를 덮어쓸 수 있고, TTS 합성 완료를 기다리는 동안 UI 반영도 늦어졌어.
 
-- Voice Overlay
-- 큰 글자/고대비 화면
-- 접근성 footer 2×2
-- 다시 듣기
-- 천천히 듣기 / speed level
-- 직원 호출
-- ORDER / REVIEW / PAYMENT 단계 정리
-- 결제 UI 단순화
-- express/one-shot voice payment
-- microphone session state 연결
+**판단:** **서버의 결정론적 Cart snapshot은 주문 데이터의 단일 기준**으로 두고, 시스템 안내 음성·Response Bar·마이크는 **별도 presentation lifecycle**로 분리했어. 터치는 NLU 없이 **정확한 `OrderCommand`를 `/api/commands`에 직접 전달**, 음성은 **Mic→STT→NLU→Order Engine** 경로로 유지했어. 화면은 **WELCOME·SERVICE_MODE·ORDER·ORDER_REVIEW·OPTION_CHANGE·PAYMENT·COMPLETE**로 역할을 명확히 나누고, 마이크 권한/녹음 응답은 **epoch**, 서버 장바구니 갱신은 **order session + mutation sequence**로 서로 다른 유효성 규칙을 적용했어.
 
-따라서 프로젝트 후반에는 `모델 성능`과 `사용 흐름`을 별도 문제로 보고 동시에 수정했습니다.
+**조치:** 개인 [PR #54](https://github.com/aihuman-7th/proj1-d/pull/54)에서 초기 Voice-first GUI와 `SessionStatus`·`SessionState`를 구현하고, 고대비·대형 글씨·시스템 자막·장바구니·TTS 보조 버튼 등 초기 인터페이스를 갖췄어(**당시 저장소 전체 65 tests pass**).
+
+이후 개인 [#159](https://github.com/aihuman-7th/proj1-d/pull/159)·[#160](https://github.com/aihuman-7th/proj1-d/pull/160)·[#161](https://github.com/aihuman-7th/proj1-d/pull/161)·[#136](https://github.com/aihuman-7th/proj1-d/pull/136)·[#162](https://github.com/aihuman-7th/proj1-d/pull/162)·[#163](https://github.com/aihuman-7th/proj1-d/pull/163)·[#164](https://github.com/aihuman-7th/proj1-d/pull/164)·[#137](https://github.com/aihuman-7th/proj1-d/pull/137)의 순서로 **9:16(1080×1920 기준) Senior-first 개편**을 진행했어. 한 번에 비대해졌던 UI 변경을 **foundation/layout·portrait/context·HTML shell·상태 머신·frontend 테스트·typography polish·UX 동작**으로 나눠 코드 리뷰 범위를 줄였어. ORDER에는 누적 주문·가로 메뉴 탭·장바구니 미니 요약, ORDER_REVIEW에는 **스크롤 가능 품목 목록·고정 총액·명시적 주문 확정**을 배치했어. 듣기/처리 중 Voice Overlay를 주문 화면 위에 겹치게 하고, 시스템 안내는 별도 Response Bar/TTS 하이라이트로 표시했어. **다시 듣기·말하기 속도·직원 호출·처음으로의 2×2 접근성 Footer와 중앙 확대 마이크**도 정리했어.
+
+[PR #162](https://github.com/aihuman-7th/proj1-d/pull/162)/[#163](https://github.com/aihuman-7th/proj1-d/pull/163)에서는 **화면 이탈 뒤 늦게 도착한 마이크 권한 허용**으로 녹음이 재개되지 않게 `voiceLifecycleEpoch`를 대조하고 사용하지 않는 media tracks를 종료했어. `MediaRecorder` 생성 실패 때도 획득한 stream을 정리하는 회귀 테스트를 추가했어. 개인 [PR #213](https://github.com/aihuman-7th/proj1-d/pull/213)에서는 **터치 `/api/commands` vs 음성 `/api/audio/stt`→`/api/audio/interpret`**로 입력 경계를 분리하고, STT 전사 내용을 NLU 처리 중 Overlay에 먼저 표시했어. 빠른 재요청 시 이전 TTS replay를 중단하고 오래된 playback callback이 새 안내 상태를 바꾸지 못하도록 세대 토큰/취소 처리를 보강했어. PR 기록상 **frontend 7개·Python 관련 28개 로컬 테스트와 일부 실브라우저 수동 확인**이 있어.
+
+후반 개인 [PR #225](https://github.com/aihuman-7th/proj1-d/pull/225)에서는 **`orderSessionGeneration`와 `mutationSequence`로 최신 서버 Cart만 적용**하는 `commitCartSnapshot`을 구현하고 화면·장바구니를 **TTS 합성/재생 완료와 독립적으로 즉시 갱신**했어. `LOCAL_TOUCH`에서 서버로 다시 넘기는 handoff 도중 추가 터치가 발생하면 **stale 원격 응답을 폐기**하고 최신 로컬 Cart로 후속 재연결하도록 했어. Response Bar와 TTS는 별도 message stream 상태로 관리했으며, 네트워크가 불안정해도 터치 화면의 정해진 안내를 먼저 보여주도록 구성했어. 이 변경은 **선별 frontend 6개 테스트, 관련 Python 475개 테스트** 통과로 기록됐어.
+
+**결과:** 고령 사용자에게 **현재 주문·다음 행동·음성 상태를 구분해서 보여주는 세로형 화면**을 완성하고, **마이크·터치·서버 Cart·TTS의 서로 다른 비동기 생명주기**를 분리했어. 화면 전환 중 stale 마이크 권한 응답, 빠른 터치에 따른 장바구니 덮어쓰기, TTS 재생 때문에 주문 화면이 지연되는 문제를 코드와 회귀 테스트로 방어했어. 다만 **고령 사용자 대상 과제 성공률/인지 시간 개선·WCAG AAA 인증·모든 브라우저/장치에서의 장시간 안정성**은 이 PR들로 입증한 결과가 아니야. #225의 자동 테스트에 **실제 브라우저 재생/마이크 E2E는 포함되지 않았어.**
+
+**개인·팀 기여 및 버전 경계:** 초기 주문 확정/결제/리셋의 서버 연동은 **윤태현 [PR #103](https://github.com/aihuman-7th/proj1-d/pull/103)**이며 실제 PG 결제가 아닌 가상 화면이야. 브라우저 WebM/Opus 음성 디코딩 폴백은 **윤태현 [PR #165](https://github.com/aihuman-7th/proj1-d/pull/165)**의 구현이고, 내 기여는 Senior-first 프런트 구조와 그 위의 클라이언트 상태/회귀 보강이야. **초기 MA-01·05의 '명시적인 천천히/다시 요청' 정책은 당시 버전의 결정**이었고, 후기 [#225](https://github.com/aihuman-7th/proj1-d/pull/225)에는 최근 4개의 **성공적으로 해석된** 사용자 turn에서 `REQUEST_CLARIFICATION`이 2회 발생하면 1단계 감속하는 정책이 추가됐어. STT 실패·침묵·연령 추정으로 속도를 변경하지 않는다는 경계는 유지했어. [#226](https://github.com/aihuman-7th/proj1-d/pull/226)의 후기 Adaptive TTS chunk-gap 값은 L0 **1.0×/0ms**, L1 **0.85×/280ms**, L2 **0.75×/480ms**이며 모델 지연과 사용자 이해도 효과는 **MA-04/05**의 별도 실험과 구분했어.
+
+**직무 활용:** HCI·프런트엔드에는 **9:16 정보 위계·접근성·Voice Overlay·터치/음성 멀티모달 상태 설계**, AI/백엔드 시스템에는 **Cart snapshot의 SSOT·session/sequence 기반 비동기 race 회피·TTS nonblocking UI·마이크 lifecycle 복구**를 중심으로 제시할 수 있어.
+
+원본: [초기 GUI #54](https://github.com/aihuman-7th/proj1-d/pull/54) · [Senior-first #136](https://github.com/aihuman-7th/proj1-d/pull/136)·[#137](https://github.com/aihuman-7th/proj1-d/pull/137) · [mic lifecycle #162](https://github.com/aihuman-7th/proj1-d/pull/162)·[#163](https://github.com/aihuman-7th/proj1-d/pull/163) · [입력 경계 #213](https://github.com/aihuman-7th/proj1-d/pull/213) · [경합 방지 #225](https://github.com/aihuman-7th/proj1-d/pull/225) · [MA-08 검증 원장](mallo-rework-checkpoint.md).
 
 ## 8. Hybrid deployment
 
