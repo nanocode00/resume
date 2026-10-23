@@ -470,7 +470,49 @@
 
 ---
 
-## 4. 진행 원칙
+## 5. 과거 대화 재확인 — GitHub 원장 외 누락 사례 추가 (2026-10-23)
+
+기존 MA-01~12는 프로젝트 저장소의 작업군을 중심으로 복원했다. 과거 대화에서 **개인적으로 보고한 현상/결정/실험 과정**을 다시 찾아 원본 커밋과 교차 검증한 결과, 같은 12개 작업군 안에 아래 **5가지 추가 경위**가 있다. 근거 등급은 **A=개인 author 원본 Git 커밋/PR, B=당시 제품 문서·공식 worklog, C=대화에서 사용자 본인이 제시한 콘솔·스냅샷·수동 QA(이번 턴 해당 원시 artifact 재실행/독립 검사 없음)**로 구분한다.
+
+### 5-1. MA-01/MA-08 — Notion 4개 UX 문서·Flow/Voice/UI/Trigger 정합성 감사와 설계 vs 구현 구분 (A+B+C)
+
+- **대화 발굴:** 2026-08-19 제품 명칭을 **Talkiosk가 아닌 말로(Mallo)**로 통일하고, Flow·음성 시나리오·UI·Trigger의 **Notion 4개 핵심 문서**를 의사결정 SSOT로 삼았다. 8/20에는 **기존 구현을 수정하지 않고** 문서 대비 **작업 branch/worktree/commit/Mock NLU 수준별 Gap Matrix를 먼저 산출**하도록 요청했다. 당시 gap에는 **WELCOME→SERVICE_MODE 건너뜀**, 자동 Listening/VAD 없음, PROCESSING 안내 UI 부족 등이 남아 있었으며, 원본 문서와 구현 상태를 혼동하지 않았다(대화·내보내기 자료, **C**).
+- **Git 재확인:** 개인 [PR #113 `docs: reconcile Mallo product decisions`](https://github.com/aihuman-7th/proj1-d/pull/113)은 Notion/제품 결정을 **21개 문서·SSOT/Implementation Gap**으로 정리해 실제 병합됐고, **문서만 수정/당시 pytest 502 passed**로 기술했다(**A**). `docs/notion-reconciliation-report.md`에 version provenance/충돌 해결·잔여 gap, PRD/TRD/Audio-Input/메뉴옵션/OrderCommand/E2E Spec의 소유권·우선순위를 봉인했다. Mixed Intent 회귀가 proposal/PRD/TRD/사용자 평가 프로토콜에 누락된 점도 동시에 회복했다. **21개 문서 정합화 = 21개 기능 개발**은 아니다.
+- **핵심 결정의 버전 차이:** [#113](https://github.com/aihuman-7th/proj1-d/pull/113)의 당시 UX 계약은 **'주문하기' 1회→매장/포장→TTS 종료 후 필요할 때 자동 재청취, 수동 마이크 Fallback**, **Wake Word/Always Listening/Barge-in 제외**였고, Size/Decaf/IceAmount/Shot/Syrup 등은 **당시 기획 지원 후보**였다. 8/28~8/30 [기능동결 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)에서는 **Size 음성 N-23 제외**, PAYMENT 자동 재청취는 [#226](https://github.com/aihuman-7th/proj1-d/pull/226) 미포함. 또 #113 Plan A는 '**Local PC FastAPI/AI**'라는 당시 설계 표현이나 최종 [`src/app/server.py`](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/server.py) 실제 Gateway는 **ThreadingHTTPServer**다. **기획 문서·동기화 완료 vs runtime feature 완료**로 전용하지 않는다.
+
+### 5-2. MA-09 — Vercel 정적 배포에서 `runtime-config` 생성 위치 오류 수정 (A+C)
+
+- 개인 원본 [커밋 `7617d691`](https://github.com/aihuman-7th/proj1-d/commit/7617d69178734fc299fc9867e3de2280dc819db8)은 `CLOUDFLARE_DOMAIN` 값을 로컬 `.env`/환경에서 읽어 `web/runtime-config.js`와 `window.MALLO_RUNTIME_CONFIG.apiBaseUrl`을 생성하는 Python/JS 스크립트, launcher·browser API base 우선순위, 관련 회귀를 도입했다. 단, 처음에는 `vercel.json`에 `buildCommand=node scripts/runtime/generate_runtime_config.js`도 추가해 **Vercel remote build가 로컬 `.env`를 가질 거라는 잘못된 전제**가 들어갔다(**A**).
+- 사용자는 8/27 실제 Vercel 배포 과정에서 **정적 결과에 API domain이 누락되는/달라지는 문제**를 보고하고, '로컬에 `CLOUDFLARE_DOMAIN` 주입→`runtime-config.js` 생성→정적 Vercel CLI 배포'로 **생성 위치를 로컬로 고정**하도록 결정했다(**C**). 해당 개인 [수정 커밋 `bcf55885`](https://github.com/aihuman-7th/proj1-d/commit/bcf558858a065a4de56c5f3deb791aa0252d1419)이 **`vercel.json`의 `buildCommand`를 제거**한 diff로 확인된다(**A**). 당시 대화에서는 배포 정상화를 직접 확인했으나 현재 온라인 검증/CI 성공으로 일반화하지 않는다.
+- **기여 포인트:** Cloudflare tunnel 접속 성공 그 자체 외에, **빌드 시 설정 생성 책임(로컬 CLI)과 Vercel 정적 산출물 배포 책임을 분리**하여 실제 환경 구성·API URL 주입의 실패를 수정했다. `MALLO_RUNTIME_CONFIG` 공개 URL에는 token/secret을 넣지 않는 제약을 유지한다.
+
+### 5-3. MA-12 — 별도 `nanocode00/mallo-intro` 공개 저장소의 화면 QA·홈 내비게이션·favicon (A+C)
+
+- 과거 대화에서 사용자는 [별도 공개 `mallo-intro` 저장소](https://github.com/nanocode00/mallo-intro)를 만들고 **기술평가자용 소개 / 일반 고객용 소개**를 구분해 랜딩에서 분기하도록 선택했다(8/26, **C**). 원본의 `web/intro2/` 최초 코드 작성은 윤태현 [#210](https://github.com/aihuman-7th/proj1-d/pull/210)이며, **개인 기여는 공개 정적 배포·통합·시각 회귀 개선**이라는 경계가 있다.
+- 개인 [커밋 `baa5a4c`](https://github.com/nanocode00/mallo-intro/commit/baa5a4cb670ce8612b111648b5431c03a8df7f01)에서 **무제한 SVG 아이콘 크기로 거대한 검은 도형이 나타난 UI 결함**을 구체적인 `.icon/.icon-sm/.icon-md` width/height·stroke 계약으로 정리하고, 정적 CSS cache를 우회하도록 `?v=20260828v3`를 붙였다. 실제 웹 시각 QA로 오래된 placeholder/cache 상태를 점검한 과정은 대화 기록(C)이며, **Git 코드 수정은 A**다.
+- 개인 [`4308036`](https://github.com/nanocode00/mallo-intro/commit/43080362f1d8ca6fc65bec4cd5917c0db18c7b88)에서 evaluator/customer **브랜드 로고·소개 홈 버튼·footer 링크를 `./`로** 통일해 랜딩 복귀를 지원하고, [`d92fa30`](https://github.com/nanocode00/mallo-intro/commit/d92fa3091b65df372c6b917f151b9d4a45e5e398)에서 favicon·apple-touch icon·theme-color를 3개 소개 페이지에 추가했다. **공개 사이트 시각 QA 후 반영한 수정 커밋**이며, 메인 프로젝트 [#224](https://github.com/aihuman-7th/proj1-d/pull/224) 내부 정적 스냅샷의 화면/영상 산출물과 **근거·저장소는 별개**, 성과를 두 번 세지 않는다.
+
+### 5-4. MA-06 — Whisper LoRA 실제 적용 여부를 teacher-forced logits로 진단 (C)
+
+- **2026-08-26 대화에 사용자가 직접 제공한 로컬 smoke 결과**: Whisper LoRA **144개 대상 모듈, adapter parameter 2,359,296개**, teacher-forced 비교에서 baseline과 LoRA 간 **logits max diff 0.515625/mean diff 0.127805**, adapter applied 검증 `true`; 해당 시점 관련 **44개 단위 테스트 통과** 기록이 있다. 현행 Git에 이 콘솔 원본을 독립 재조회하거나 checkpoint/run 매칭을 재실행하지 않았으므로 **대화 기반 C등급 보강 사례**로 보존한다.
+- **판단 포인트:** 일부 발화의 **동일 decoding 결과를 'LoRA가 적용되지 않았다'고 단정하지 않고 logits 변화/모듈 수를 확인**한 디버깅 사례다. 이것은 **모델 성능 향상·WER/CER 감소의 증거가 아니며**, MA-06 Clean/Cafe 최종 Train65 평가셋과 직접 병합하지 않는다.
+- 8/22 사용자 실험 대화에는 카페 noise 원음 **high 약 94.9분·medium 약 91.8분** 확보와 domain Golden150 CER0.199356 vs fast-exp 자체 validation CER0.08494가 있으나 **검증셋이 달라 비교하지 않는다는 판단**이 남아 있다(C). Golden-only baseline/추가 후보 provenance 확인과 함께 연구 맥락으로 보존하고, 최종 Train65 서비스 정량 지표로 옮기지 않는다.
+
+### 5-5. MA-11 — 실제 결제 화면 흐름 실패 관찰과 안전한 수정/미수정 구분 (A+C)
+
+- 사용자 **8/26 Vercel 실브라우저 확인 대화**에는 화면 전환은 되었지만 **TTS 종료 후 마이크 Overlay가 남는 현상, 결제수단 선택 동작의 불안정**, `카드로 결제할게`는 `CONFIRM_ORDER`로 처리되는 반면 짧은 `카드`는 `QUERY_MENU/INVALID_OPTION`에 떨어지는 **상황별 의도 불일치**가 기록돼 있다(C). 사용자는 '**~로 결제**'에서 불필요한 재질문 없이 진행되길 원했다.
+- 개인 [PR #216](https://github.com/aihuman-7th/proj1-d/pull/216)은 One-shot 음성 주문→PAYMENT와 `docs/specs/voice-one-shot-payment.md`, 주문·화면·TTS 계약을 수정한 원본 근거(A)다. 후속 #226에서 명시적 결제 의사만 `CONFIRM_ORDER`로 처리하는 서버 게이트는 Git 확인됐으나, **'카드' 하나만으로 실제 PG 결제가 성공한다거나 PAYMENT 화면 자동 재청취가 완성**됐다는 근거는 없으므로 고쳐졌다는 수치를 새로 주장하지 않는다. 안전한 확정/가상 결제 UI와 실제 결제 Provider 동작을 분리한다.
+
+### 5-6. 기존 MA 문서에 반영할 중요 개념
+
+- MA-01은 **설문→Notion SSOT·문서 정합성·구현 Gap 감시**, MA-08은 **그 뒤 실제 9:16 UI 및 voice lifecycle 구현**으로 각 역할을 나눈다.
+- MA-09는 '**Named Tunnel 접속**'에 더해 **런타임 공개 API config의 생성 위치/배포 책임을 교정한 실문제 해결**을, MA-12는 '**제출용 오프라인 정적 산출물**'과 **개인 별도 GitHub Pages 소개사이트의 시각 QA/내비게이션**을 각각 기록한다.
+- MA-06의 LoRA smoke/Noise Golden 실험과 MA-11의 결제 UX 수동 관찰은 **대화 자료에서만 구체 수치/오류가 확인된 C등급**이다. 원본 로그가 Git에 있다고 하거나 코드 수정을 완전히 재현했다는 주장 금지.
+- 현재 상태의 원시 Git/PR·다른 팀원 코드·모델 benchmark 결과와 과거 대화 주장을 **맞는 수준까지만 연결**한다. 새로운 MA-13을 임의로 만들거나 팀원 초기 구현을 개인 작업으로 재귀속하지 않는다.
+
+---
+
+## 6. 기록 유지 원칙
 
 1. 각 MA 단위는 **프로젝트 원본/개인 PR+리뷰/실제 로그/대화 기억**을 별도로 확인하고 5단계를 작성한다.
 2. 수치의 **baseline vs friendly, Mock vs Real, local vs public, initial survey vs final evaluation** 조건을 혼합하지 않는다.
