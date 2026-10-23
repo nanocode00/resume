@@ -64,6 +64,8 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 **결과:** 제품이 막연한 음성 대체가 아니라 **'복잡한 메뉴 탐색은 줄이고, 잘못 알아들어도 화면에서 바로 확인·수정하는 Voice-first + Minimal GUI'** 방향으로 구체화됐습니다. 다만 이 단계의 성과는 **설문 기반 제품 정의와 요구사항 우선순위 확정**이지 실제 주문 시간 단축·사용성 개선의 인과적 검증이 아닙니다. **초기 60대 설문 n=13**은 실제 원본이 확인되지만, 최종 사용자 평가 E-05~07은 미수행으로 문서화돼 있습니다. 과거 초안의 '최종 n=13/만족 92.3%'는 확인된 평가 결과가 아니므로 삭제합니다.
 
+**Notion·제품정책 정합화 추가 기여:** 개인 [PR #113](https://github.com/aihuman-7th/proj1-d/pull/113)에서 Flow·음성 시나리오·UI·Trigger 등 Notion 원본의 상충되는 결정을 PRD/TRD·OrderCommand·Mic/UX·E2E 명세 **21개 문서로 동기화**하고, Mixed Intent 계약 누락과 문서 provenance·구현 Gap을 복구했어. 당시 변경은 **문서만**, 기존 pytest **502 passed**로 검증했지. 제품명 Talkiosk→**말로(Mallo)**를 통일했고, **주문 시작 1회→매장/포장→필요 시 TTS 후 자동 Listening**, Wake Word/Always Listening/Barge-in 제외 원칙을 정했어. 다만 #113의 당시 Size 지원/Plan A 'FastAPI'는 **기획 문구**로, 최종 기능동결 Size 제외·실제 ThreadingHTTPServer와 구별했어.
+
 상세: [MA-01 경험 복원 원장](mallo-rework-checkpoint.md) · [설문 반영 PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
 
 ---
@@ -182,6 +184,8 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 **개인 기여·평가 경계:** 초기 경상도 방언 preproc 500개·Whisper base/small/medium 비교·화자 누출 수정과 초기 도메인 QLoRA/BF16 merge·ONNX 변환은 **윤태현 개인 PR #27/#31/#32/#58/#67** 등과 연결되며 내 독자 개발로 주장하지 않는다. **Golden500 17회 Validation CER 0.2059**와 **Train65 Clean CER 0.1357**은 평가 모집단이 다르므로 '학습으로 0.2059→0.1357 개선'이라 쓰지 않는다. [최종 발표용 정량 표](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md)의 **CER 0.1131/WER 0.3352·메뉴 Recall 89.5%** 역시 기존 팀 도메인 모델의 **서로 다른 평가 조건**에 귀속해 Clean/Cafe 결과의 개선율로 재사용하지 않는다. 후보 32개는 **탐색 수**이지 32개 모두를 각 noise set 300개에서 실행했다는 뜻이 아니다. 원시 후보 비교 로그 일부는 로컬/당시 대화 증거이며 공개 Git의 모든 run이 복제되지는 않았다. 온라인 카페 고령자 음성 데이터의 실제 성능 개선, 전체 주문 E2E 지연 달성 및 배포 서비스의 영속적 작동은 별도 MA-09/10 검증 대상으로 남긴다.
 
+**과거 로컬 진단 기록(독립 Git 재검증 없음):** Whisper LoRA의 전사 결과가 baseline과 일부 동일하더라도 adapter 미적용으로 단정하지 않고 **teacher-forced logits**를 비교했어. 8/26 대화에는 **LoRA 모듈 144개·adapter parameter 2,359,296개, logits max/mean diff 0.515625/0.127805, 적용 판정 true**, 관련 테스트 44개 통과가 남아 있어. 이는 적용 여부 디버깅이지 STT CER/WER 개선 근거가 아니야. Golden150/fast-exp 역시 **서로 다른 Validation 분모라 직접 비교를 보류**했어.
+
 근거: [후반 STT 서빙·벤치마크 #214](https://github.com/aihuman-7th/proj1-d/pull/214) · [STT 평가 스크립트 개선 #218](https://github.com/aihuman-7th/proj1-d/pull/218) · [모델 자산·결과 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) · [STT 팀 Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/stt.md) · [검증 원장 MA-06](mallo-rework-checkpoint.md).
 
 ---
@@ -259,6 +263,8 @@ Qwen3-0.6B의 개인 8/25 **15개 overnight sweep 실험 자산**을 보존하�
 
 **개인·팀 기여 및 기술 정확성:** 팀원 윤태현의 STT Sidecar/Windows cuDNN 문제 회피·WebM 디코더를 개인 직접 구현으로 주장하지 않았어. **Sidecar 세 개가 서로 독립 프로세스**라는 것과 **세 개가 모두 별도 Python 가상환경**이라는 것은 다르므로, 최종 런타임의 **두 가상환경**을 그대로 적었어. Gateway는 과거 요약처럼 **FastAPI가 아니라 Python `BaseHTTPRequestHandler`·`ThreadingHTTPServer` 기반 HTTP 서버**야. Docker/Kubernetes 운영, 원격 클라우드 GPU, 무중단/SLA, 현재 외부 접속 상태와 실제 서비스 E2E 1.2/1.5초 달성을 추가로 주장하지 않아. 기존 MA-06은 STT 모델/검증, MA-07은 NLU 모델/guard, MA-08은 브라우저 입력·Cart race이며, 이 MA-09의 독립 성과는 **실행 환경 격리·프로세스 supervision·세션 격리·공개 배포**야.
 
+**실배포 설정 오류 복구:** 개인 [`7617d691`](https://github.com/aihuman-7th/proj1-d/commit/7617d69178734fc299fc9867e3de2280dc819db8)에서 `CLOUDFLARE_DOMAIN`→`web/runtime-config.js` 자동 생성·API URL 계약을 추가했으나, 원격 Vercel `buildCommand`도 함께 두어 로컬 `.env`와 원격 빌드 경계가 충돌했어. 8/27 배포 문제를 재현한 뒤 **로컬에서 config 생성→정적 Vercel 배포**로 책임을 고정하고, 개인 [`bcf55885`](https://github.com/aihuman-7th/proj1-d/commit/bcf558858a065a4de56c5f3deb791aa0252d1419)에서 잘못된 `buildCommand`를 제거했어. 당시 배포 정상화는 대화에 확인되지만 오늘의 uptime이나 CI 통과를 뜻하지 않아.
+
 근거: [NLU Sidecar #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [runtime 호환 #212](https://github.com/aihuman-7th/proj1-d/pull/212) · [전체 production 통합 #215](https://github.com/aihuman-7th/proj1-d/pull/215) · [팀 STT Sidecar #204](https://github.com/aihuman-7th/proj1-d/pull/204) · [Multi-service Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md) · [실제 런처](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/launcher.py) · [Gateway 서버](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/server.py) · [MA-09 검증 원장](mallo-rework-checkpoint.md).
 
 ---
@@ -312,6 +318,8 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 
 **한계·시점/중복 방지:** 이 수정은 **8월 28일 최종 Real E2E 측정(PR #222) 이후인 8월 30일**에 병합됐어. 따라서 이전의 **50턴 중 30턴 과제 미완료가 해결됐다는 재측정 수치**는 없어. 특히 STT의 '아이스 카페라떼→아이스티 카페라떼' 인식 오류 전부를 제거했다고 주장하지 않아. PR #213의 간헐적 TTS 음량 transient는 재현/진단 보류였고, #226의 **PAYMENT 자동 재청취 로직도 범위에 포함되지 않았어**. 실마이크 수동 QA·단위/모의 브라우저 회귀는 전체 기기 무장애·고령 사용자 작업 성공률 개선의 증거가 아니야. MA-08은 클라이언트 화면/동시성 구조, MA-09는 상주 런타임·배포, MA-10은 실제 50턴 **측정 및 미달 판정**, MA-11은 그 전후에 발견한 **실사용 실패 복구 로직과 테스트 강화**로 구분해.
 
+**실브라우저에서 직접 발견한 후속 결제 UX:** 8/26 대화에서 화면 전환 후 TTS가 끝나도 mic Overlay가 남고 결제수단 음성 선택이 불안정했어. `카드로 결제할게`와 짧은 `카드`가 서로 다른 Intent/오류로 해석되는 것을 보고, **결제 화면의 문맥·확정 의사 분리** 필요성을 확인했어. 개인 [#216](https://github.com/aihuman-7th/proj1-d/pull/216)의 원샷 주문/가상 PAYMENT 정리와 후속 [#226](https://github.com/aihuman-7th/proj1-d/pull/226)의 명시적 확정 guard와 연결되는 판단이야. **PAYMENT 자동 재청취·실제 PG/모든 결제 수단 음성 선택이 완료**됐다고 주장하지 않아.
+
 근거: [P0 실마이크/브라우저 #213](https://github.com/aihuman-7th/proj1-d/pull/213) · [원샷 주문·화면 #216](https://github.com/aihuman-7th/proj1-d/pull/216) · [최종 QA #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [병합 시점 RuleFirst 구현](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/src/orchestrator/rule_first_nlu.py) · [마이크 브라우저 회귀](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/tests/frontend/microphone-lifecycle.test.js) · [MA-11 상세 검증 원장](mallo-rework-checkpoint.md).
 
 ---
@@ -333,6 +341,8 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 **결과:** **모델 서버 없이 검토 가능한 STT 5건·TTS 15건·6화면·시연영상** 정적 증거를 만들었고, 최종 가중치를 SHA와 표준 경로로 보호해 재현/인계 준비를 마쳤어. 프로젝트의 AI Hub 사용 범위는 **원천·라벨·재가공 데이터 비공개, 자체 작성 문장의 합성 결과물 공개, 데이터명·AI 허브 출처 표시**로 구분했어. 서비스 당시 연결된 주소는 [말로 앱](https://mallo-kiosk.vercel.app/), [소개](https://nanocode00.github.io/mallo-intro/), [STT](https://nanocode00.github.io/stt_showcase/), [TTS](https://nanocode00.github.io/tts_showcase/)였어. **현재 서비스 실시간 가동 여부는 검증하지 않았어.**
 
 **평가·귀속의 최종 경계:** STT 5건은 **직접 녹음한 대표 발화**이며 화자가 고령자라고 단정할 근거가 없어. STT 쇼케이스의 CPU `inference_ms`는 실제 서비스 GPU latency가 아니야. TTS 쇼케이스 생성 JSON에는 첫 모델 cold-load가 포함될 수 있어 MA-04의 GPU 통제 실험 지연으로 해석할 수 없어. [AI Hub 답변 요약](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md)에 공개 가능한 산출물 판단이 있지만 **원음/라벨/재가공 데이터나 모든 모델의 무제한 재배포 허가**는 아니며 신규 이용 조건은 다시 확인해야 해. 마지막으로 **초기 60대 대상 탐색 설문 13명**은 [원본](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md)으로 확인되지만, [기능동결 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)는 **E-05~E-07 실제 참가자 기반 최종 사용자 평가 미실행**이라고 명시했어. 기존 초안의 **'최종 평가 n=13·만족도 92.3%'**는 별도 결과 근거가 없어 **이력서 확정 성과에서 제외**했어. 실제 참가자 기반 만족도 개선, TTS 블라인드 MOS/이해도 개선, 최종 E2E p95 1.5초 달성도 입증되지 않았어.
+
+**공개 소개 웹사이트의 개인 QA·회귀 해결:** 메인 프로젝트 제출 snapshot과 별도로 [`nanocode00/mallo-intro`](https://github.com/nanocode00/mallo-intro) 공개 사이트에서 개발/평가자용·고객용 소개를 연결했어. 실제 시각 QA에서 **거대 검은 SVG/오래된 정적 CSS 캐시**를 발견해 [`baa5a4c` 아이콘 크기/버전 수정](https://github.com/nanocode00/mallo-intro/commit/baa5a4cb670ce8612b111648b5431c03a8df7f01), [`4308036` 고객·평가자→소개 홈 내비게이션](https://github.com/nanocode00/mallo-intro/commit/43080362f1d8ca6fc65bec4cd5917c0db18c7b88), [`d92fa30` favicon·touch icon](https://github.com/nanocode00/mallo-intro/commit/d92fa3091b65df372c6b917f151b9d4a45e5e398)을 직접 수정했어. 기존 `intro2` 첫 구현은 팀원 윤태현이므로 별도 사이트 공개·수정만 개인 기여로 집계해.
 
 원본: [Cleanup #217](https://github.com/aihuman-7th/proj1-d/pull/217) · [README #219](https://github.com/aihuman-7th/proj1-d/pull/219) · [AI Hub/정량 #220](https://github.com/aihuman-7th/proj1-d/pull/220) · [기능동결 #221](https://github.com/aihuman-7th/proj1-d/pull/221) · [최종 정적 Showcase #224](https://github.com/aihuman-7th/proj1-d/pull/224) · [최신 청음/화면 #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [T-29 라이선스 문의](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md) · [MA-12 검증 원장](mallo-rework-checkpoint.md).
 
