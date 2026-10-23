@@ -26,7 +26,7 @@
 | **MA-07** | **Qwen3-1.7B 개인 재학습/재평가·Qwen3-0.6B 15후보 sweep·BF16 NLU sidecar·서비스 gate** | 기존 개인 실행 대화·개인 [#209](https://github.com/aihuman-7th/proj1-d/pull/209) target-env 124건·[#214](https://github.com/aihuman-7th/proj1-d/pull/214) 실사용 guard 38건, [모델 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md), 팀 [#195](https://github.com/aihuman-7th/proj1-d/pull/195)·[#205](https://github.com/aihuman-7th/proj1-d/pull/205)·[#211](https://github.com/aihuman-7th/proj1-d/pull/211) | **A: 후반 실험·모델/추론 계약 선정·0.6B 통합/측정 / T: 3,000개 데이터·초기 1.7B pipeline/최종 test**; 300건 official vs 124 focused vs 38 live challenge 서로 다른 모집단·guard·지연 측정 | **검증 완료(개인 대화+공개 근거)** |
 | **MA-08** | **9:16 Senior-first 화면 정보구조·음성/터치 입력 분리·마이크 lifecycle·빠른 터치/서버 Cart 경합 해결** | 개인 [#54](https://github.com/aihuman-7th/proj1-d/pull/54), [#159~164](https://github.com/aihuman-7th/proj1-d/pull/159), [#136](https://github.com/aihuman-7th/proj1-d/pull/136), [#137](https://github.com/aihuman-7th/proj1-d/pull/137), [#213](https://github.com/aihuman-7th/proj1-d/pull/213), [#225](https://github.com/aihuman-7th/proj1-d/pull/225) | **A: 화면 설계·프런트/상태·race 검증**, **T: 윤태현 초기 checkout #103 / WebM 디코더 #165**; DOM/Mock 회귀와 실브라우저/실사용자 효과 별도; 자동 속도 정책 후기 변경 구분 | **검증 완료** |
 | **MA-09** | **transformers/CUDA 의존성 격리·상주 3 Sidecar+HTTP Gateway/런처·Vercel/Cloudflare 외부 배포** | 팀 [#204](https://github.com/aihuman-7th/proj1-d/pull/204) STT 선행, 개인 [#209](https://github.com/aihuman-7th/proj1-d/pull/209) NLU sidecar·[#212](https://github.com/aihuman-7th/proj1-d/pull/212) 설치 호환·[#215](https://github.com/aihuman-7th/proj1-d/pull/215) 전체 통합, [Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md) | **A: NLU/런타임/Launcher·외부 통합**, **T: 윤태현 원형 STT sidecar**; FastAPI 아님(`ThreadingHTTPServer`), 4프로세스/2venv, 당시 public QA vs 현재 상시 가동 별도 | **검증 완료** |
-| **MA-10** | 실제 사용자 평가·음성 E2E·지연 병목 분석 | [PR #75](https://github.com/aihuman-7th/proj1-d/pull/75), [#122](https://github.com/aihuman-7th/proj1-d/pull/122), [#222](https://github.com/aihuman-7th/proj1-d/pull/222) | Real STT/NLU + MockTTS p95 312ms와 최종 real TTS 별도 | 대기 |
+| **MA-10** | **Real Warm 50턴·Cold 3회 E2E 측정, RuleFirst/Qwen 병목 및 실패 원인 분류** | 개인 [#75](https://github.com/aihuman-7th/proj1-d/pull/75) 평가 프로토콜, [#122](https://github.com/aihuman-7th/proj1-d/pull/122) latency 계약, [#222](https://github.com/aihuman-7th/proj1-d/pull/222) 50턴 raw evidence; 팀 [#183](https://github.com/aihuman-7th/proj1-d/pull/183) Mock 분류 | **A: 실험 계약·재집계/실패 분석** / 최종 p95 3.338s·30/50 Requirement 미달, 10×5→5×10 변경 공개; 장비 조작 단독 수행 주장은 보류 | **검증 완료** |
 | **MA-11** | 실사용 QA·안전 실패·음성/화면 동작 보강 | [PR #213](https://github.com/aihuman-7th/proj1-d/pull/213), [#226](https://github.com/aihuman-7th/proj1-d/pull/226) | 실제 마이크 시연·수동 QA·회귀 테스트 구분 | 대기 |
 | **MA-12** | 소개/기술 쇼케이스·공식 동결·원본 정리 | [PR #217](https://github.com/aihuman-7th/proj1-d/pull/217), [#220](https://github.com/aihuman-7th/proj1-d/pull/220), [#224](https://github.com/aihuman-7th/proj1-d/pull/224) | 8/28 기능동결·8/30 최종 repo 정리, 데이터/모델 인계 | 대기 |
 
@@ -316,6 +316,45 @@
 - **현재 서비스 상태를 모름:** 실 URL은 README와 #215 작성 당시 배포 기록으로만 인용한다. 지금 켜져 있는지, Named Tunnel token이 여전히 활성인지, Vercel production과 Gateway의 외부 health가 오늘 준비됐는지는 **이번 GitHub 증거 조회만으로 단정하지 않는다**.
 
 원본: [팀 STT sidecar #204](https://github.com/aihuman-7th/proj1-d/pull/204) · [팀 브라우저 디코딩 #165](https://github.com/aihuman-7th/proj1-d/pull/165) · [개인 NLU 격리 #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [개인 런타임 수정 #212](https://github.com/aihuman-7th/proj1-d/pull/212) · [개인 통합·배포 #215](https://github.com/aihuman-7th/proj1-d/pull/215) · [Multi-service Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md) · [서버](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/server.py) · [런처](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/launcher.py) · [Python 환경 규칙](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/python-environment.md) · [최종 Real E2E #222](https://github.com/aihuman-7th/proj1-d/pull/222).
+
+---
+
+## 3-10. MA-10 — 실제 브라우저 음성 주문 Warm 50턴/Cold 3회 재계측과 지연 병목 판정 (2026-10-23 검증 완료)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로는 실제 Whisper Train65 STT·Qwen3-0.6B/RuleFirst NLU·Order Engine·MeloTTS G_2800·Vercel/Cloudflare 브라우저 배포까지 구현했다(MA-09). 원래 서비스 요구는 **발화 종료부터 최초 음성 재생까지 Warm E2E p95 Target ≤1.2초 / Requirement ≤1.5초**, 그리고 50턴 중 1.5초 초과 최대 2턴·처리 실패 0건이다.
+2. **문제:** 이전 **p95 312.2ms (실 STT/NLU + MockTTS)** 및 **FasterWhisper+MockNLU/G_3600 36회 p95 368.7ms**는 실제 mic/VAD·브라우저 Audio.onplay·실제 Qwen/G_2800을 모두 충족한 최종 E2E가 아니다. MockNLU를 사용하고 TTS 완료 시각을 실제 재생 시작으로 취급했던 계측 도구는 팀원 [#183](https://github.com/aihuman-7th/proj1-d/pull/183)에서 **MOCK_E2E 재분류**·최종 requirement 판정 금지로 정정됐다. 초기 최종 50턴 진단에서는 같은 Cart Session을 재사용해 주문 상태가 누적되는 **측정 오염**도 발견됐다. 전체 지연과 NLU fallback·STT·TTS·HTTP의 비중을 혼동해서는 최적화 우선순위를 알 수 없다.
+3. **판단:** **REAL_E2E=Chromium MediaRecorder/WebAudio/VAD의 vad-speech-end → 실제 HTML5 Audio.onplay**, 실 STT/NLU/Order/TTS를 통과한 요청만으로 정의한다. 모델·프로세스는 Warm 상주하고 처음 3개 warm-up 턴은 제외, Cold Start 3회는 별도 계측한다. 매 측정 Turn에 **고유 X-Mallo-Session-ID·/api/reset·fulfillment 초기화**를 적용하고 옵션 변경 시나리오의 초기 아이스 아메리카노는 **비측정 precondition**으로 준비한다. 원래 **10문장×5회** 계약을 유지하려 했지만 제출 실험은 Showcase 고정 음원 **5종×10회**이므로 변경을 **protocol deviation**으로 공개하고, threshold/p95 정의는 소급 수정하지 않는다. 합산/median은 원시 CSV와 **nearest-rank p95**로 재검증하며, **음성 재생 실패·단일 Turn 주문/과제 실패·성능 목표 미달을 분리**한다.
+4. **조치:**
+   - **개인 프로토콜 [PR #75](https://github.com/aihuman-7th/proj1-d/pull/75):** 메뉴 탐색·주문·수정·어조·결제 5대 과제, Touch/FixedTTS/AdaptiveVoice 비교군, TCR/TCT/ERR/E2E/SUS/MOS 지표와 세션 JSON 로그 스키마를 설계했다. 테스트 전체 390 passed/3 skipped는 **계약·로그·평가 도구 검증**이지 실제 참가자 연구 완료가 아니다.
+   - **개인 측정 기준 [PR #122](https://github.com/aihuman-7th/proj1-d/pull/122):** 10×5 Warm50, warm-up 제외, Cold3, 실제 input_end→first_audio_start, nearest-rank p95, threshold 1.2/1.5초 계약을 문서화하고 과거 36회를 최종 판정에서 제외했다. 후속 윤태현 작성 [#183](https://github.com/aihuman-7th/proj1-d/pull/183)·[#185](https://github.com/aihuman-7th/proj1-d/pull/185)의 Mock 계측 재분류는 **팀원 구현**이고 #183은 개별 merged=false이다.
+   - **최종 Real evidence [개인 PR #222](https://github.com/aihuman-7th/proj1-d/pull/222), 측정일 2026-08-28:** RTX5070Ti 16GB·WSL2 Ubuntu24.04.4·CUDA12.8·Python3.11.9, Chromium152, Train65 BF16·Qwen0.6B+RuleFirst·Melo G_2800의 실제 서비스 경로를 검증했다. 최초 세션 누적 오염 진단 run을 폐기하고 **Turn별 세션 격리**한 Warm 50행·Cold 3행 CSV를 커밋했다. **VAD→HTML Audio.onplay**, 5개 고정 STT Showcase 음원×10회 반복, warm-up3 제외, Cold3 분리, stt-04 옵션 변경용 장바구니 precondition을 적용했다. 원본 JSON SHA와 Stage별 trace·실패 사유·Spec의 **10×5→5×10 프로토콜 변경**을 기록했다. #222는 **모델/서비스 코드를 바꾸지 않고 측정 결과·최종 판정 근거만 추가**하는 PR이다.
+   - **이번 경험 검증에서 공개 raw 재집계:** 저장소의 [Warm 50턴 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-warm-50-turns-isolated.csv) 50행과 [Cold3 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-cold-start-3-runs.csv) 3행에서 숫자를 재계산했다. Warm **mean 1915.6ms·median 2166.5ms·p95 3338ms(ceil(50×0.95)=48번째 값)·max 3448ms·1.5초 초과 30건**, playback 50/50·order/task 20/50이 #222 기록과 일치한다. Cold 8804/7274/7035ms, 평균 **7704.3ms**. **새로운 GPU E2E 실험을 2026-10-23 재실행했다고 쓰지 않고, 기존 원시 기록을 독립적으로 재집계한 검증**으로 구분한다.
+5. **결과:** **최종 Real Warm p95 3.338초·50턴 중 30턴이 1.5초 초과·Playback Failure 0·Order/Task Failure 30**으로 원래 Requirement에 **미달**했음을 숨기지 않고 보고했다. **RuleFirst 20턴 p95 967ms(mean 729.1ms)는 Target 충족**, **Qwen fallback 30턴 p95 3386ms(mean 2706.5ms)는 Requirement 미달**로 tail latency 원인을 구분했다. 전체 50턴의 **Interpret HTTP roundtrip mean 1397.2ms/p95 2641ms**, STT roundtrip mean **495.1ms/p95 693ms**, Interpret 응답→실제 Audio.onplay **20.5ms/p95 32ms**여서 후속 우선순위는 Qwen 추론/interpret 경로 및 안전한 RuleFirst coverage 확장이었다. **Interpret 'network RTT'는 HTTP 전송 시간만이 아니라 서버 NLU 추론·처리까지 포함**하므로 네트워크 회선 자체가 1.397초를 유발했다고 쓰지 않는다.
+
+### 원시 CSV 재계산 요약
+
+| 항목 | 표본 | 평균 | 일반 Median | Nearest-rank p95 | 성능 판정 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Real Warm E2E | **50턴** | **1915.6ms** | **2166.5ms** | **3338ms** | **Requirement ≤1500ms 미달** |
+| RuleFirst | 20턴 | 729.1ms | 709.0ms | **967ms** | 해당 경로 Target ≤1200ms 달성 |
+| Qwen fallback | 30턴 | 2706.5ms | 2668.5ms | **3386ms** | Requirement 미달 |
+| Interpret HTTP RTT(서버 추론 포함) | 50턴 | 1397.2ms | 1695ms | **2641ms** | 구간 계측값 |
+| STT HTTP RTT(서버 추론 포함) | 50턴 | 495.1ms | 480ms | **693ms** | 구간 계측값 |
+| Interpret 후 Audio.onplay 준비 | 50턴 | 20.5ms | 17ms | **32ms** | 구간 계측값 |
+
+### 실패 원인·귀속·프로토콜 한계
+
+- **성능 실패와 기능/재생 실패 다름:** 샘플 stt-01(아이스 아메리카노 2잔)·stt-02(따뜻한 카페라떼 포장) 각 **10/10 Task 성공**. stt-03은 복수 메뉴의 미지정 온도를 **정상적으로 clarification**한 결과라 단일 Turn 주문 완료 기준 0/10; stt-04는 샷 추가 표현 '추가'를 옵션 변경 guard cue로 인정하지 않아 0/10; stt-05는 원음 '어... 아이스 카페라떼 두 잔 주세요'를 전부 **'아이스티 카페라떼 두 잔 주세요'로 STT 오인식**해 0/10이었다. 30건을 시스템 crash/재생 실패와 동일시하지 않는다.
+- **Cold 3회:** 8804/7274/7035ms는 순수 모델 추론시간이 아니라 **프로세스·sidecar 준비, CUDA context/model load 및 첫 요청/응답을 포함한 Raw startup-to-first-response**이다. production launcher의 사전 warmup을 거치는 일반 Warm path와 별개의 지표다.
+- **고정 음원 5개×10회:** 실제 Chromium/VAD/MediaRecorder/Audio.onplay 경계를 포함하지만 **50명의 고령 참가자가 매번 라이브 발화한 실험이 아니다**. 원 계약 10문장×5회보다 고유 발화 커버리지가 줄어든 프로토콜 차이를 명시한다.
+- **Mock·선행 36회:** 제한조건 312.2ms p95(Mock TTS)와 36회 368.7ms p95(Mock NLU)는 최종 3338ms와 provider/checkpoint/Audio.onplay 모집단이 다르므로 속도 개선/악화 인과율 계산 금지. Mock 재분류 팀원 PR #183을 내 코드 작성으로 귀속하지 않는다.
+- **완료는 계측·판정 완료:** #222 및 최종 티켓의 'COMPLETED / REQUIREMENT MISSED'는 실제 성능 달성이 아니라 **정량 검증 완료 및 실패 원인 공개**. 기능동결 이후 모델/코드를 바꿔 요구시간을 달성했다고 주장할 근거가 없다.
+- **실행 담당에 대한 증거 경계:** PR #222는 'nanocode00' 작성·원시 측정치/환경 문서화·최종 합격 여부 결정이 직접 확인된다. **실험 장비의 모든 수동 조작을 본인이 혼자 수행했다**는 주장은 PR metadata만으로 단정하지 않는다.
+- **직무 활용:** AI System/Backend는 세션 독립성·stage tracing·cold/warm·tail p95·NLU 경로별 병목, ML 평가에서는 Mock/Real 분리·측정 프로토콜 변경 기록·raw evidence/실패 원인 재현성에 초점.
+
+원본: [평가 계약 #75](https://github.com/aihuman-7th/proj1-d/pull/75) · [E2E spec #122](https://github.com/aihuman-7th/proj1-d/pull/122) · [팀 Mock 계측 교정 #183](https://github.com/aihuman-7th/proj1-d/pull/183) · [최종 Real 계측 #222](https://github.com/aihuman-7th/proj1-d/pull/222) · [E2E Latency Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/e2e-latency.md) · [최종 Evidence](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-final-real-e2e.md) · [Warm Raw CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-warm-50-turns-isolated.csv) · [Cold Raw CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-cold-start-3-runs.csv).
 
 ---
 
