@@ -9,7 +9,7 @@
 - 원본 [README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md)에 표시된 3인: **김재훈(`nanocode00`, 팀장), 윤태현(`surf7978`), 류승민(`padong47`)**.
 - 기존 경험기술서에 있던 '이규헌 STT Lead / 이승훈 NLU Lead'는 **팀 README와 모순**되므로 삭제했다. `docs/tasks.md`는 **A(Adaptive TTS/Voice UX), B(NLU/Order Engine), C(STT/GUI/Integration)**이라는 **영역 단위 역할**만 명시하며, A/B/C의 실명 매핑을 이 문서만으로 추측하지 않는다.
 - 팀장이라는 역할만으로 모든 모델 학습/모든 프런트 구현에 자동 귀속하지 않는다. 공동/AI 코딩 도구 사용 사실과 원본 저자·실험 수행 증거를 구분한다.
-- **초기 60대 13명 설문과 최종 사용성 평가 n=13/만족 응답 92.3%는 다른 평가**. 초기 설문은 60~64세 6명·65~69세 7명, 70대 이상 0명이고, 최종 사용자 평가 대상은 고령자만으로 구성된 것이 아니다. 동일 13명을 두 번 실험했다고 자동으로 계산하지 않는다.
+- **검증된 설문은 초기 60대 탐색 n=13 한 건뿐**이다(60~64세 6명·65~69세 7명, 70세 이상 0명). 과거 초안의 '최종 사용자 평가 n=13/만족 92.3%'는 실제 E-05~07 사용자 평가 미수행이라는 최종 기능동결 문서와 충돌하고 원시 증거도 없어 **확정 사실·이력서 성과에서 제외**한다.
 - PRD/TRD는 최종 범위의 **canonical**, `docs/survey-pipeline-update.md`는 2026-08-19의 초기 탐색 및 확장 제안. **UNDO·Pending/Preview Cart 구상**이 곧 최종 해당 상태 머신 구현을 의미하지 않는다. 2026-08-28 기능동결 후 실제 지원 기능·제외 범위는 최신 PRD, `docs/final-ticket-reconciliation.md`에서 판정.
 - 최종 배포 구조는 정적 Vercel UI → Cloudflare Tunnel → 로컬 Gateway:8000 → STT:8001, NLU:8002, TTS:8003. **최종 생산 시스템 전체를 단독 구현**했다고 바로 단정하지 않는다.
 
@@ -43,7 +43,7 @@
 ### 개인 기여/팀 실행 경계와 아직 확인할 사항
 
 - **직접 확인:** 팀장 역할, 설문→기능 우선순위 번역 문서(PR #83), PRD/TRD 계약 및 종료 후 정책 정합성.
-- **미확인:** 표본 13명 개인 직접 모집/인터뷰 수, 실제 70대 이상 검증, 설문 전후 제품 사용성 인과 개선·SUS, Undo/Pending State의 운영 구현. **초기 설문 n=13**과 **프로젝트 최종 사용성 평가 n=13**은 원본·실행 조건을 확인하기 전 결합하지 않는다.
+- **미확인:** 표본 13명 개인 직접 모집/인터뷰 수, 실제 70대 이상 검증, 설문 전후 제품 사용성 인과 개선·SUS, Undo/Pending State의 운영 구현. **초기 설문 n=13**만 검증된 사실이며, 최종 사용자 평가 E-05~07은 미수행. 과거 기재된 최종 n=13/만족도 92.3%는 증거가 없어 주장하지 않는다.
 - **MA-02 검증 완료:** 후속 섹션에서 #23 문서 계약, #55 초기 결정론적 엔진 구현과 후속 기능 차이를 병합 당시 코드 기준으로 확인했다.
 
 원본: [팀 README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md) · [PRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/prd.md) · [TRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/trd.md) · [Task/역할](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tasks.md) · [설문](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md) · [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
