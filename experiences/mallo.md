@@ -48,7 +48,7 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 | Production MeloTTS `G_2800` | **mean 0.38s / p95 0.53s / RTF 0.0894** | 최종 runtime 별도 benchmark |
 | NLU focused contract 124건 | **Intent 100%, Slot 96.78%, Schema 100%** | 0.6B + deterministic guard 포함, target-env p95 1.610초 |
 | 최종 Real E2E Warm 50턴 | **p95 3,338ms / 30건 1.5초 초과** | 실제 STT/NLU/TTS + 브라우저 Audio.onplay, Requirement 미달 |
-| 사용자 평가 | **n=13, 만족 응답 92.3%** | 참가자 전원이 고령자는 아님 |
+| 초기 문제정의 설문 | **60~69세 13명** | 사용자 만족도 최종 실험과 별개, E-05~07 미수행 |
 
 ## 0. 고령 사용자 조사에서 Voice-first + Minimal GUI 우선순위로 — MA-01 (1차 검증)
 
@@ -62,7 +62,7 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 **조치:** 개인 명의 [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83)으로 팀이 수집한 초기 설문 분석 결과를 [PRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/prd.md)의 사용자 문제·P0/P1/P2 우선순위 및 [평가 기록](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/evaluation.md)에 연결했습니다. 팀 인터뷰 원본의 모집·조사 전 과정을 직접 수행했다고 PR로 증명되는 것은 아닙니다. 초기 [설문 변경안](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md)의 **UNDO/Pending/Preview**는 기능 제안이며, 최종 MVP에서는 **ORDER_REVIEW의 명시적 주문 확인을 유지하고 별도 Pending Confirmation 상태 머신과 Size 음성 지원은 제외**했습니다.
 
-**결과:** 제품이 막연한 음성 대체가 아니라 **'복잡한 메뉴 탐색은 줄이고, 잘못 알아들어도 화면에서 바로 확인·수정하는 Voice-first + Minimal GUI'** 방향으로 구체화됐습니다. 다만 이 단계의 성과는 **설문 기반 제품 정의와 요구사항 우선순위 확정**이지 실제 주문 시간 단축·사용성 개선의 인과적 검증이 아닙니다. **초기 60대 설문 n=13**과 별도로 기록된 **최종 사용성 평가 n=13 / 만족 응답 92.3%**는 목적·참가자 구성이 다른 평가이므로 합치지 않습니다.
+**결과:** 제품이 막연한 음성 대체가 아니라 **'복잡한 메뉴 탐색은 줄이고, 잘못 알아들어도 화면에서 바로 확인·수정하는 Voice-first + Minimal GUI'** 방향으로 구체화됐습니다. 다만 이 단계의 성과는 **설문 기반 제품 정의와 요구사항 우선순위 확정**이지 실제 주문 시간 단축·사용성 개선의 인과적 검증이 아닙니다. **초기 60대 설문 n=13**은 실제 원본이 확인되지만, 최종 사용자 평가 E-05~07은 미수행으로 문서화돼 있습니다. 과거 초안의 '최종 n=13/만족 92.3%'는 확인된 평가 결과가 아니므로 삭제합니다.
 
 상세: [MA-01 경험 복원 원장](mallo-rework-checkpoint.md) · [설문 반영 PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
 
@@ -374,4 +374,4 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 - TTS fine-tuning이 latency를 개선했다고 표현하지 않음. controlled benchmark는 198.5ms → 204.1ms
 - Friendly tone improvement를 MOS 같은 정량 품질 향상으로 표현하지 않음
 - 별도 제한 조건의 312.2ms(MockTTS 포함)와 최종 Real Warm 50턴 p95 3.338초를 같은 E2E 결과로 비교하거나 목표 달성으로 주장하지 않음
-- 사용자 평가 13명이 전부 고령자였다고 표현하지 않음
+- 초기 60대 탐색 설문 13명만 근거가 확인되며, **미수행 최종 사용자 평가의 n=13/만족도 92.3%는 주장하지 않음**
