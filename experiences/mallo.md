@@ -298,48 +298,25 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 
 근거: [P0 실마이크/브라우저 #213](https://github.com/aihuman-7th/proj1-d/pull/213) · [원샷 주문·화면 #216](https://github.com/aihuman-7th/proj1-d/pull/216) · [최종 QA #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [병합 시점 RuleFirst 구현](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/src/orchestrator/rule_first_nlu.py) · [마이크 브라우저 회귀](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/tests/frontend/microphone-lifecycle.test.js) · [MA-11 상세 검증 원장](mallo-rework-checkpoint.md).
 
-## 11. Showcase와 사용자 평가
+## 11. MA-12 — STT/TTS 정적 쇼케이스·데이터 공개조건 검증·최종 모델/저장소 인계 (검증 완료)
 
-### STT showcase
+**상황:** 실제 키오스크 모델과 웹 서비스가 완성되어도, GPU·Cloudflare·모델 서버가 꺼진 상태에서 평가자에게 **실제 음성·STT 전사·TTS 청음·화면·시연영상**을 전달하기 어렵고, 연구용 데이터/체크포인트와 최종 실행파일이 혼재돼 있었어.
 
-직접 녹음한 한국어 5개 발화로 실제 inference를 검증했습니다. 일반 주문 외에 존댓말 어미/머뭇거림도 포함했습니다.
+**문제:** 초기 자산 실사에서는 원본 데이터와 중간 모델 수백 GB가 `src/`·`logs/`·`data/`에 섞여 있었으며, 반드시 보존해야 할 `G_2800.pth`가 로그 폴더에 있어 정리 중 삭제될 위험이 있었어. 또 AI Hub 제공 원천/라벨/재가공 데이터는 외부 공개 범위를 확인해야 했고, 최종 MVP에 **Size 음성 주문·백엔드 결제 상태·Pending Confirmation**이 빠졌음에도 작업 티켓을 무조건 완료 표시하면 실제 구현을 과장할 수 있었어.
 
-### TTS showcase
+**판단:** **원본 연구 데이터/학습 산출물은 Git 미추적 보존**, 모델 3종은 **SHA256 검증 후 canonical `models/{stt,nlu,tts}` 경로**에 배치하고, 시연은 백엔드 없이 재생 가능한 **정적 HTML·WAV·JSON**으로 인계하기로 했어. 공개 TTS는 프로젝트 자체 문장을 학습 모델로 합성하고, AI Hub 담당자의 **서면 답변을 받아 원천·라벨·재가공 데이터 재배포 금지와 데이터명/AI 허브 출처 표기**를 적용했어. 기능동결에서는 **실제 완료·범위 제외(`NOT PLANNED`)·미실행 사용자 평가**를 별도로 판정했어.
 
-- MeloTTS baseline
-- fine-tuned checkpoint
-- speed Level 0 / 1 / 2
+**조치:** 개인 [PR #217](https://github.com/aihuman-7th/proj1-d/pull/217)에서 `src` runtime / `scripts/{data,train,models,eval,showcase}` / `tests` / `artifacts`로 역할을 정리하고 runtime/NLU/dev/train 환경·requirements/lock을 분리했어. 최초 [실사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md)는 **계획·위험 조사**로 삭제/이동을 하지 않았고, 이어진 [마이그레이션 기록](https://github.com/aihuman-7th/proj1-d/blob/main/docs/cleanup-migration-log.md)은 **STT Train65 BF16 1.52GB, NLU Qwen0.6B BF16 1.19GB, TTS Melo G_2800 595MB+설정 파일**을 표준 경로에 SHA 일치로 옮기고 낡은 중복 사본을 정리한 작업으로 구분했어. AI Hub 원음은 로컬 `data/stt/raw`·`data/tts/raw`에 보존하되 Git에서 제외했어. 당시 **frontend 153/153·관련 Python 62/62**, smoke/compile/shell·깨진 symlink 0건을 확인했어.
 
-를 같은 문장으로 비교할 수 있는 web showcase를 구성했습니다.
+개인 [PR #219](https://github.com/aihuman-7th/proj1-d/pull/219)에서는 서비스·소개·STT·TTS 공개 주소와 사용 데이터셋을 README에 명시했어. 개인 [PR #220](https://github.com/aihuman-7th/proj1-d/pull/220)에서는 **8월 27일 AI Hub 데이터 71349 사용·공개 범위를 문의하고 8월 28일 답변을 수신**, 결과물 활용과 원본 데이터 비공개·출처 표기 조건을 문서화하고 E-09 발표용 정량 표를 확정했어. 개인 [PR #221](https://github.com/aihuman-7th/proj1-d/pull/221)은 최종 지원 범위에서 Size 음성·backend 결제 상태·별도 Pending Confirmation·신규 STT 학습을 `NOT PLANNED`로 정리했고, 최종 사용성 연구(E-05~E-07)와 TTS 참가자 평가(T-24/30)는 **미완료**로 남겼어. 주문 확인 `ORDER_REVIEW`와 가상 결제 완료 화면은 유지했지만 실제 PG는 지원하지 않았어.
 
-### 사용자 평가
+개인 [PR #224](https://github.com/aihuman-7th/proj1-d/pull/224)에서는 `artifacts/intro`에 **고객/평가자 소개페이지·실제 6개 화면·시연 영상**, `artifacts/showcase/stt`에 **직접 녹음한 한국어 16kHz mono WAV 5개+전사/오류/CPU 생성 기록**, `artifacts/showcase/tts`에 **Melo Base vs Friendly G_2800 6개 WAV(3문장×2모델) + Adaptive L0/L1/L2 9개 WAV(3문장×3단계)**를 HTML·JSON과 함께 패키징했어. source/공개 스냅샷 SHA와 상대 파일 경로를 검증했고, 최종 정적 산출물 약 **12.1MB**, 단일 100MB 초과 파일 0개를 기록했어. 개인 [PR #226](https://github.com/aihuman-7th/proj1-d/pull/226)에서는 Adaptive 9개 합성 음성을 최신 **L0 1.0×/gap 0ms·L1 0.85×/280ms·L2 0.75×/480ms**로 재생성하고, 실제 서비스의 **청크/수사 정규화/응답 텍스트**와 쇼케이스를 일치시켰어. 소개 페이지 캡처 6종과 시연 영상도 최신 화면으로 갱신했어. 일반 사용자를 위한 `web/intro2`의 **최초 구현은 팀원 윤태현 [#210](https://github.com/aihuman-7th/proj1-d/pull/210)**이므로 개인의 최초 기획/구현으로 주장하지 않아.
 
-최종 정량 문서:
+**결과:** **모델 서버 없이 검토 가능한 STT 5건·TTS 15건·6화면·시연영상** 정적 증거를 만들었고, 최종 가중치를 SHA와 표준 경로로 보호해 재현/인계 준비를 마쳤어. 프로젝트의 AI Hub 사용 범위는 **원천·라벨·재가공 데이터 비공개, 자체 작성 문장의 합성 결과물 공개, 데이터명·AI 허브 출처 표시**로 구분했어. 서비스 당시 연결된 주소는 [말로 앱](https://mallo-kiosk.vercel.app/), [소개](https://nanocode00.github.io/mallo-intro/), [STT](https://nanocode00.github.io/stt_showcase/), [TTS](https://nanocode00.github.io/tts_showcase/)였어. **현재 서비스 실시간 가동 여부는 검증하지 않았어.**
 
-- n=13
-- 만족 응답 **92.3%**
+**평가·귀속의 최종 경계:** STT 5건은 **직접 녹음한 대표 발화**이며 화자가 고령자라고 단정할 근거가 없어. STT 쇼케이스의 CPU `inference_ms`는 실제 서비스 GPU latency가 아니야. TTS 쇼케이스 생성 JSON에는 첫 모델 cold-load가 포함될 수 있어 MA-04의 GPU 통제 실험 지연으로 해석할 수 없어. [AI Hub 답변 요약](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md)에 공개 가능한 산출물 판단이 있지만 **원음/라벨/재가공 데이터나 모든 모델의 무제한 재배포 허가**는 아니며 신규 이용 조건은 다시 확인해야 해. 마지막으로 **초기 60대 대상 탐색 설문 13명**은 [원본](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md)으로 확인되지만, [기능동결 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)는 **E-05~E-07 실제 참가자 기반 최종 사용자 평가 미실행**이라고 명시했어. 기존 초안의 **'최종 평가 n=13·만족도 92.3%'**는 별도 결과 근거가 없어 **이력서 확정 성과에서 제외**했어. 실제 참가자 기반 만족도 개선, TTS 블라인드 MOS/이해도 개선, 최종 E2E p95 1.5초 달성도 입증되지 않았어.
 
-다만 실제 참가자에는 20~40대가 섞여 있어 `고령자 13명에게 92.3%`라고 표현하지 않습니다.
-
-## 12. 프로젝트 종료와 artifact cleanup
-
-feature freeze 이후 production에 필요한 artifact와 학습/실험 자산을 분리했습니다.
-
-cleanup audit 당시:
-
-- WSL workspace 약 **213.83GB**
-- checkpoint/output 약 **176GB**
-- dataset extract 약 **28GB**
-
-최종 production set:
-
-- STT runtime model
-- NLU merged model
-- TTS `G_2800.pth` + `config.json`
-- runtime source/tests/docs
-- showcase assets
-
-raw dataset, intermediate checkpoint, cache, 불필요한 experiment output은 runtime repo와 분리해 프로젝트를 동결했습니다.
+원본: [Cleanup #217](https://github.com/aihuman-7th/proj1-d/pull/217) · [README #219](https://github.com/aihuman-7th/proj1-d/pull/219) · [AI Hub/정량 #220](https://github.com/aihuman-7th/proj1-d/pull/220) · [기능동결 #221](https://github.com/aihuman-7th/proj1-d/pull/221) · [최종 정적 Showcase #224](https://github.com/aihuman-7th/proj1-d/pull/224) · [최신 청음/화면 #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [T-29 라이선스 문의](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md) · [MA-12 검증 원장](mallo-rework-checkpoint.md).
 
 ## Git과 작업 기록으로 확인되는 흐름
 
