@@ -175,26 +175,32 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 
 근거: [후반 STT 서빙·벤치마크 #214](https://github.com/aihuman-7th/proj1-d/pull/214) · [STT 평가 스크립트 개선 #218](https://github.com/aihuman-7th/proj1-d/pull/218) · [모델 자산·결과 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) · [STT 팀 Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/stt.md) · [검증 원장 MA-06](mallo-rework-checkpoint.md).
 
-## 5. NLU QLoRA 학습에도 직접 참여
+## 5. MA-07 — Qwen3 NLU 후반 모델 평가·0.6B 경량 서비스 후보 선정 및 안전 통합 (검증 완료)
 
-공식 NLU Lead가 데이터셋/학습 stack을 주도했지만 통합 직전 Qwen3-1.7B QLoRA run을 직접 수행했습니다.
+**상황:** 카페 음성 주문의 STT 텍스트를 `OrderCommand[]`·Error로 구조화할 NLU가 필요했다. 팀원 류승민이 3,000문장 데이터셋(Train 2,400/Validation 300/Test 300), 1.7B QLoRA 훈련 CLI·첫 학습/모델 평가를 주도했으며, 윤태현은 관련 stacked PR을 main에 통합했다. 나는 후반 **Qwen3-1.7B 실험 재검증·0.6B 추가 학습/sweep·실서비스 비교·CUDA/sidecar 통합**을 맡았다.
 
-- 3 epochs / 450 steps
-- validation best checkpoint: step 350
-- Exact Match: **91.67%**
-- Intent Accuracy: **96.54%**
-- Slot Accuracy: **96.10%**
-- Schema Valid: **98.33%**
+**문제:** 팀의 1.7B adapter는 공식 Test 300건에서 **Exact Match 88.67%·Schema Valid 99.67%**였지만 **Error Code Accuracy 70%**로 production gate 90%에 미달했다. 개인 실사용 challenge에서는 수량('두 잔/2잔/두 개')·복수 주문·메뉴명/STT 오인식 처리 실패가 확인됐으며, 더 큰 모델은 응답 지연과 Transformers 의존성도 부담이었다. 학습 데이터 Test 점수와 실제 사용자 주문 시나리오의 의미 정확도는 분리 검증이 필요했다.
 
-최종 production은 더 작은 Qwen3-0.6B 계열을 사용했고 final benchmark는:
+**판단:** 동일 입력·동일 후처리 경계 안에서 모델의 **Intent·Slot·Exact·Schema·Error Code와 지연**을 함께 비교하고, 서비스는 **Qwen3-0.6B `epochs4_seed7` merged BF16 + Prompt Lookup 8 + 결정론적 guard**로 결정했다. `RuleFirst`와 Schema/메뉴/Cart 검증으로 비정상 LLM 출력을 제어하고, STT/TTS의 구형 Transformers와 충돌하지 않도록 NLU를 **별도 Python/CUDA 12.8 HTTP sidecar**로 격리했다.
 
-- source benchmark: **198 / 198 exact match**
-- legacy batch: **1000 / 1000**
-- schema parse error: **0**
-- source benchmark mean latency: **0.153s**
-- median latency: **0.035s**
+**조치:** 2026년 8월 25~26일 개인 실험 대화에는 **1.7B QLoRA/LoRA 모델 파일 재검증 및 고정 Test 300건 재평가**가 남아 있다. 별도의 개인 **3 epoch/450 step, Validation best step350** 기록도 있으나 학습 원시 ledger를 공개 Git에서 재검증하지 못했으므로 제출용 대표 수치로 사용하지 않는다. 당시 **38개 실전 주문 발화**의 raw 후보 비교는 **1.7B Semantic 18.4%·Exact 11.8% / 0.6B Semantic 28.9%·Exact 26.5%**였고, 이는 실험 대화의 기록으로 **공개 PR에서 raw artifact 전체를 검증한 결과가 아님**을 함께 명시한다.
 
-따라서 `Qwen3-1.7B를 최종 production model로 사용했다`고 표현하지 않습니다.
+Qwen3-0.6B의 개인 8/25 **15개 overnight sweep 실험 자산**을 보존하고 **`epochs4_seed7`** 후보를 선정했다([저장소 자산 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md)). 일반 Validation에서 이 후보는 **Exact 95.33%·Schema 99.33%**로 기록됐다. 이어 개인 [PR #209](https://github.com/aihuman-7th/proj1-d/pull/209)에 `HTTPClientNLU`/Qwen0.6B 상주 sidecar·선택형 `build_service`·WSL2 실행기와 입력/오류 계약을 연결했다. **`focused-v1` 합성 124건**에서 guard 포함 **Intent 100%·Slot 96.78%·Schema 100%·Exact 63.71%·Error Code 96.67%·Invalid Menu 0%**를 측정했고, 이때 **42/124건은 guard가 출력 변경**한 것이다. 모델 원본과 생산 merged artifact는 SHA256으로 구분하고, **PEFT 없는 target-env에서 0.6B merged 모델 load+generation 1건**도 검증했다.
+
+| 0.6B Focused 124건 (guard 포함) | 기존 환경 | RTX 5070 Ti / CUDA12.8 목표 환경 |
+| --- | ---: | ---: |
+| Intent / Slot / Schema | 100% / 96.78% / 100% | 100% / 96.78% / 100% |
+| Exact Match | 63.71% | 63.71% |
+| Warm latency median | 857.5ms | 1,169.4ms |
+| Warm latency p95 | 1,182.5ms | **1,610.3ms** |
+
+후속 개인 [PR #214](https://github.com/aihuman-7th/proj1-d/pull/214)에서는 **Qwen0.6B·RuleFirst/guard/정규화가 결합된** 38개 주문 발화 challenge에서 **38/38 Semantic·Exact·Schema** 성공을 확인했다. GPU NLU 응답시간은 **median 1,235.7ms·p95 1,630.3ms**여서 속도 목표는 미달했다. 이 38/38은 **모델 단독 성능이 아닌 시스템 전체 처리 경로의 테스트**다.
+
+**결과:** **1.7B 모델의 높은 공식 Test 점수에도 Error Code gate 실패와 실제 주문 표현·지연 문제를 확인**하고, 적절한 0.6B 후보와 결정론적 guard를 결합한 경량 NLU 경로를 선택했다. 최종 모델 provenance를 SHA로 고정하고 CUDA12.8 환경에서 계약 점수 유지·PEFT 없이 실행·외부 sidecar 장애에 대한 안전 응답까지 검증했다. 다만 target-env **NLU p95 1.610초**, 후속 **p95 1.630초**는 latency 목표를 달성하지 못했고, 전체 서비스 Qwen fallback E2E p95 **3.386초**도 요구 1.5초를 초과하므로 '실시간성 목표 달성'으로 쓰지 않는다.
+
+**귀속과 측정 경계:** 팀원 류승민의 초기 1.7B 학습·공식 Test([#195](https://github.com/aihuman-7th/proj1-d/pull/195), [#206](https://github.com/aihuman-7th/proj1-d/pull/206), [#211](https://github.com/aihuman-7th/proj1-d/pull/211))과 윤태현의 3,000행 데이터 스택 통합([#205](https://github.com/aihuman-7th/proj1-d/pull/205))을 내 단독 구현으로 주장하지 않는다. 개인 재현 Test Exact **89.67%**와 팀 공식 **88.67%**는 run/adapter 차이 미확인으로 주력 수치에서 분리한다. 일반 Validation 95.33%, Focused 124건 63.71%, 38문장 초기 unguarded 28.9%와 후속 guarded **38/38**은 **모집단/제어 경계가 달라 하나의 개선율로 합산 금지**. 과거 요약의 '198/198 exact·1000/1000·mean 0.153초'는 0.6B 실모델 단독 검증을 입증하는 평가 정의/원본이 없어 이번 대표 수치에서 제외한다. 실제 유저 마이크 E2E는 MA-09/10의 별도 작업이다.
+
+근거: [0.6B 생산/sidecar PR #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [서비스 guard #214](https://github.com/aihuman-7th/proj1-d/pull/214) · [팀 1.7B Test #211](https://github.com/aihuman-7th/proj1-d/pull/211) · [모델 후보 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/nlu-qwen06b-service-candidate.md) · [목표 환경 평가 JSON](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/nlu/pr209-target-env/validation-summary.json) · [MA-07 검증 원장](mallo-rework-checkpoint.md).
 
 ## 6. dependency 충돌을 sidecar로 분리
 
