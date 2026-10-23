@@ -12,7 +12,7 @@
 - **원본 팀 구성:** 김재훈(`nanocode00`, 팀장), 윤태현(`surf7978`), 류승민(`padong47`). [README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md) 기준. 기존 기록의 '이규헌·이승훈'은 원본 저장소와 불일치하여 교정
 - **업무 구분:** [tasks.md](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tasks.md)에 A(Adaptive TTS/Voice UX), B(Local NLU/Order Engine), C(STT/Audio/GUI/Integration) 영역이 있지만, 이 표만으로 **A/B/C를 개별 팀원 이름에 연결하지 않음**. 본인은 팀장으로 파트 간 통합 및 개인 명의 구현·실험을 수행
 - 프로젝트 상태: 2026-08-28 feature freeze, 2026-08-30 최종 정리 후 종료/동결
-- 기술: Whisper, Qwen, MeloTTS, QLoRA, FastAPI, Python sidecar, Vercel, Cloudflare Tunnel
+- 기술: Whisper, Qwen, MeloTTS, QLoRA, **Python ThreadingHTTPServer Gateway**, HTTP sidecar, Vercel, Cloudflare Tunnel
 
 공식 STT/NLU Lead는 별도로 있었으므로 각 파트 전체를 개인 기여로 주장하지 않습니다. 다만 프로젝트 후반 통합 병목을 해결하기 위해 Whisper/Qwen 학습 자산을 직접 인수해 추가 fine-tuning, candidate sweep, checkpoint 평가와 production 연결을 수행했습니다.
 
@@ -34,7 +34,7 @@ STT/NLU/TTS 정확도만 높여서는 제품이 완성되지 않았습니다. TT
 PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정의하고 Mock E2E를 먼저 구성했습니다. `54131e8` 커밋에서 직접 `REMOVE_ITEM`, `UPDATE_QUANTITY`, `UPDATE_OPTION`, `QUERY_CART`, `CONFIRM_ORDER`, `CANCEL`을 deterministic Order Engine에 구현했습니다. AI Hub 친절체 데이터로 MeloTTS를 fine-tuning하고 Qwen3-TTS와 동일 20문장 benchmark를 수행했습니다. 프로젝트 후반에는 Whisper Medium QLoRA candidate sweep과 Qwen3-1.7B QLoRA 3-epoch 학습도 직접 수행했습니다. 최종 runtime은 Gateway/STT/NLU/TTS를 `8000/8001/8002/8003` resident process로 분리하고 health/warm-up launcher로 관리했습니다.
 
 **결과**  
-동일 20문장 GPU benchmark에서 **Melo Base 198.5ms / Melo Friendly 204.1ms / Qwen Base 6.91s / Qwen Friendly 28.20s**를 측정해 **MeloTTS Friendly를 최종 선택**했습니다. Fine-tuning으로 평균 지연은 약 **5.6ms(+2.8%)** 늘었지만 0.2초 수준의 interactive latency를 유지하면서 친절체 억양을 적용했습니다. 이후 `G_2800` production TTS benchmark는 **mean 0.38s / p95 0.53s / RTF 0.0894**였습니다. Vercel + Cloudflare Tunnel + local FastAPI로 배포했고 real STT+NLU + MockTTS 50-turn isolated E2E에서 **p95 312.2ms**를 측정해 STT가 주 latency bottleneck임을 확인했습니다.
+동일 20문장 GPU benchmark에서 **Melo Base 198.5ms / Melo Friendly 204.1ms / Qwen Base 6.91s / Qwen Friendly 28.20s**를 측정해 **MeloTTS Friendly를 최종 선택**했습니다. Fine-tuning으로 평균 지연은 약 **5.6ms(+2.8%)** 늘었지만 0.2초 수준의 interactive latency를 유지하면서 친절체 억양을 적용했습니다. 이후 `G_2800` production TTS benchmark는 **mean 0.38s / p95 0.53s / RTF 0.0894**였습니다. Vercel + Cloudflare Named Tunnel + 로컬 **Python ThreadingHTTPServer Gateway**로 실제 외부 STT/NLU/TTS 호출을 검증했습니다. 별도의 **Real Warm 50턴 최종 E2E는 p95 3.338초, 1.5초 초과 30/50턴**으로 성능 Requirement 미달이었고, Interpret network RTT가 주된 지연 구간이었습니다([PR #222](https://github.com/aihuman-7th/proj1-d/pull/222)). 이전 **p95 312.2ms**는 실 TTS·브라우저 첫 재생까지 포함하지 않은 별도 제한 조건 측정이므로 최종 성공 수치로 사용하지 않습니다.
 
 ## 핵심 수치
 
@@ -46,9 +46,8 @@ PRD/TRD와 NLU command schema, Validator, Cart/Order Engine, TTS contract를 정
 | Qwen3-TTS Baseline, 20문장 GPU | **6.9075s mean** | interactive serving에 느림 |
 | Qwen3-TTS Friendly, 20문장 GPU | **28.1953s mean** | fine-tuned tone 후보, latency 과다 |
 | Production MeloTTS `G_2800` | **mean 0.38s / p95 0.53s / RTF 0.0894** | 최종 runtime 별도 benchmark |
-| NLU source benchmark | **198/198 exact match** | final NLU evaluation |
-| NLU legacy batch | **1000/1000** | schema parse error 0 |
-| isolated 50-turn E2E | **p50 253.9ms / p95 312.2ms** | real STT + real NLU + MockTTS |
+| NLU focused contract 124건 | **Intent 100%, Slot 96.78%, Schema 100%** | 0.6B + deterministic guard 포함, target-env p95 1.610초 |
+| 최종 Real E2E Warm 50턴 | **p95 3,338ms / 30건 1.5초 초과** | 실제 STT/NLU/TTS + 브라우저 Audio.onplay, Requirement 미달 |
 | 사용자 평가 | **n=13, 만족 응답 92.3%** | 참가자 전원이 고령자는 아님 |
 
 ## 0. 고령 사용자 조사에서 Voice-first + Minimal GUI 우선순위로 — MA-01 (1차 검증)
@@ -346,7 +345,7 @@ raw dataset, intermediate checkpoint, cache, 불필요한 experiment output은 r
 - Whisper QLoRA candidate 재검증과 Qwen3-1.7B QLoRA 직접 학습
 - dependency 충돌을 separate venv + sidecar architecture로 해결
 - final production TTS **mean 0.38s / p95 0.53s / RTF 0.0894**
-- isolated E2E **p95 312.2ms**, STT bottleneck 확인
+- 최종 **Real Warm 50턴 E2E p95 3.338초 / 30턴이 1.5초 초과**. Interpret network RTT 병목, Requirement 미달([PR #222](https://github.com/aihuman-7th/proj1-d/pull/222))
 - hybrid deployment와 repository cleanup 후 프로젝트 종료
 
 ## 이력서용 핵심 bullet
@@ -354,7 +353,7 @@ raw dataset, intermediate checkpoint, cache, 불필요한 experiment output은 r
 - 3인 팀 Team Lead로 PRD/TRD와 AI command contract를 정의하고, **LLM과 Cart 상태 변경을 분리한 deterministic Order Engine**을 직접 구현해 STT→NLU→주문→TTS E2E flow 구성
 - AI Hub 친절체로 MeloTTS를 fine-tuning하고 4개 TTS 후보를 동일 20문장에서 비교해 **Melo Base 198.5ms / Friendly 204.1ms vs Qwen 6.91~28.20s**를 근거로 MeloTTS Friendly 선정
 - Whisper Medium QLoRA candidate sweep과 Qwen3-1.7B QLoRA 학습까지 직접 수행하고, `transformers` dependency 충돌을 **Gateway 8000 + STT/NLU/TTS 8001~8003 resident sidecar**와 별도 venv로 분리
-- Vercel + Cloudflare Tunnel + local FastAPI hybrid deployment 후 real STT/NLU 기반 50-turn isolated E2E **p95 312.2ms**를 측정해 STT bottleneck 식별
+- Vercel·Cloudflare Named Tunnel·로컬 **ThreadingHTTPServer Gateway**로 STT/NLU/TTS 전체 외부 호출을 검증하고, 실제 브라우저 첫 재생까지 포함한 **Real Warm 50턴 E2E p95 3.338초**를 측정해 목표 1.5초 **미달** 및 Interpret network RTT 병목 규명
 
 ## 면접에서 주의할 표현
 
@@ -362,5 +361,5 @@ raw dataset, intermediate checkpoint, cache, 불필요한 experiment output은 r
 - Qwen3-1.7B가 최종 production NLU라고 표현하지 않음
 - TTS fine-tuning이 latency를 개선했다고 표현하지 않음. controlled benchmark는 198.5ms → 204.1ms
 - Friendly tone improvement를 MOS 같은 정량 품질 향상으로 표현하지 않음
-- 312.2ms에 real TTS synthesis까지 포함됐다고 표현하지 않음
+- 별도 제한 조건의 312.2ms(MockTTS 포함)와 최종 Real Warm 50턴 p95 3.338초를 같은 E2E 결과로 비교하거나 목표 달성으로 주장하지 않음
 - 사용자 평가 13명이 전부 고령자였다고 표현하지 않음
