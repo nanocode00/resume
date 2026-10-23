@@ -278,7 +278,27 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 
 근거: [프로토콜 #75](https://github.com/aihuman-7th/proj1-d/pull/75) · [측정 Spec #122](https://github.com/aihuman-7th/proj1-d/pull/122) · [최종 Real 결과 #222](https://github.com/aihuman-7th/proj1-d/pull/222) · [50턴 원시 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-warm-50-turns-isolated.csv) · [Cold 3회 원시 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-cold-start-3-runs.csv) · [계측 원장 MA-10](mallo-rework-checkpoint.md).
 
-## 10. Showcase와 사용자 평가
+## 10. MA-11 — 실마이크 QA로 NLU 주문 문맥·안전 결제·음성/화면 재생 오류 복구 (검증 완료)
+
+**상황:** 모델·Gateway·Senior-first 웹 UI가 연결돼 실제 마이크에서 주문을 받아 시연할 수 있게 됐지만, **사람이 자연스럽게 말하는 속도·표현·정정·추가 문진**과 UI의 동시성은 Mock E2E에서 충분히 발견되지 않았어. P0 사용 흐름과 최종 제출 전 음성·서버/브라우저를 반복 QA해야 했어.
+
+**문제:** 실제 STT는 '케모마일티'처럼 잘못 인식된 메뉴명이나 메뉴명 뒤 조사, 중복 수량·자기정정을 반환했고, Qwen fallback의 온도 미지정 주문에서 **다음 발화에 필요한 메뉴/수량/매장·포장 상태를 잃을 위험**이 있었어. 더 심각하게 '결제'라는 단어만 보고 주문을 확정하면 사용자 의도와 다른 장바구니 상태 변경이 일어날 수 있었지. 또한 **STT 입력 중 화면 전환, 반복 재생 중복, TTS 지연·마이크 권한/무음 이벤트, 긴 Response Bar**가 겹치면 사용자에게 오래된 안내를 표시하거나 잘못된 재청취 동작을 유발할 수 있었어.
+
+**판단:** 모든 비정형 발화를 Qwen에만 맡기거나 STT를 새로 학습하기보다 **반복 재현된 음성 표현을 RuleFirst·정규화·OrderCommand 계약 및 pending state**로 흡수하고, 실제 Cart 변경은 결정론적 코드로 검증하도록 했어. **주문 확정은 명시적 의사 표현으로 제한**하고, 미지정 온도·수량에는 Cart 변경 없이 추가 질문을 유지하도록 했어. TTS·마이크는 **취소/세대 무효화**, 화면의 긴 메시지는 **실제 렌더 너비 기반 분절**로 해결해 코드를 테스트로 보호했어.
+
+**조치:** 개인 [PR #213](https://github.com/aihuman-7th/proj1-d/pull/213)(8/26)에서 **실브라우저 수동 QA**를 진행하면서 터치 `/api/commands`와 음성 `/api/audio/stt`→`/api/audio/interpret` 흐름, STT 전사 Overlay 우선 표시, MeloTTS warm-up, 매장/포장 순차 TTS, 고정 온도 메뉴 안내를 검증·보완했어. repeat TTS **single-flight/취소/오래된 playback callback 방어**, STT sanity guard, 마이크/VAD lifecycle, 결제 전 Cart 검증과 복구 메시지를 회귀 테스트했어. 당시 **Node frontend 7개·선택된 Python unit/integration 28개 통과**와 실제 마이크 브라우저 수동 확인이 PR에 기록돼 있어.
+
+개인 [PR #216](https://github.com/aihuman-7th/proj1-d/pull/216)(8/27)에서는 **한 번의 음성 주문→주문 확인·PAYMENT 진입**, 매장/포장·수량·온도 자연어와 부분 옵션 변경, 터치 장바구니 수정, 응답/TTS와 화면의 일관성을 데모 정책에 맞췄어. GitHub Actions는 사용량 제한으로 실행하지 않았고 관련 Python/Node 테스트의 로컬 확인만 기록됐어. PG 실제 거래를 구현한 것은 아니야.
+
+최종 개인 [PR #226](https://github.com/aihuman-7th/proj1-d/pull/226)(8/30)에서는 **실마이크 QA에서 재현된 발화**를 회귀로 고정했어. `케모마일티` STT alias·메뉴 직후 조사·중복 수량·자기정정·'차는 뭐가 있어?' 카테고리 질의·장바구니 비우기와 모호한 온도 변경/삭제의 안전 기준을 수정했어. Qwen fallback으로부터 **온도 미지정 단일 ADD_ITEM이 돌아와도 RuleFirst의 pending 상태에 수량·옵션·매장/포장 정보를 저장**해 다음 '아이스로/따뜻하게' 응답에서 이어지도록 했어. **'결제할게요', '결제 진행할게요' 같은 명시적 발화만 `CONFIRM_ORDER`**로 처리하고, 단순 '결제'와 결제 방법 질문은 확정하지 않도록 했어. 서버·STT/NLU Sidecar에 semantic application log와 Cloudflare HTTP/2 옵션을 추가하고, 장바구니 안내 Response Bar는 **글꼴/폭을 고려해 2줄 이하로 표시**하도록 수정했어.
+
+**결과:** 실제 발화의 표현 차이와 STT 오인식을 정규화/의도 해석·명시적 추가 문진·확정 안전 규칙에 반영했고, 반복 TTS·마이크/화면 전환·긴 응답에도 **이전 작업이 새 상태를 오염시키지 않도록** 회귀를 추가했어. #226 마지막 QA의 **관련 Python 테스트 306개, microphone-lifecycle Node 테스트 42개, UI 선택 2개** 통과 기록을 확인했어. 중간의 **405개 회귀·쇼케이스 35개**는 서로 다른 시점과 범위이므로 합산해 신규 테스트 수로 주장하지 않아. Sandbox의 loopback 권한으로 일부 HTTP 6개가 막혔지만 권한 있는 환경에서 306개가 통과했다고 PR에 기록돼 있어.
+
+**한계·시점/중복 방지:** 이 수정은 **8월 28일 최종 Real E2E 측정(PR #222) 이후인 8월 30일**에 병합됐어. 따라서 이전의 **50턴 중 30턴 과제 미완료가 해결됐다는 재측정 수치**는 없어. 특히 STT의 '아이스 카페라떼→아이스티 카페라떼' 인식 오류 전부를 제거했다고 주장하지 않아. PR #213의 간헐적 TTS 음량 transient는 재현/진단 보류였고, #226의 **PAYMENT 자동 재청취 로직도 범위에 포함되지 않았어**. 실마이크 수동 QA·단위/모의 브라우저 회귀는 전체 기기 무장애·고령 사용자 작업 성공률 개선의 증거가 아니야. MA-08은 클라이언트 화면/동시성 구조, MA-09는 상주 런타임·배포, MA-10은 실제 50턴 **측정 및 미달 판정**, MA-11은 그 전후에 발견한 **실사용 실패 복구 로직과 테스트 강화**로 구분해.
+
+근거: [P0 실마이크/브라우저 #213](https://github.com/aihuman-7th/proj1-d/pull/213) · [원샷 주문·화면 #216](https://github.com/aihuman-7th/proj1-d/pull/216) · [최종 QA #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [병합 시점 RuleFirst 구현](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/src/orchestrator/rule_first_nlu.py) · [마이크 브라우저 회귀](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/tests/frontend/microphone-lifecycle.test.js) · [MA-11 상세 검증 원장](mallo-rework-checkpoint.md).
+
+## 11. Showcase와 사용자 평가
 
 ### STT showcase
 
@@ -301,7 +321,7 @@ Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. �
 
 다만 실제 참가자에는 20~40대가 섞여 있어 `고령자 13명에게 92.3%`라고 표현하지 않습니다.
 
-## 11. 프로젝트 종료와 artifact cleanup
+## 12. 프로젝트 종료와 artifact cleanup
 
 feature freeze 이후 production에 필요한 artifact와 학습/실험 자산을 분리했습니다.
 
