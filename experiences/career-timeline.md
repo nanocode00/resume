@@ -71,10 +71,16 @@
 
 ## 이후 AI 프로젝트
 
-- Mallo Voice-first Kiosk 팀장
-- TTS 파인튜닝과 STT/NLU/TTS 파이프라인 통합
-- 접근성 중심 UI/UX 개선
-- 모델 비교, 로컬 런타임 구성, showcase 및 배포 정리
+### 2026.06~08 · 말로(MALLO) — Voice-first 키오스크 (3인 팀장)
+
+- **제품/계약:** 60대 탐색 설문 13명의 요구를 PRD로 정리하고 **LLM `OrderCommand[]` 출력과 결정론적 Order Engine의 주문 상태·가격 검증 책임을 분리**, 주문 변경/조회/확정/취소 로직 구현
+- **음성/모델:** MeloTTS Friendly 파인튜닝·동일 20문장 4모델 GPU 비교, 한국어 금액·수량 정규화·3단계 속도/분절 정책, 후반 Whisper STT 후보/Train65 및 Qwen0.6B guard 선정·재검증(일부 로컬 run raw 공개 미확인)
+- **통합/UX:** Mock-first VoicePipeline을 실모델로 확장, `transformers` 상충으로 **Gateway+STT/NLU/TTS 4프로세스·2venv**로 분리해 Vercel/Cloudflare 연결. Senior-first 9:16 UI와 비동기 Cart/mic/TTS lifecycle 경합 보완
+- **계측/인계:** 실제 브라우저 Real Warm50 p95 **3.338초**로 Requirement **1.5초 미달**, RuleFirst와 Qwen fallback 병목·주문 미완료 원인 구분. STT5/TTS15 오프라인 청음, 모델 SHA/라이선스/최종 범위 정리
+- **누락 경험 재검증:** Notion UX/Voice/Trigger 제품 문서 21개 정합화([PR #113](https://github.com/aihuman-7th/proj1-d/pull/113)), 로컬/원격 Vercel `runtime-config` 생성 책임 충돌 해결([commit bcf55885](https://github.com/aihuman-7th/proj1-d/commit/bcf558858a065a4de56c5f3deb791aa0252d1419)), 별도 공개 [mallo-intro](https://github.com/nanocode00/mallo-intro) 사이트의 SVG·캐시·홈 탐색·favicon 시각 QA. Whisper LoRA logits 적용 진단은 과거 로컬 대화 증거로 별도 보존
+- **연구 경계:** 초기 탐색 설문 외 E-05~07 외부 참가자 기반 최종 사용자 평가 **미실행**, Size 음성·실제 PG/결제 상태·별도 Pending Confirmation은 최종 범위 제외. 타 팀원의 초기 STT/NLU 데이터·학습 작업 개인 단독 성과로 주장하지 않음
+
+상세: [MALLO 12개 작업군·AI 시스템 핵심 5선](mallo.md) · [검증/귀속 원장](mallo-rework-checkpoint.md)
 
 ### 2026.09~10 · 말해봄 Mk.2 — 근거 기반 AI 면접 코칭 (3인 팀)
 

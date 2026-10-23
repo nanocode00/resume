@@ -1,0 +1,521 @@
+# 말로(MALLO) — 이력서 경험 복원·귀속 검증 원장
+
+> 작성 시작: 2026-10-22. 원본: [aihuman-7th/proj1-d](https://github.com/aihuman-7th/proj1-d), 프로젝트 원 일정 2026.06~08.
+> 작업 원칙: **상황 → 문제 → 판단 → 조치 → 결과**. PR 기록과 실제 대화의 개인 판단을 모두 확보하되, 개인 구현·팀 기여·AI 에이전트 실행을 구분한다.
+> **마스터 `resume.md` 변경 금지**. 현재 `experiences/mallo.md`는 초기 복원 및 귀속 오류 교정 단계로, 확정 제출 문구가 아니다.
+
+## 1. 원본·정체성 교정
+
+- 원본 [README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md)에 표시된 3인: **김재훈(`nanocode00`, 팀장), 윤태현(`surf7978`), 류승민(`padong47`)**.
+- 기존 경험기술서에 있던 '이규헌 STT Lead / 이승훈 NLU Lead'는 **팀 README와 모순**되므로 삭제했다. `docs/tasks.md`는 **A(Adaptive TTS/Voice UX), B(NLU/Order Engine), C(STT/GUI/Integration)**이라는 **영역 단위 역할**만 명시하며, A/B/C의 실명 매핑을 이 문서만으로 추측하지 않는다.
+- 팀장이라는 역할만으로 모든 모델 학습/모든 프런트 구현에 자동 귀속하지 않는다. 공동/AI 코딩 도구 사용 사실과 원본 저자·실험 수행 증거를 구분한다.
+- **검증된 설문은 초기 60대 탐색 n=13 한 건뿐**이다(60~64세 6명·65~69세 7명, 70세 이상 0명). 과거 초안의 '최종 사용자 평가 n=13/만족 92.3%'는 실제 E-05~07 사용자 평가 미수행이라는 최종 기능동결 문서와 충돌하고 원시 증거도 없어 **확정 사실·이력서 성과에서 제외**한다.
+- PRD/TRD는 최종 범위의 **canonical**, `docs/survey-pipeline-update.md`는 2026-08-19의 초기 탐색 및 확장 제안. **UNDO·Pending/Preview Cart 구상**이 곧 최종 해당 상태 머신 구현을 의미하지 않는다. 2026-08-28 기능동결 후 실제 지원 기능·제외 범위는 최신 PRD, `docs/final-ticket-reconciliation.md`에서 판정.
+- 최종 배포 구조는 정적 Vercel UI → Cloudflare Tunnel → 로컬 Gateway:8000 → STT:8001, NLU:8002, TTS:8003. **최종 생산 시스템 전체를 단독 구현**했다고 바로 단정하지 않는다.
+
+## 2. 재구성할 12개 작업군 원장
+
+| 작업군 | 주제 | 시작 근거 | 귀속/추가 검증 | 상태 |
+| --- | --- | --- | --- | --- |
+| **MA-01** | 고령 사용자 조사·문제 정의·PRD/TRD·MVP 범위 | [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83), `docs/prd.md`, `docs/survey-pipeline-update.md` | 설문 실시·분석·결정·최종 배포 구현 분리 | **1차 검증 완료** |
+| **MA-02** | **OrderCommand 계약·결정론적 주문 관리 구현** | 개인 [#23](https://github.com/aihuman-7th/proj1-d/pull/23) 문서·개인 [#55](https://github.com/aihuman-7th/proj1-d/pull/55) 코드/테스트·병합 시점 snapshot | **A: 설계·Intent 구현 / 팀원 2명 승인**; 최초 6필드·동일 Intent batch와 이후 10필드·복합 Intent 지원 구분 | **검증 완료** |
+| **MA-03** | **VoicePipeline·Mock E2E·교체형 TTS 어댑터** | 개인 [#68](https://github.com/aihuman-7th/proj1-d/pull/68) Mock 통합·결과/오류 계약; 개인 [#69](https://github.com/aihuman-7th/proj1-d/pull/69) Melo/Qwen 실제 모델 어댑터 | **A(통합 코드·Mock 시나리오, TTS 어댑터)** / 전체 297 vs 296 테스트 각 PR 기록 구분; 실제 Whisper·VAD·브라우저 E2E 미포함 | **검증 완료** |
+| **MA-04** | **친절체 TTS adaptation·동일 문장 GPU 비교·checkpoint 보수적 선택** | 개인 [#33](https://github.com/aihuman-7th/proj1-d/pull/33) PoC 정의·[#63](https://github.com/aihuman-7th/proj1-d/pull/63) CPU Baseline·[#71](https://github.com/aihuman-7th/proj1-d/pull/71) G_2000/4모델 GPU·[#152](https://github.com/aihuman-7th/proj1-d/pull/152) G_2800 검증 | **A: 학습·비교·최종 후보 판단 / T: AI 도구 보조**; CPU/GPU·G_2000/G_2800·합성 지연/첫 오디오/음질·사용자 평가 분리 | **검증 완료** |
+| **MA-05** | **적응형 한국어 TTS 전처리·L0/L1/L2 차별화·Level 비용 실측** | 개인 [#97](https://github.com/aihuman-7th/proj1-d/pull/97) Level 쇼케이스/어댑터 버그, [#116](https://github.com/aihuman-7th/proj1-d/pull/116) 수사/속도/분절, [#150](https://github.com/aihuman-7th/proj1-d/pull/150) 동일 G_3600 200회 Level 실측 | **A: 오류 재현·TTS 정규화/속도 구현·교차 측정** / 청음은 비블라인드, 10001 수사 edge·G_3600≠G_2800·L2 비용 미계측 | **검증 완료** |
+| **MA-06** | **Whisper QLoRA Golden500 실험 17회·32후보 Clean/Cafe 비교·Train65 BF16 프로덕션 선택** | 대화의 개인 실험/결과, [STT 모델 자산 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md), 개인 [#214](https://github.com/aihuman-7th/proj1-d/pull/214) 서빙 전환·벤치마크, 개인 [#218](https://github.com/aihuman-7th/proj1-d/pull/218) 평가 재현성 개선 | **A: 후반 sweep·선정·runtime·평가 유틸**, **T: 윤태현의 초기 speaker split·방언 QLoRA/ONNX**; Val vs Heldout, 잡음 조건·최종 발표 도메인 수치 분리 | **검증 완료(공개 근거+과거 대화)** |
+| **MA-07** | **Qwen3-1.7B 개인 재학습/재평가·Qwen3-0.6B 15후보 sweep·BF16 NLU sidecar·서비스 gate** | 기존 개인 실행 대화·개인 [#209](https://github.com/aihuman-7th/proj1-d/pull/209) target-env 124건·[#214](https://github.com/aihuman-7th/proj1-d/pull/214) 실사용 guard 38건, [모델 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md), 팀 [#195](https://github.com/aihuman-7th/proj1-d/pull/195)·[#205](https://github.com/aihuman-7th/proj1-d/pull/205)·[#211](https://github.com/aihuman-7th/proj1-d/pull/211) | **A: 후반 실험·모델/추론 계약 선정·0.6B 통합/측정 / T: 3,000개 데이터·초기 1.7B pipeline/최종 test**; 300건 official vs 124 focused vs 38 live challenge 서로 다른 모집단·guard·지연 측정 | **검증 완료(개인 대화+공개 근거)** |
+| **MA-08** | **9:16 Senior-first 화면 정보구조·음성/터치 입력 분리·마이크 lifecycle·빠른 터치/서버 Cart 경합 해결** | 개인 [#54](https://github.com/aihuman-7th/proj1-d/pull/54), [#159~164](https://github.com/aihuman-7th/proj1-d/pull/159), [#136](https://github.com/aihuman-7th/proj1-d/pull/136), [#137](https://github.com/aihuman-7th/proj1-d/pull/137), [#213](https://github.com/aihuman-7th/proj1-d/pull/213), [#225](https://github.com/aihuman-7th/proj1-d/pull/225) | **A: 화면 설계·프런트/상태·race 검증**, **T: 윤태현 초기 checkout #103 / WebM 디코더 #165**; DOM/Mock 회귀와 실브라우저/실사용자 효과 별도; 자동 속도 정책 후기 변경 구분 | **검증 완료** |
+| **MA-09** | **transformers/CUDA 의존성 격리·상주 3 Sidecar+HTTP Gateway/런처·Vercel/Cloudflare 외부 배포** | 팀 [#204](https://github.com/aihuman-7th/proj1-d/pull/204) STT 선행, 개인 [#209](https://github.com/aihuman-7th/proj1-d/pull/209) NLU sidecar·[#212](https://github.com/aihuman-7th/proj1-d/pull/212) 설치 호환·[#215](https://github.com/aihuman-7th/proj1-d/pull/215) 전체 통합, [Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md) | **A: NLU/런타임/Launcher·외부 통합**, **T: 윤태현 원형 STT sidecar**; FastAPI 아님(`ThreadingHTTPServer`), 4프로세스/2venv, 당시 public QA vs 현재 상시 가동 별도 | **검증 완료** |
+| **MA-10** | **Real Warm 50턴·Cold 3회 E2E 측정, RuleFirst/Qwen 병목 및 실패 원인 분류** | 개인 [#75](https://github.com/aihuman-7th/proj1-d/pull/75) 평가 프로토콜, [#122](https://github.com/aihuman-7th/proj1-d/pull/122) latency 계약, [#222](https://github.com/aihuman-7th/proj1-d/pull/222) 50턴 raw evidence; 팀 [#183](https://github.com/aihuman-7th/proj1-d/pull/183) Mock 분류 | **A: 실험 계약·재집계/실패 분석** / 최종 p95 3.338s·30/50 Requirement 미달, 10×5→5×10 변경 공개; 장비 조작 단독 수행 주장은 보류 | **검증 완료** |
+| **MA-11** | **실마이크 기반 주문 QA·NLU/Order 안전 복구·TTS/마이크/서버 관측성 회귀** | 개인 [#213](https://github.com/aihuman-7th/proj1-d/pull/213) 마이크/Voice·TTS 초기 QA, [#216](https://github.com/aihuman-7th/proj1-d/pull/216) 원샷 주문·화면 흐름, [#226](https://github.com/aihuman-7th/proj1-d/pull/226) 실제 발화·서버/RuleFirst 보강 | **A: QA·재현·regression·안전 응답** / #226이 최종 #222 계측 이후 수정임을 명시, AI/팀원 별도 코드 중복 계상·실사용성 개선율 금지 | **검증 완료** |
+| **MA-12** | **최종 STT/TTS/소개 정적 Showcase·AI Hub 라이선스 문의·모델 3종 보존 및 저장소 정리·기능동결** | 개인 [#217](https://github.com/aihuman-7th/proj1-d/pull/217) canonical 재배치·[#219](https://github.com/aihuman-7th/proj1-d/pull/219) 출처/링크·[#220](https://github.com/aihuman-7th/proj1-d/pull/220) T-29/E-09·[#221](https://github.com/aihuman-7th/proj1-d/pull/221) MVP 동결·[#224](https://github.com/aihuman-7th/proj1-d/pull/224) 정적 제출물·[#226](https://github.com/aihuman-7th/proj1-d/pull/226) 최신 자산; 팀원 [#210](https://github.com/aihuman-7th/proj1-d/pull/210) intro2 | **A: 모델 보존·마이그레이션·인계·공개 asset/조건 관리**, **T: 윤태현 별도 intro2**; n=13 최종 만족 92.3% 실참가 평가 증거 부재→삭제; 설문 n=13만 확정 | **검증 완료** |
+
+## 3-1. MA-01 — 60대 초기 설문을 제품 우선순위와 기술 경계로 번역 (1차 검증: 2026-10-22)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 기존 키오스크의 화면/메뉴/옵션 조작이 어려운 고령층에게 **Voice-first + Minimal GUI** 형태의 카페 주문 경험을 제공하려 했다. 김재훈은 [원본 README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md) 기준 **3인 팀장**이었다.
+2. **문제:** '어르신이니까 무조건 천천히 말하고 버튼을 없애야 한다'는 가정만으로는 적절한 제품을 설계하기 어렵다. [8/19 초기 탐색 설문](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md)에서 60~69세 **13명** 중 **옵션 선택의 어려움 8/13**, **실수로 처음부터 재주문 7/13**, **음성 오인식 우려 6/13**, **재설명 이용 의향 10/13**이 확인됐다. 표본은 60~64세 6명, 65~69세 7명이며 대부분 동반 방문·디지털 숙련 경험이 있어 전체 고령층의 무작위 표본은 아니다.
+3. **판단:** 기존 Mic→STT→Rule/LLM NLU→Validator→Order Engine→TTS/GUI 아키텍처를 전면 폐기하기보다 **메뉴 탐색·수정·오류 복구의 우선순위를 높이기로** 했다. 화면은 없애지 않고 **현재 주문 내용을 크게 보여주는 확인 수단**으로 남긴다. TTS도 항상 느리게/분절해 읽는 방식 대신 **기본 자연 발화, 사용자가 명시적으로 '다시/천천히' 요청할 때만 적응**한다. 음성 인식 실패가 주문 금액/수량을 임의로 변경하지 않도록 **LLM/NLU 판단과 Order Engine의 결정론적 Cart 변경을 분리**한다.
+4. **조치:** 김재훈 명의 [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83)으로 **초기 설문 결과 분석 문서와 PRD 사용자 문제·우선순위 근거, 거버넌스/평가 Worklog 연결**을 작성했다. `docs/prd.md`에 **P0 주문 경로 완결, P1 적응형 음성·제한된 복구, P2 부가 기술 최적화**라는 우선순위와 예외, `docs/trd.md`에 OrderCommand/Order Engine 책임, 세션 시작 후 자동 Listening·수동 마이크 fallback, 로컬 모델·정적 Vercel Frontend의 경계를 정리했다. 후속 PRD에서는 실제 마감 범위와 합의 내용을 우선하여 Size 음성 주문/변경, 개별 Pending Confirmation 상태 머신, 실제 PG 결제를 **MVP 범위에서 제외**했다. **설문 표본 수집·인터뷰 진행을 혼자 수행했다고는 PR만으로 확인되지 않으므로 '팀 조사 결과를 분석·제품 설계에 반영'으로 기록**한다.
+5. **결과:** 설문 수치가 **누구에게 어떤 기능을 우선 제공할지**에 대한 기술 결정을 뒷받침하는 근거로 문서화됐으며, 단순 Voice-only가 아닌 **음성 우선 + 화면 확인·복구** 설계와 **P0 주문 경로 보호** 원칙으로 연결됐다. [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83)의 작성자 `nanocode00`, MERGED는 확인했다. **실사용 과제 수행률 개선·주문 시간 단축·실제 Undo 상태 머신 전체 구현을 이 설문만으로 주장할 수 없다.**
+
+### 개인 기여/팀 실행 경계와 아직 확인할 사항
+
+- **직접 확인:** 팀장 역할, 설문→기능 우선순위 번역 문서(PR #83), PRD/TRD 계약 및 종료 후 정책 정합성.
+- **미확인:** 표본 13명 개인 직접 모집/인터뷰 수, 실제 70대 이상 검증, 설문 전후 제품 사용성 인과 개선·SUS, Undo/Pending State의 운영 구현. **초기 설문 n=13**만 검증된 사실이며, 최종 사용자 평가 E-05~07은 미수행. 과거 기재된 최종 n=13/만족도 92.3%는 증거가 없어 주장하지 않는다.
+- **MA-02 검증 완료:** 후속 섹션에서 #23 문서 계약, #55 초기 결정론적 엔진 구현과 후속 기능 차이를 병합 당시 코드 기준으로 확인했다.
+
+원본: [팀 README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md) · [PRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/prd.md) · [TRD](https://github.com/aihuman-7th/proj1-d/blob/main/docs/trd.md) · [Task/역할](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tasks.md) · [설문](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md) · [PR #83](https://github.com/aihuman-7th/proj1-d/pull/83).
+
+## 3-2. MA-02 — OrderCommand 계약과 결정론적 주문 상태 보호 (2026-10-22 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로의 NLU는 음성 주문에서 메뉴·온도·수량을 추출하지만, 실제 메뉴 DB·단가·장바구니 상태는 일반 코드가 관리하는 카페 주문 서비스다. 초기 기능에는 `ADD_ITEM`을 중심으로 Mock Pipeline이 있었고, 사용자에게는 주문 후 **수량 변경·삭제·옵션 변경·내역 확인·확정·취소**가 필요했다.
+2. **문제:** NLU·PRD·TRD 문서마다 OrderCommand의 필드·Intent·오류 구조·복수 메뉴 처리 계약이 다르면 동일 발화도 모듈마다 다르게 실행될 수 있다. LLM에 금액이나 Cart의 직접 수정 권한을 주면 잘못된 수량·존재하지 않는 메뉴·불가능한 온도·모호한 삭제 대상이 **검증 없이 주문 상태를 오염**시킬 수 있다. 당시 엔진은 추가 이외의 주문 관리 Intent를 실행하지 못했다.
+3. **판단:** NLU 정상 결과는 **단일 메뉴도 `OrderCommand[]`**, 실패는 `OrderCommandError`로 나누고, 단일 메뉴 명령의 `request_id/intent/target_item_id/category_id/quantity/temperature` **최초 6개 필드를 명시**해 생략/추가 필드 처리와 null 규칙을 고정한다. **가격·총액·사용자 확인 여부는 NLU가 결정하지 않고 Menu DB·Order Engine이 결정**한다. 한 발화의 복수 `ADD_ITEM`은 같은 메뉴·온도 중복을 합치고, Batch를 **전부 검증한 후 복사본 Cart에만 실행**하며, 실패하면 기존 Cart를 반환해야 한다. 최초 구현의 범위에서는 **서로 다른 Intent 혼합 실행을 거부**한다.
+4. **조치:**
+   - **개인 설계 PR [#23](https://github.com/aihuman-7th/proj1-d/pull/23), MERGED 2026-08-14:** 김재훈(`nanocode00`)이 `docs/specs/order-command.md`의 정상 `OrderCommand[]`/실패 `OrderCommandError`, 6개 필드, 메뉴별 Command 분리, 동일 메뉴·온도 합산, Batch 원자성, `AMBIGUOUS_TARGET`/온도 누락 시 무변경·P0 재입력/P1 Clarification 책임 경계를 문서로 확정하고 PRD/TRD/메뉴/Tasks를 정합화. **변경 파일 7개는 전부 Markdown**이므로 #23을 런타임 Schema·Validator 구현이라고 주장하지 않는다.
+   - **개인 구현 PR [#55](https://github.com/aihuman-7th/proj1-d/pull/55), MERGED 2026-08-18:** `src/domain/conversation.py`의 `ConversationAgent.execute()`에서 `REMOVE_ITEM`, `UPDATE_QUANTITY`, `UPDATE_OPTION`(당시 **HOT↔ICED만**), `QUERY_CART`, `CONFIRM_ORDER`, `CANCEL` 실행 분기를 구현했다. `_execute_add_item`은 메뉴/수량/온도 전체 검사 뒤 `new_cart = cart.copy()`에 반영했으며, 기존 Cart에서 삭제/수정도 복사한 상태만 변경하도록 구현했다. 다른 Intent 혼합은 `INVALID_COMMAND`로 거부했다. 한국어 받침에 따른 조사·수량 표현을 추가해 TTS용 안내 메시지를 반환했고 `tests/unit/test_order_engine_operations.py`에서 성공·오류·복구 상태를 검증했다.
+   - **실제 리뷰·테스트:** PR #55에는 **윤태현(`surf7978`)·류승민(`Padong47`) 2명 APPROVED**가 남아 있다. PR 본문 기록 `PYTHONPATH=src python3 -m pytest`는 **70 passed**이며, 이는 저장소 테스트 당시 전체 숫자이지 '신규 테스트 70개'가 아니다. **이번 이력서 조사에서 CI/pytest를 다시 돌렸다는 주장은 하지 않는다.**
+5. **결과:** 핵심 주문 관리 **6종 Intent**를 LLM 비의존 결정론적 상태 전이로 구현했으며, 존재하지 않는 항목 삭제는 `MENU_NOT_FOUND`, 0 이하 수량은 `INVALID_QUANTITY`, 미지원 온도는 `INVALID_OPTION`, 빈 Cart 확정은 `INVALID_COMMAND`로 거부했다. 기존 Cart를 보존하면서 메뉴 조회와 최종 금액 안내를 제공하도록 구성했고, 원본 PR #55에 **70개 테스트 통과·팀원 2인 승인 후 병합**의 근거가 남았다. **실제 PG 결제 연동이나 모델 음성 인식·운영 사용자 전체 주문 성공률은 이 PR의 성과가 아니다.**
+
+### 실제 병합 시점과 이후 발전의 구별 (중요)
+
+- **2026-08-14의 #23:** 계약 **문서** 최초 6필드 정의; `schemas/order-command.schema.json` 작성 PR이 아니며 실제 Schema runtime 검증은 관련 후속 코드의 소유권을 따로 조사해야 한다.
+- **2026-08-18의 #55:** `ConversationAgent`는 초기 6종 관리 Intent 구현, `UPDATE_OPTION`의 옵션은 **온도 변경만**, 혼합 Intent 배치는 일괄 거부. `_execute_remove_item`·`_execute_update_quantity`·`_execute_update_option`은 **첫 명령 하나만 소비**했으므로, #23에서 목표로 서술한 '모든 Intent의 복수 명령 원자 실행'이 처음부터 구현된 것은 아니다. **복수 `ADD_ITEM`에 대한 유효성 일괄 검사·Cart 복사 후 반영**이 코드로 확인되는 실제 원자성이다.
+- **원본 #55의 모호성 경계:** 초기 삭제/수량 변경은 **온도 미지정 시 첫 번째 matching Cart line을 선택**할 수 있어, 같은 메뉴 HOT·ICED 동시 존재 시 `AMBIGUOUS_TARGET`을 모든 경로에서 차단하지 않았다. #23에는 모호성 차단 **설계 기준**이 기록됐고, 현재 `tests/unit/test_order_engine_operations.py`에는 모호성 거부 회귀 테스트가 추가돼 있다. **현재 동작을 8/18의 초기 #55 개인 구현 성과로 소급하지 않는다.**
+- **2026-10-22 조회한 최신 `main`:** 명령 스키마는 **실제 required 10개 필드**(`request_id,intent,target_item_id,category_id,quantity,temperature,query_tags,detail_fields,options,fulfillment_type`)까지 확장됐다. 현재 Spec 본문에 '**9개 필드**'라고 쓰였으나 바로 아래 표는 **10개**를 열거하는 내부 문서 불일치가 있어 최신 Schema를 기준으로 확인했다. `size`·`extra_shots`·`syrup_pumps` 등의 필드는 API 스키마에 있어도 **최종 MVP에 Size 음성 주문/변경이 포함됐다는 근거는 아니다**(PRD에서 명시 제외).
+- **비교 시점 고정:** 초기 #55 병합 커밋 `e039f6552ee82b1c61612ad00a61130e91b75310`의 `src/domain/conversation.py`와 243줄짜리 `tests/unit/test_order_engine_operations.py`를 확인했다. 현재 1227줄 엔진/554줄 테스트의 추가 기능을 모두 #55 개발 성과로 합산하지 않는다.
+- **직무 활용:** 'LLM을 통해 주문을 이해하되 상태 변경은 코드가 검증'이라는 **AI-제어권 분리·SSOT·불변 조건 기반 테스트**를 주력 서사로 활용한다. 의도/엔진 계약과 실제 코드 간 시간차 및 초반 모호성 누락도 질문받으면 설명 가능하도록 기록한다.
+
+원본: [PR #23](https://github.com/aihuman-7th/proj1-d/pull/23) · [PR #55](https://github.com/aihuman-7th/proj1-d/pull/55) · [#55 병합 시점 코드](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/src/domain/conversation.py) · [#55 병합 시점 테스트](https://github.com/aihuman-7th/proj1-d/blob/e039f6552ee82b1c61612ad00a61130e91b75310/tests/unit/test_order_engine_operations.py) · [최신 OrderCommand 스키마](https://github.com/aihuman-7th/proj1-d/blob/main/schemas/order-command.schema.json) · [최신 주문 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/order-command.md).
+
+## 3-3. MA-03 — Mock-first VoicePipeline과 표준 음성 입출력 계약 구현 (2026-10-22 검증 완료)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** STT, 주문 NLU, 결정론적 Order Engine, Adaptive TTS를 서로 다른 모듈과 팀 작업으로 개발 중이었다. 각 모델의 실학습·배포 완료 전에도 **음성 입력부터 주문 결과·음성 출력까지 서비스 계약**을 고정하고 검증할 필요가 있었다. 당시 `MalloService`에는 주문 텍스트 처리 흐름이 있었고, 실제 음성 입력과 종합 결과 모델의 통합이 부족했다.
+2. **문제:** STT 반환을 문자열로 주는 구현과 `STTResult`로 주는 구현, NLU 오류/스키마 오류, TTS 실패가 각각 서로 다른 예외로 나타날 수 있다. 모든 실제 GPU 모델이 완성될 때까지 통합을 미루면 **모듈 경계의 오류·주문 변경·Adaptive TTS 상태 전이** 문제를 개발 후반에 한 번에 발견하게 된다. 반대로 테스트 바이트와 canned transcript를 사용한 통합 테스트를 **실제 음성 인식·TTS 품질·마이크 E2E**로 보고하면 성능을 과장한다.
+3. **판단:** STT/NLU/Agent/TTS를 **Protocol/생성자 주입으로 교체 가능한 인터페이스**에 묶고, 먼저 `MockSTT`·`MockNLU`·`MockTTS`를 이용해 **결정적 통합 경로와 실패 계약**을 검증한다. 요청 단위 반환은 `VoiceInteractionResult(stt_result, order_result, tts_result)`로 통일하고, Adaptive TTS의 Level·직전 안내·리셋은 같은 `VoicePipeline`의 세션 상태로 관리한다. **진짜 MeloTTS/Qwen3-TTS 어댑터 연결은 별도 PR**로 구현해 인터페이스 교체 가능성을 확보하되, mock unit test를 실제 GPU 추론 실측으로 부르지 않는다.
+4. **조치:**
+   - **개인 작성 [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68), MERGED 2026-08-18:** `src/orchestrator/voice_pipeline.py`의 `handle_audio(audio: bytes, cart: Cart)`에서 STT `transcribe` 결과를 문자열·`STTResult`로 수용해 표준화하고, `handle_text`를 경유한 NLU schema 검증→Order Engine `execute`→AdaptiveTextTransformer→TTS `synthesize` 경로를 연결했다. `MalloService.handle_audio` wrapper·세션 `reset_session`, `VoiceInteractionResult`(STT/Order/TTS+직렬화), `MockSTT` (canned text·실패 주입·요청 bytes 기록), `build_mock_service`를 도입했다. 빈 입력 `EMPTY_INPUT`, `STTFailure`→`UNSUPPORTED_UTTERANCE` 및 `retryable=true`, `NLUFailure`/schema→검증 오류, `TTSFailure`→`TTS_FAILED` 응답 분기를 구현했다.
+   - **구체적 통합 테스트:** `tests/integration/test_end_to_end_voice_pipeline.py`에서 **가짜 바이트 `b"audio_bytes_1"`**를 넣으면 `MockSTT`가 고정 텍스트 '아이스 아메리카노 두 잔 주세요'를 반환하고, `MockNLU`→`ConversationAgent`가 **2잔·9,400원** Cart를 계산하며 `MockTTS`가 **`b"mock_audio"`**를 반환함을 확인한다. 별도 테스트는 **Level 0→1(천천히)→2(다시)→0(기본 속도)**, 빈 오디오·STT 실패·TTS 실패를 다루며, `tests/unit/test_mock_stt.py`에서 canned transcript·failure injection을 검증한다. **당시 저장소 전체 `pytest tests/` 297 passed**라는 PR 기록과, **류승민(`Padong47`) 승인**이 있다.
+   - **개인 작성 [PR #69](https://github.com/aihuman-7th/proj1-d/pull/69), MERGED 2026-08-18:** `TTS` 프로토콜을 따르는 `MeloTTSAdapter`(모델 지연 로딩, `config/ckpt` 인자, speed Level0=1.0·Level1/2=0.85, 파일 합성 후 WAV bytes+latency/duration 반환)와 `Qwen3TTSAdapter`(`generate_custom_voice`, 메모리 WAV bytes 반환, `TTSResult`/예외 통일)를 작성했다. 두 모델의 **unit test는 MagicMock/fake WAV를 통한 인터페이스 테스트**라 실모델 합성·품질·추론시간의 증거가 아니다. PR 본문에는 별도 브랜치 기준 **전체 296 tests 통과**, **류승민 승인**이 기록됐다. TTS 모델 20문장 GPU 비교/파인튜닝 및 실제 서비스 기본 모델 선택은 **MA-04**에서 별도 검증한다.
+5. **결과:** **Mock 기반 음성 주문 통합의 정상·실패 경로를 코드와 테스트로 고정**, 인터페이스를 유지하면서 실모델 TTS Provider로 갈아 끼울 수 있는 어댑터를 마련했다. Mock 정상 케이스에서 **아이스 아메리카노 2잔·9,400원 Cart / Level0 TTS 결과**를 검증하고, 반복/느린 말하기/기본 속도 상태 전이와 음성·TTS 실패를 구분했다. **#68 당시 전체 297 tests 통과, #69 별도 PR 296 tests 통과**(합산·신규 테스트 593개가 아님), 두 PR 모두 개인 명의·팀원 승인·병합이다. 성과의 정확한 표현은 **'독립 모델 개발 중 Mock-first STT→NLU→Cart→TTS 통합을 먼저 검증'**이며 실제 모델 end-to-end latency 수치·사용자 음성 인식률은 이 PR의 성과가 아니다.
+
+### 증거 경계 및 후속 중복 방지
+
+- **#68 병합 직후 코드 snapshot:** `fad7146da7cff9f745b1a9411b9c9fdb41d5946c`의 `src/orchestrator/voice_pipeline.py`, `src/app/service.py`, `tests/integration/test_end_to_end_voice_pipeline.py`를 조회했다. 테스트 input은 **유효한 WAV 파일 검사 없이 임의 bytes**, 모델은 세 개 모두 Mock이고 브라우저 `getUserMedia`/VAD/실음성 인식/실 TTS GPU latency가 없다. `MockSTT.duration_ms=1200.0`·`confidence=0.98`도 **stub 데이터**, 실제 성능 수치가 아니다. 테스트 성과 297개는 **저장소 전체 테스트**이지 `test_end_to_end_voice_pipeline.py`에 새로 297개를 추가한 것이 아니다.
+- **#69 snapshot:** `076fb0c8d152a2df81c5dbf470a4719efb908362`의 Melo/Qwen adapter code 및 단위 테스트를 대조했다. Melo Level1/2 speed=0.85 제어는 adapter 구현 사항이나, **Qwen3 어댑터는 level을 결과 metadata로만 반환하며 `generate_custom_voice`에 speed를 전달하지 않는다**. 실제 네 모델 20문장 음성 benchmark와 finetuning 결과는 #63/#71 및 MA-04에서만 다룬다.
+- **오류 후 상태 제한:** STT/입력/잘못된 NLU 요청 실패는 `cart.copy()`/표준 오류 반환을 확인했지만, **주문 엔진 성공 뒤 TTS 합성만 실패한 경우** #68 `_synthesize_result`는 **실패 flag로 반환하면서 이미 만든 `result.cart`를 그대로 전달**하므로 주문의 전체 트랜잭션이 롤백된다고 주장하지 않는다. 완전한 서비스 실패 복구/동시성은 후속 QA MA-11의 검증 대상이다.
+- **역할 귀속:** #68/#69의 GitHub author는 `nanocode00`, 리뷰는 `Padong47`. 원래 타 팀원들이 작성한 Whisper ONNX #67(`surf7978`)이나 NLU dataset #70(`Padong47`)을 개인 구현으로 합산하지 않는다. **VoicePipeline 통합과 실제 STT/NLU 학습·서빙·웹 자동 Listening 구현은 서로 다른 작업**이다.
+- **면접에 쓰는 한 문장:** "AI 모델별 완성 일정에 의존하지 않도록 STT·NLU·주문 엔진·TTS에 공통 인터페이스를 적용하고, Mock E2E로 정상 주문·상태 전이·실패 경로를 먼저 검증했습니다."
+
+원본: [PR #68](https://github.com/aihuman-7th/proj1-d/pull/68) · [#68 병합 시점 파이프라인](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/src/orchestrator/voice_pipeline.py) · [Mock E2E 테스트](https://github.com/aihuman-7th/proj1-d/blob/fad7146da7cff9f745b1a9411b9c9fdb41d5946c/tests/integration/test_end_to_end_voice_pipeline.py) · [PR #69](https://github.com/aihuman-7th/proj1-d/pull/69) · [Melo adapter](https://github.com/aihuman-7th/proj1-d/blob/076fb0c8d152a2df81c5dbf470a4719efb908362/src/adapters/tts/melotts_adapter.py) · [Qwen adapter](https://github.com/aihuman-7th/proj1-d/blob/076fb0c8d152a2df81c5dbf470a4719efb908362/src/adapters/tts/qwen3_adapter.py).
+
+## 3-4. MA-04 — 친절체 TTS 파인튜닝과 실제 응답 지연을 함께 고려한 모델 후보 선정 (2026-10-22 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로는 고령 사용자에게 메뉴명·수량·옵션·합계 금액을 또렷하고 차분하게 안내해야 하는 **대화형 음성 키오스크**다. 최초 서비스 파이프라인에는 Mock TTS 또는 Base 모델만 있었고, 친절체 음색을 구현하려는 PoC와 모델 선택 기준이 필요했다. 음성을 **자연스럽게 읽는 성격**과 **대기 시간이 짧아야 한다는 제품 요구**를 동시에 평가해야 했다.
+2. **문제:** MeloTTS, Qwen3-TTS는 모델 구조와 요구 연산량이 달라 CPU/RTX GPU 측정을 섞어 비교하면 오판할 수 있다. Qwen3-TTS의 풍부한 음색을 장점으로 가정해도 지연이 길면 실제 주문 대화가 끊긴다. 친절체 Fine-tuning이 음질을 개선했다고 평가하려면 같은 문장의 사람 청취 판단도 필요하며, **속도 증가·44.1kHz 출력·학습 loss 감소만으로 '고령자 이해도 개선'이 증명되지는 않는다**. 이어서 `G_2000`을 선정했던 PoC 기준과 사용성 테스트 시점의 `G_2800` 후보가 혼재해 모델 버전 귀속이 불분명해질 수 있었다.
+3. **판단:** 동일한 **카페 주문 안내 20문장**을 사용하여 **초기 CPU Base 모델 비교**와 **GPU의 4개 모델(Melo Base/Friendly, Qwen Base/Friendly) 비교**를 별도 단계로 기록한다. RTX 5070 Ti 16GB·CUDA 12.8에서 합성 mean·median·RTF를 측정하고, **대화형 서비스에서의 실시간성**과 **친절체 지향 청음**을 함께 고려하여 MeloTTS Friendly를 PoC 우선 후보로 선택한다. **청감 개선 주장에는 블라인드 평가 수치가 없음을 표시**하고, 제어 가능한 모델 체크포인트·AI Hub 저작권/외부 공유 제한을 보존한다. 이후 사용성 테스트 대상은 **보존된 checkpoint들의 loss와 동일 20문장 재합성**으로 새로 선정하되, loss 최저가 음질 최고를 의미하지 않음을 명시한다.
+4. **조치:**
+   - **평가 설계 [PR #33](https://github.com/aihuman-7th/proj1-d/pull/33), 8/16 개인 작성:** 한국어 MeloTTS friendly adaptation의 AI Hub 데이터 선택, 화자·세션 분할과 누수 방지, 모델 비교/청취 기준, checkpoint/라이선스·환경/AC-01~17을 PoC 단일 문서로 규격화. 이 PR은 **Spec 문서만 변경**, 모델 학습 성공으로 계산하지 않는다.
+   - **초기 사전학습 모델 CPU 측정 [PR #63](https://github.com/aihuman-7th/proj1-d/pull/63), 8/18 개인 작성:** `data/tts/evaluation/sentences.json`의 20개 카페 안내 문장으로 `eval_synthesis.py` benchmark/단위 테스트를 추가하고 모델별 WAV·summary 결과를 기록. **Melo Base 평균 1.9223초·RTF 0.3939, Qwen3 0.6B Base 평균 22.3092초·RTF 3.9254**를 측정. 두 모델은 각기 44.1kHz/24kHz이며, 이 **CPU 수치와 이후 GPU 수치를 직접 모델 간 성능 향상률로 결합하지 않는다**. PR 보고 **당시 저장소 전체 269 tests 통과**, 변경된 benchmark 테스트 269개 신규 아님.
+   - **친절체 적응·GPU 비교 [PR #71](https://github.com/aihuman-7th/proj1-d/pull/71), 8/18 개인 기록:** AI Hub 71349 감성/발화스타일 음성의 **화자 10**, 30분 adaptation package **299 paired 음성·텍스트**를 Melo 공식 한국어 음소화 전처리에 통과시키고, 사전학습 `G.pth/D.pth/DUR.pth`을 `warm_start`한 MeloTTS를 **2,000 steps** 학습해 `G_2000.pth`(로컬 595MB)을 생성. Qwen3-TTS 0.6B에도 299개와 speech codes의 친절체 adaptation **10 epoch** 연구 기록이 있다. RTX 5070 Ti GPU에서 **네 모델 동일 20문장 합성**을 실행하고 브라우저용 비교 플레이어를 생성했다. `G_2000`를 **PoC 우선 모델**로 선택했다. PR #71의 실제 변경 파일은 **Tasks·Worklog·`eval_synthesis.py`·unit tests(4개)**이므로 대형 모델 checkpoint 자체나 데이터셋 원본을 Git에 게시한 것으로 오해하지 않는다. 당시 저장소 전체 **306 tests 통과**를 기록했다.
+   - **G_2800 사용성 후보 확정 [PR #152](https://github.com/aihuman-7th/proj1-d/pull/152), 8/24 개인 작성:** TensorBoard를 재확인한 결과 **전체 loss 최저 step 2850=26.6747은 저장되지 않았고**, 저장한 후속 checkpoint 중 **step 2800=29.0754**가 step 3600=31.9244보다 낮아 `G_2800.pth`를 테스트용 후보로 결정. G_2800 SHA256을 기록하고 동일 T-21 20문장 GPU 재합성 **20/20 WAV·44.1kHz·평균 0.1951초·RTF 0.0428**로 자동 확인했다. 통합·데모·평가 스크립트 기본 checkpoint를 G_2800으로 맞추고 사용성 테스트 준비 문서/차단 조건을 전달했다. **외부 사용자 0명·독립 블라인드 청음 미완료**이므로 T-30 자체는 완료로 표시하지 않았다. PR 작성 당시 전체 **550 tests 통과**를 기록했다.
+5. **결과:** GPU 동일 20문장 T-28에서 **Melo Base 0.1985초/RTF 0.0403**, **Melo Friendly G_2000 0.2041초/RTF 0.0485**, **Qwen Base 6.9075초/RTF 1.4620**, **Qwen Friendly 28.1953초/RTF 1.5732**. Melo Friendly의 지연은 **Base보다 +0.0056초(+2.8%)**였으나, 0.2초 수준 생성 지연을 유지하며 친절체 어조 후보를 확보해 **PoC 모델 선택**에 활용했다. 이후 별도 스냅샷 `G_2800`도 20문장 재합성에 성공해 테스트 후보 기준을 고정했다. **실측된 것은 모델의 전체 WAV 합성 latency이지 첫 음성 재생 시점, 서비스 E2E, 외부 고령 사용자의 명료도 개선 비율이 아니다.** 정확한 경력 표현은 **'TTS 후보 평가를 동일 문장·GPU 기준으로 실시하고 속도와 친절체 품질의 trade-off를 비교해 실시간 서비스 모델을 선택'**이다.
+
+### 동일 문장 T-28 GPU 측정 요약 (PR #71·G_2000 기준)
+
+| 모델 | 스냅샷 | 평균 합성 지연 | 평균 RTF | 경계 |
+| --- | --- | ---: | ---: | --- |
+| MeloTTS Base | 사전학습 | **0.1985초** | 0.0403 | 속도 기준점 |
+| **MeloTTS Friendly** | **G_2000** | **0.2041초** | **0.0485** | PoC 우선 후보, 속도 개선 아님 |
+| Qwen3-TTS Base 0.6B | 사전학습 | 6.9075초 | 1.4620 | 긴 생성 지연 |
+| Qwen3-TTS Friendly 0.6B | epoch 4 평가 snapshot | 28.1953초 | 1.5732 | GPU 비교 스냅샷·후속 10 epoch 실험 기록과 혼동 금지 |
+
+### 귀속·모델 버전·사용자 검증 경계
+
+- **개인 주도 근거:** `nanocode00`의 [#33](https://github.com/aihuman-7th/proj1-d/pull/33)·[#63](https://github.com/aihuman-7th/proj1-d/pull/63)·[#71](https://github.com/aihuman-7th/proj1-d/pull/71)·[#152](https://github.com/aihuman-7th/proj1-d/pull/152)에서 설계 문서·벤치마크 코드·실험 Worklog·학습 실행/판정 기록을 확인. AI 코딩·학습 스크립트 사용은 개인 의사결정과 분리하며, **원본 사용자 음성 데이터·모델 weight 공개 기여로 주장하지 않음**.
+- **초기/후속 Qwen 학습:** #71 시점의 Qwen 친절체 연구 및 4후보 스냅샷과 **8/19 추가 double-shift 버그 진단/299개 최종 재학습**은 시간·원인이 다른 후속 작업이다. PR #97의 Qwen 진단 스크립트는 MA-05의 TTS 도구/진단 확장과도 교차하므로 **동일 Qwen 실험을 중복 계상하지 않는다**.
+- **`G_3600` 지연 측정:** [PR #150](https://github.com/aihuman-7th/proj1-d/pull/150)의 Level 0/1 **200회 생성(169.4ms vs 210.1ms)**은 **G_3600으로 Adaptive Level 지연을 비교한 별도 MA-05 실험**이다. #71 `G_2000` 4후보 비교나 #152 `G_2800` 사용성 후보 최종 선택과 동일 checkpoint·조건이라고 간주하지 않는다.
+- **`G_2800` 후보 선정의 의미:** 저장된 checkpoint 중 최소 Generator loss라 선택했을 뿐 독립 3명 블라인드 청취·사용성 전후 비교 결과는 아직 없다. [TTS 인계 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tts-usability-test-handoff.md)는 **DRAFT·외부 참가자 0명·개선 전후 0건**, 사용자용 재생 중단/5초 이상 대기 안내·first audio playback 계측 부족을 기록한다. **사용자 테스트가 완료됐다거나 노인 대상 친절도 개선이 통계적으로 입증됐다고 쓰지 않는다**.
+- **측정 지표 구분:** CPU 초기 1.9223초/22.3092초, #71 GPU 0.1985·0.2041·6.9075·28.1953초, #152 G_2800 0.1951초는 **서로 다른 장치/학습 checkpoint/비교 목적**. 마지막 서비스 runtime mean 0.38s/p95 0.53s/RTF 0.0894는 **별도 측정**이므로 #71 대비 인과 향상률을 계산하지 않는다. `44.1kHz`는 sampling rate이고 사용자 측정 음질 등급이 아니다. 합성 mean 0.204초도 **브라우저 first_audio_start**가 아니다.
+- **라이선스:** AI Hub 원본·학습 checkpoint 공개 범위는 문서에서 별도 확인 대상으로 두었으며, 외부 인계용 공개 모델 파일이 Git에 있다는 주장은 하지 않는다.
+
+원본: [PoC 설계 #33](https://github.com/aihuman-7th/proj1-d/pull/33) · [CPU Base #63](https://github.com/aihuman-7th/proj1-d/pull/63) · [친절체 4후보 GPU #71](https://github.com/aihuman-7th/proj1-d/pull/71) · [G_2800 재검증 #152](https://github.com/aihuman-7th/proj1-d/pull/152) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md) · [TTS 인계](https://github.com/aihuman-7th/proj1-d/blob/main/docs/tts-usability-test-handoff.md) · [동일 20문장](https://github.com/aihuman-7th/proj1-d/blob/main/data/tts/evaluation/sentences.json).
+
+## 3-5. MA-05 — 고령 사용자 주문 안내의 한국어 오독·분절 왜곡 수정과 Adaptive TTS 지연 비용 분리 (2026-10-22 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** TTS 친절체 모델을 선정해도 음성 키오스크는 메뉴·수량·금액을 정확히 말해야 한다. 세션별 사용자가 **'천천히'·'다시'·'보통 속도'**를 명시적으로 요청할 때 **Adaptive Level 0(자연 발화), Level 1(느린 발화+휴지기), Level 2(더 느린 발화+짧은 문장)**으로 전환하는 서비스를 구축하고 있었다. [MA-04](#3-4-ma-04--친절체-tts-파인튜닝과-실제-응답-지연을-함께-고려한-모델-후보-선정-2026-10-22-검증)에서 모델 전체 WAV 생성 속도는 확인했으나, 적응형 모드에 따른 사용자 안내의 정확성·분절 및 **추가 합성 지연**은 독립 문제였다.
+2. **문제:** 실제 MeloTTS 청음에서 **`5,200원`이 '오, 이백원'**처럼 잘못 읽혀 금액 전달 정확성에 영향을 주었고, 기존 pause 마커 **`...`/`/`**는 클릭음·왜곡 발음을 유발했다. 기존 Level 1과 2는 **둘 다 `speed=0.85`**이며 고정 주문 평가 문장 **20개 중 17개가 L1/L2 텍스트 100% 동일**해서 '더 천천히·더 명료하게' 요청을 했음에도 단계 구분이 약했다. 또한 L1의 속도를 낮추고 쉼표를 늘리면 음성 길이와 합성 시간이 증가할 수 있는데, 모델 비교 T-28의 4종 지연 표만으로 **Level 적용의 추가 비용**은 평가할 수 없었다.
+3. **판단:** 모델 재학습보다 먼저 **TTS 전용 결정론적 한국어 수사 정규화 + 표준 문장부호 + Level별 문장 구조/속도 정책**을 분리한다. 가격은 한자어 수사, 물품 수량은 단위 명사에 맞는 고유어 수사로 교정하고 비표준 `...`, `/`, `|`, `~`를 정상 쉼표·마침표로 치환한다. **L0=1.00x·L1=0.85x 쉼표·L2=0.75x 독립 단문 분절**로 텍스트·속도를 동시에 차별화한다. 체감 품질 청음과 재현 가능한 지연 검증은 다른 증거로 두고, **동일 모델·체크포인트·문장/환경·warm-up·반복·교차 실행**으로 L0/L1 합성 구간만 측정한다. L2 지연은 따로 측정되지 않았으므로 L1 결과에서 추론하지 않는다.
+4. **조치:**
+   - **개인 [PR #97](https://github.com/aihuman-7th/proj1-d/pull/97), MERGED 2026-08-19:** `scripts/generate_adaptive_levels_player.py`로 동일 안내문 L0(1x)/L1(0.85x 쉼)/L2(**당시에는 역시 0.85x**, 단문 강조)의 비교 청음 HTML을 생성했다. `src/adapters/tts/melotts_adapter.py`에서 `HParams.spk2id`가 `dict`/객체·None일 때 발생하는 attribute 접근 실패를 방어하고, standalone 플레이어 출력·원시 WAV 관리 경로를 정리했다. Qwen 진단·실험 스크립트도 등록했으나 **Qwen 모델 연구·재학습 결과를 이 Level 기능 성과로 재계상하지 않는다**. 당시 전체 **391 passed / 5 skipped**, 윤태현(`surf7978`) 승인·병합.
+   - **개인 [PR #116](https://github.com/aihuman-7th/proj1-d/pull/116), MERGED 2026-08-20:** `src/domain/korean_normalizer.py`에 **`5,200원→오천이백원`, `10,400원→만 사백원`, `15,400원→만 오천사백원`, `3잔→세 잔`, `2개→두 개`**, 비표준 발화/분절 기호 정제를 구현했다. `AdaptiveTextTransformer`는 공통 정규화 후 **L0 기존 자연 문장, L1 절 경계 쉼표 삽입, L2 메뉴·수량·금액·삭제·변경·확정 등을 별도 단문으로 분리**하도록 주문 템플릿 범위를 넓혔다. `MeloTTSAdapter`를 **L0 1.0 / L1 0.85 / L2 0.75**로 조정하고 v2 브라우저 Level 쇼케이스를 생성했다. 코드·단위·Mock 통합 테스트 12개 파일을 함께 수정하고 **20개 평가 안내문의 L1/L2 출력 분리**를 확인했다. 전체 **509/509 passed**는 PR 본문과 동료 실제 재실행 리뷰에 일치. 직접 청음으로 금액 발음·click noise 완화를 확인했지만 **블라인드 MOS나 사용성 개선율 수치는 없음**. 윤태현 승인. 리뷰어는 **`10001` 변환 경계 우려**와 `4개→네 잔`이라는 **docstring 오타**를 비차단 의견으로 남겼다. 다만 **병합 당시 실제 소스를 정적으로 확인하면 `10001`의 하위 1·상위 만 chunk를 조합해 `만 일`이 되는 구조**여서, 리뷰 의견만으로 `10001` 결함이 실제 재현됐다고 단정하지 않는다. 별도의 런타임 실행 검증은 하지 않았고 범용 숫자 변환의 모든 경계값 정확도를 주장하지 않는다. PR **변경량 998줄**은 당시 400줄 권장 가이드 초과로, 승인자는 이번 1회 한정 허용 후 분리 요구를 남겼다.
+   - **개인 [PR #150](https://github.com/aihuman-7th/proj1-d/pull/150), MERGED 2026-08-21:** `docs/specs/adaptive-tts-latency.md`에 Level 추가 비용을 독립 AC로 정의하고 `src/adapters/tts/level_latency.py` **Level 0/1 교차 벤치마크**를 작성했다. **MeloTTS Friendly `G_3600.pth`·speaker 10·RTX 5070 Ti 16GB·Python 3.11.9·CUDA 12.8**에서 **T-21 20문장 × Level당 5회 = 200 유효 합성**을 실행, 두 Level당 1회 별도 warm-up·문장/회차 교차 순서·nearest-rank p95·합성 실패 결과 보존을 적용했다. `tests/unit/test_tts_level_latency.py` 4건은 200회·교차 순서·평균/비율/p95·오류 결과 보존을 검증한다. **200/200 성공**, 저장소 전체 **547 passed**, 윤태현 승인·병합. `G_3600`은 MA-04에서 사용성 테스트 대상이 된 `G_2800`과 **다른 체크포인트**다.
+5. **결과:** [#116](https://github.com/aihuman-7th/proj1-d/pull/116)에서 메뉴·수량·가격 발화를 결정적 한국어 텍스트로 바꾸고 **L1 쉼/0.85x vs L2 단문/0.75x**를 구현해 기존 17/20 출력 동일 문제를 수정했다. 코드와 청음 사례로 확인된 기능 개선이며 **고령 사용자 이해도 상승을 외부 참가자 평가로 입증한 것은 아니다**. [#150](https://github.com/aihuman-7th/proj1-d/pull/150)에서 **L0 평균 169.4ms/p95 307.2ms → L1 평균 210.1ms/p95 362.0ms**, **추가 합성 지연 평균 +40.7ms / p95 +54.8ms**를 측정했다. 평균 RTF는 **0.0383→0.0391(+0.0008, 약 2.1%)**로 둘 다 1 미만을 유지했다. 이 **200회 측정은 Level 0/1 합성 구간**이며 Audio Browser 재생 지연·실서비스 첫 소리 도착·L2 지연·장기 사용성은 측정하지 않았다.
+
+### 기술적으로 중요한 측정 경계
+
+| 지표 (G_3600 / RTX 5070 Ti, 20문장 각 5회, 200회) | Level 0 | Level 1 | 차이 |
+| --- | ---: | ---: | ---: |
+| 평균 WAV 합성 지연 | 169.4ms | 210.1ms | +40.7ms |
+| p95 WAV 합성 지연 | 307.2ms | 362.0ms | +54.8ms |
+| 평균 RTF | 0.0383 | 0.0391 | +0.0008 |
+
+- **MA-04와 고유 성과 분리:** #71 `G_2000` 4개 모델 20문장 latency 비교는 **모델 선택**의 근거, #152 `G_2800` 20문장 재합성은 **사용성 테스트 후보 재검증**, #150 `G_3600` 200회 L0/L1 교차 실험은 **Adaptive 정책 적용 비용**. 동일 모델·체크포인트의 개선 전후로 합쳐 '속도가 204→169ms 개선' 같은 지표를 만들지 않는다.
+- **`G_3600`은 선정 모델이 아님:** 선택된 사용성 checkpoint는 loss 근거로 `G_2800`이며, #150에서는 **조건을 고정한 별도의 이전 샘플**을 사용했다. L2 `0.75x` 코드는 검증됐어도 L2 GPU 200회 측정은 하지 않았다.
+- **금액·수사 정규화 한계:** 5,200/10,400/15,400원 등 실제 메뉴 도메인 규칙과 범용 10001·마이너스 금액/큰 수·복합 카운터의 정확성은 다른 문제. 리뷰어가 `sino_number_to_korean(10001)`에 관한 우려를 제기했지만 **병합 당시 구현을 보면 `만 일` 생성 구조**여서 이를 재현된 결함으로 옮기지 않는다. `4개→네 잔`은 docstring의 오타(실제 수량 변환 테스트는 `2개→두 개`)다. 그럼에도 전체 범용 수사 엔진의 100% 정확도는 주장하지 않는다. **정상 카페 가격과 주문 수량에 대한 테스트/청음 검증**만 이 항목의 성과다.
+- **실제 품질 근거:** 개인/팀 청음은 **블라인드 외부 MOS 점수가 아니다**. [#116](https://github.com/aihuman-7th/proj1-d/pull/116)의 509 테스트는 저장소 **전체 테스트**이고 #97의 391, #150의 547과 더해 신규 1,447개 테스트로 세지 않는다.
+- **엔진 간 적용 범위:** `AdaptiveTextTransformer.transform` 단계에서 공통 정규화를 호출하므로 **Melo/Qwen 등 TTS 어댑터 앞에서 한국어 수사가 변환**될 수 있다. Melo 어댑터의 추가 normalize 호출은 텍스트 정규화가 멱등이 되도록 설계돼 있으나 실모델 Qwen·모든 금액 발화에 대해 100% 청음 테스트를 수행한 것은 아니다.
+- **사용자 제어 결론:** 명시적 `REQUEST_REPEAT`, `REQUEST_SLOWER`, `REQUEST_DEFAULT_SPEED`는 같은 세션에서 L0→L1→L2→L0로 전환하도록 별도 MA-03 Mock 검증과 연결. 무조건 고령자에게 느린 TTS나 연령 추정 기반 단계 상승을 적용했다고 쓰지 않는다.
+
+원본: [Level 비교/쇼케이스 #97](https://github.com/aihuman-7th/proj1-d/pull/97) · [한국어 수사/Level 3단계 수정 #116](https://github.com/aihuman-7th/proj1-d/pull/116) · [동일 조건 L0/L1 latency #150](https://github.com/aihuman-7th/proj1-d/pull/150) · [#116 병합 당시 normalizer](https://github.com/aihuman-7th/proj1-d/blob/cecb52aa2fe3805c58816d957f88da0668173ae4/src/domain/korean_normalizer.py) · [L0/L1 측정 도구](https://github.com/aihuman-7th/proj1-d/blob/feebdd817c4a2c2c45870b13ea348448bb60673a/src/adapters/tts/level_latency.py) · [TTS Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/tts.md).
+
+---
+
+## 3-6. MA-06 — Whisper Medium QLoRA 후반 재검증·잡음 강건성 비교와 Train65 서빙 후보 선정 (2026-10-22 복원)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로 STT는 한국어 방언·고령 사용자 발화·메뉴/수량/옵션을 인식해야 했지만, 실제 카페 소음에서도 안정적으로 주문을 추출할 수 있는지 검증되지 않았다. STT 파트 팀원 **윤태현(`surf7978`)**이 Whisper small/medium, 경상도 방언 500개 전처리·화자 단위 Train/Validation/Test split, Medium QLoRA·도메인 TTS 음성 학습 및 BF16 merge를 수행했다([#27](https://github.com/aihuman-7th/proj1-d/pull/27), [#31](https://github.com/aihuman-7th/proj1-d/pull/31), [#32](https://github.com/aihuman-7th/proj1-d/pull/32), [#58](https://github.com/aihuman-7th/proj1-d/pull/58)). 팀장 김재훈은 **후반 통합·추가 모델 실험·서빙 후보 검증**을 별개로 맡았다.
+2. **문제:** 기존 방언 데이터 위주 평가나 합성 도메인 506개 테스트만으로는 실제 카페 소음 15/10/5dB에서의 **성능 저하 곡선**을 알기 어렵다. 초기 STT worklog에는 파일 단위 split에서 동일 화자 누출(train∩validation 18명, train∩test 28명)이 발견돼 화자 단위로 재분할한 이력이 있어, **이전 split/시험의 CER와 새로운 후보의 숫자를 그대로 비교할 위험**이 있다. 로컬에 Golden500·Train65·cafe-adapt·speaker-split·kiosk-test·fast-exp·ONNX/merged 모델이 공존해 **동일 어댑터 SHA 중복·오래된 checkpoint 선택·미사용 smoke 실행·GPU/CPU 실행 공급자 차이**까지 후보 선택을 왜곡할 수 있었다.
+3. **판단:** 이전 팀원 학습 성과는 **출발점/비교군**으로 보존하고, 별도 학습 검증·후보 전수 평가를 실행하기로 했다. **Train/Val은 학습과 선택에 사용, Test는 봉인**하며, Golden500 HPF의 LR/epoch/warmup sweep은 별도 Validation 비교로 기록한다. 후보 전체 평가는 **SHA 중복 검사·top-level 최종 adapter 우선·미완료/백업 제외·동일 decoding·corpus-level CER/WER와 소음별 지연/키워드 성능**을 기준으로 만들고, 같은 모델과 Clean·Cafe 15/10/5dB 음원의 **별도 평가 조건**을 대조해 생산 모델 후보를 고른다. 배포에서는 **BF16 merged**를 직접 로드해 PEFT 의존성을 제거하고, 기존 도메인 QLoRA·baseline은 롤백 경로로 남긴다.
+4. **조치:**
+   - **개인 추가 학습/검증 (2026-08-22~26 당시 대화 직접 수행 기록, 공개 PR 아닌 로컬 실험):** RTX 5070 Ti에서 Golden-500 HPF **17개 QLoRA 실험**을 수행해 **17/17 완료** 보고. 이 실험은 Train 350 / Validation 77 / **Test 73 사용 금지**로 진행했으며, 가장 유리한 검증 기록 중 **LR 3e-5·5 epochs·warmup 50·gradient accumulation 8·seed 42**의 Validation **CER 0.205863·WER 0.480094**, checkpoint-176이 있다. 방언 관련 초기 350/77/73 speaker-level split 기록과 이 실험을 **동일 인물의 '초기 STT 전 기간 학습'으로 합산하지 않는다**. 사용자 지시에 따라 17개 실험의 기록만 남기고 추가 학습·Test 73 재실행·원음/체크포인트의 공개 커밋을 하지 않았다. **이 17회 실험의 원시 ledger/체크포인트는 공개 Git PR에서 재조회되지 않으므로 '대화/로컬 실행 보고' 등급으로 표시**한다.
+   - **개인 후반 후보 비교 (2026-08-26 대화 + 공개 스펙/감사):** Train65, cafe-adapt, Golden500 HPF, kiosk-test, speaker-split, fast-exp 및 이전 팀 도메인 merged, ONNX 비교군 등 **32개 후보를 탐색/중복 진단**했다. Clean-kiosk **300개**, Cafe SNR **15·10·5dB 조건별 300개**(비교 가능한 후보별 스코프 구분)에서 0 오류로 비교한 과거 보고가 있다. `scripts/benchmark_stt_candidates.py`와 [후보 벤치마크 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/stt-candidate-benchmark.md)은 **동일 SHA256 adapter 1회, `smoke`·`checkpoint_backups` 제외, adapter top-level 우선·checkpoint fallback, 모델별 unload, provider별 latency rank 분리, 생성 조건 기록**을 정의·구현했다. 후반 실험은 모델을 직접 학습·평가하는 실행이었지만 **32개 전체를 각 노이즈 300건 모두 실행했다고 서술하지 않는다**(탐색/중복 검사를 거친 부분집합 평가).
+   - **선택한 모델:** `whisper-medium-qlora-train65-v1-lr2e-5-ep2-merged-bf16`(Train65, LR 2e-5, **2 epochs**)을 최종 후보로 선정. Clean/Cafe 조건 평가에서 **Clean CER 0.135667/WER 0.411471**, **Cafe15 CER 0.151167/WER 0.437032**, **Cafe10 CER 0.167943/WER 0.469451**, **Cafe5 CER 0.205689/WER 0.513716**으로 소음 증가에 따른 열화를 수치화했다. 이전 대화 평가 기록에선 **Cafe 평균 p95 452.8ms**, 다른 아카이브의 최종 leaderboard는 **Cafe5 근접 CER 0.2056/WER 0.5137 및 median 238ms/p95 386ms**를 인용하므로 **동일 구간/통계가 아니면 수치를 섞지 않는다**. 비교군 `train65-cafe-adapt-v1`은 일부 조건(15dB CER 0.150802)에서 근소하게 좋았으나 전체 조건과 운영 복잡성을 함께 고려해 Train65을 주 후보, cafe-adapt를 예비 후보, 팀 인계 `domain/merged-bf16`을 롤백 후보로 남겼다. [8/27 자산 실사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md)는 **1.52GB BF16 safetensors/SHA256 `c0e432a4...`**, 로컬 benchmark `artifacts/stt-benchmark/20260826-131107/leaderboard.csv` 및 프로덕션 모델로 사용 기록을 확인한다. 공개 저장소에는 대형 모델 가중치가 Git 추적되지 않는다.
+   - **개인 구현 [PR #214](https://github.com/aihuman-7th/proj1-d/pull/214), 2026-08-26:** `WhisperMediumSTT` 기본 variant를 **`train65` merged BF16**로 변경하고 기존 `qlora`(팀 도메인 merged)·`baseline` 롤백 경로를 남겼다. 실제 **CUDA BF16 로드**와 **VRAM 약 1457.6MiB**를 PR에서 보고했고, 메뉴/STT 인식 보정·실서비스 STT 후보 benchmark 스크립트/단위 테스트를 함께 추가했다. 이 PR의 NLU challenge **38/38 semantic pass**와 NLU p95 1630.3ms는 **NLU 관련 측정**이며 이 STT 검증의 인식 정확도·속도로 재활용하지 않는다. PR 메타데이터/변경 코드로 직접 개인 기여가 확인된다.
+   - **개인 평가 재현성 수정 [PR #218](https://github.com/aihuman-7th/proj1-d/pull/218), 2026-08-28:** 기존 STT 평가용 `compare_model_sizes.py`·`baseline_qlora_compare.py`에서 **Windows 절대경로↔Linux/WSL·레거시 경로 매핑**, Whisper processor의 **attention_mask 명시**, deprecated `torch_dtype→dtype`, dataset CSV 인자, checkpoint/merged fallback 경로를 보완하고 단위 테스트를 추가했다. 당시 **STT 범위 133 tests 통과**. 이 PR은 **모델 훈련·서빙 모델 변경이 아니라 검증 도구의 재현성/호환성 개선**이다.
+5. **결과:** 팀에서 받은 모델을 그대로 서빙하는 대신 **17회 QLoRA Validation 실험과 32후보 탐색·Clean/Cafe 소음 비교**로 별도 후보 선정 근거를 만들고, `Train65 2-epoch merged BF16`을 기본 STT로 적용했다. [PR #214](https://github.com/aihuman-7th/proj1-d/pull/214)에서 CUDA 로드·메모리, 8/27 자산 감사를 통해 서비스 기본 경로 및 rollback provenance를 확인했다. 후보의 **Cafe5 CER 약 0.2057 / WER 약 0.5137**과 소음별 열화 곡선은 **특정 heldout 합성/소음 조건**의 결과다. 성과를 **'후반 STT 추가 학습·평가 하네스를 직접 운용해 음성 주문 조건별 후보를 선택하고 프로덕션 기본 STT를 안전하게 교체'**로 표현하고, 고령 실사용자 음성 전반의 인식률 개선 또는 E2E 목표 달성이라고 쓰지 않는다.
+
+### 8/26 Train65 Clean/Cafe 비교 (후반 실험 원장·대화)
+
+| 대상 / 동일 평가 조건의 차이 | CER | WER |
+| --- | ---: | ---: |
+| Clean-kiosk | 0.135667 | 0.411471 |
+| Cafe 15dB | 0.151167 | 0.437032 |
+| Cafe 10dB | 0.167943 | 0.469451 |
+| Cafe 5dB | 0.205689 | 0.513716 |
+
+### 개인 귀속 및 숫자 중복 방지
+
+- **기존 STT 담당의 기록:** 초기 small/medium 비교·방언 preproc 500개·동일 화자 중복 검출 후 350/77/73의 화자 분리 학습셋(**Train 350개·Validation 77개·Test 73개**)·QLoRA lr-sweep 및 도메인 merged 작업은 `surf7978` 작성 [#27](https://github.com/aihuman-7th/proj1-d/pull/27)·[#31](https://github.com/aihuman-7th/proj1-d/pull/31)·[#32](https://github.com/aihuman-7th/proj1-d/pull/32)·[#58](https://github.com/aihuman-7th/proj1-d/pull/58)과 [STT Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/stt.md)에 귀속. 사용자 개인의 **8/22~26 17회 추가 실험/32후보 비교**와 별도로 기재한다.
+- **최종 정량 보고서와 다른 시험:** [`docs/final-quantitative-results.md`](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md)의 **CER 0.1131/WER 0.3352·메뉴 89.5%·수량 99.3%·옵션 86.3%·latency 0.505s**는 **팀 도메인/주문 합성 평가 기록**으로 명시돼 있으며, 이 섹션의 **Train65 Clean/Cafe300 heldout .1357/.2057 CER**와 다른 모집단·checkpoint·설정이다. 서로 비교해 인과 개선율을 산출할 수 없다. 발표 표에는 기존 domain merged를 `최종/서비스 후보`로 표시하는 **버전 정합성 불일치**가 있으므로, 실제 **8/27 inventory·#214 코드 기본값**을 배포 경로의 직접 증거로 우선하고 정량 발표 문서의 내용은 별도 통계로 보존한다.
+- **Validation/Test 봉인:** Golden-500 17회에는 **Train350/Val77**, Test73은 미사용. Golden500 Best Val CER 0.205863와 Train65 Clean CER 0.135667은 **다른 학습/평가 분포**라 수치 우위를 서로 비교할 수 없다.
+- **모델 선정/serving 경계:** #214의 BF16 로드 확인은 **해당 환경에서 로컬 로딩·테스트가 성공**한 증거이며, Cloudflare/Vercel의 브라우저-마이크 전체 E2E 성공·real SNR 실제 카페 운영 개선은 MA-09/10에서 따로 검증한다. Model weights·AIHub 원본은 Git 미추적(라이선스/재현성 제약).
+- **재현성 증거:** 후반 대화의 실험 결과·32후보/소음 조건은 강한 직접 실행 보고지만 **원시 ledger가 공개 Git에 모두 보존되지는 않음**. 공개 [8/27 최종 자산 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) 및 후보 평가 Spec·#214/218 코드/PR로 모델 ID·서빙·평가 체계를 재확인했다. 워크로그에 작성자가 미표기된 초기 항목을 내 작업으로 옮기지 않는다.
+- **적합 직무:** 이 경험은 **ML 평가/MLOps·AI 시스템 엔지니어**에게 '다중 후보의 공정한 비교, 실험 범위/데이터 누수 통제, 모델 provenance/서빙 rollback 설계'로 강조한다. MA-07 NLU QLoRA 후반 추가 학습과 통합 MA-09, 최종 Real STT+NLU+TTS MA-10 수치는 여기서 중복 집계하지 않는다.
+
+원본: [STT Worklog](https://github.com/aihuman-7th/proj1-d/blob/main/docs/worklogs/stt.md) · [초기 팀 STT #27](https://github.com/aihuman-7th/proj1-d/pull/27) · [#31](https://github.com/aihuman-7th/proj1-d/pull/31) · [#32](https://github.com/aihuman-7th/proj1-d/pull/32) · [#58](https://github.com/aihuman-7th/proj1-d/pull/58) · [후반 STT/서비스 #214](https://github.com/aihuman-7th/proj1-d/pull/214) · [평가 도구 #218](https://github.com/aihuman-7th/proj1-d/pull/218) · [벤치마크 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/stt-candidate-benchmark.md) · [프로덕션/모델 SHA 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) · [발표용 최종 수치](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md). **골든 17회 추가 실험·32후보 전체 비교의 상세 수치는 사용자가 함께 확인한 이전 대화에서 보완했다.**
+
+---
+
+## 3-7. MA-07 — Qwen NLU 개인 후반 학습·다층 평가와 0.6B 서비스 후보의 안전한 통합 (2026-10-23 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로의 음성 주문 서비스는 STT 전사문과 현재 Cart를 **NLU `OrderCommand[]`/Error**로 해석하고 결정론적 Order Engine에 넘겨야 한다. NLU 파트 류승민(`Padong47`)의 3,000문장(Train 2,400/Validation 300/Test 300) 데이터·Qwen3-1.7B QLoRA 설계/학습/최종 Test와 팀원 윤태현의 대형 stacked PR integration이 선행됐다([#195](https://github.com/aihuman-7th/proj1-d/pull/195), [#205](https://github.com/aihuman-7th/proj1-d/pull/205), [#206](https://github.com/aihuman-7th/proj1-d/pull/206), [#211](https://github.com/aihuman-7th/proj1-d/pull/211)). 팀장 김재훈은 **후반 로컬 1.7B 재실험·Qwen3-0.6B 모델 탐색·실서비스 안전/지연 검증·GPU 런타임 분리**를 직접 진행했다.
+2. **문제:** 학습된 1.7B는 공식 Test 300건에서 **Exact 88.67%·Intent 95.38%·Slot 97.20%·Schema 99.67%**를 보였으나 [#211](https://github.com/aihuman-7th/proj1-d/pull/211)의 **Error Code Accuracy 70%(게이트 요구 90% 미달)**여서 운영 기본 모델로 승격할 수 없었다. 실제 카페 주문 문장에서는 숫자 표현(두/2잔/두 개/한 잔), 복수 메뉴, 메뉴 별칭·STT 오인식, 자기정정, 온도 미지정 시 처리가 불안정했다. **테스트셋의 JSON/Exact 점수가 높아도 실제 사용자 발화에서 안전한 명령을 내는지 보장하지 못했고**, 1.7B 추론 지연·Qwen Transformers와 STT/TTS용 의존성 충돌도 문제였다.
+3. **판단:** **(a) 고정 Official Test(학습 결과 보고), (b) 모델 후보의 실제 주문 `challenge`(Generalization gap), (c) 서비스 후보 `focused-v1` 124건(계약 스트레스+guard), (d) 데스크톱 target-env 124건(동일 model/조건 호환성), (e) RuleFirst+deterministic guard 포함 생산 38문장 smoke(최종 앱 경로)**를 엄격하게 나눈다. 1.7B의 공식 Test 성능을 0.6B의 focused 124건과 한 표에서 직접 개선율로 비교하지 않는다. **정확도·schema 안정성·지연·실제 주문 문장 실패**를 함께 보고 더 작은 Qwen3-0.6B `epochs4_seed7` merged BF16+Prompt Lookup 8+deterministic guard로 생산 후보를 축소한다. LLM이 추출해도 잘못된 JSON/메뉴·수량은 **검증기/RuleFirst/Order Engine**에서 차단하고, 서로 다른 transformers를 요구하는 STT/TTS와 Qwen은 **HTTP NLU sidecar 별도 Python environment**에 격리한다.
+4. **조치:**
+   - **팀 기존 기반/명확한 귀속:** [#195](https://github.com/aihuman-7th/proj1-d/pull/195) 1.7B QLoRA Spec·[#197](https://github.com/aihuman-7th/proj1-d/pull/197) 학습 CLI·[#206](https://github.com/aihuman-7th/proj1-d/pull/206) 1.7B 런타임/스키마 변환·[#211](https://github.com/aihuman-7th/proj1-d/pull/211) 공식 Test 300건(88.67% Exact·70% Error code) 구현/실행은 **류승민**, 3,000행 데이터·stack을 main에 실제 통합한 [#205](https://github.com/aihuman-7th/proj1-d/pull/205)는 **윤태현**의 PR이다. 개인 학습 경험이라고 중복 귀속하지 않는다.
+   - **개인 후반 1.7B 재현 (2026-08-25~26 이전 대화 증거):** 본인 GPU에서 Qwen3-1.7B QLoRA/LoRA 모델 번들과 Test 300건을 다시 검토했다. 이전 `experiences/mallo.md`의 개별 **3 epoch / 450 steps, Validation best step 350·Exact 91.67%·Intent 96.54%·Slot 96.10%·Schema 98.33%**는 **별도 Validation/run 초안**으로 기록돼 있고 원시 ledger 미공개라 조건·수치 재검증 전에는 주 대표 지표가 아니다. 고정 Test 300 재현 기록은 **Exact 89.67%·Intent 95.77%·Slot 97.58%·Schema 99.67%, warm 약 2초**라는 개인 대화 보고가 있지만, #211 팀 공식 Test와 **adapter/평가 스냅샷**이 다를 수 있으므로 별도 기록한다. 자체 real-use challenge **38건**의 unguarded 1.7B 결과는 **Exact 11.8%·Semantic 18.4%·multi-item 0%·quantity 35.3%**로 기록됐고, 같은 당시 조건의 0.6B 비교는 **Exact 26.5%·Semantic 28.9%·multi-item 20%·quantity 50%**였다. 이 수치는 **본인 대화 실행 보고**, 관련 raw predictions 재조회 전이므로 공개 PR 검증 수치와 등급을 구분한다.
+   - **개인 0.6B 추가 학습·선정:** 2026-08-25의 `honorbear-20260825-021532-qwen3-0p6b-overnight`의 **15개 sweep 실험 자산**이 [8/27 자산 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md)에 기록돼 있다. `epochs4_seed7`(Qwen/Qwen3-0.6B, LoRA r16/alpha32, ep4, seed7)을 BF16 merge해 서비스 후보로 선정했다. 일반 Validation 기록은 **Exact 95.33%·Schema 99.33%·Warm median 약 822ms/p95 약 1317ms**이며, 이는 아래 **focused-v1 별도 셋**이 아니다. `model.safetensors` SHA256 `2d72ee3dde4546a3409bdb433596be9f54039914309b8e2a13ed2500b7e4abe1`과 adapter/merged 출처를 [Qwen0.6B 서비스 후보 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/nlu-qwen06b-service-candidate.md)에 보존했다. **15 sweep 폴더는 보존 목록**이고, 15개 모두 완전한 동일 조건 평가 실행 성공했다고 추정하지 않는다.
+   - **서비스 후보 focused 124건 + 목표 환경 재검증 [개인 PR #209](https://github.com/aihuman-7th/proj1-d/pull/209):** Qwen3-0.6B `epochs4_seed7` merged BF16 + Dynamic Cache + Prompt Lookup 8 + deterministic guard의 합성 계약 스트레스 `focused-v1` **124건**에서 **Intent 100%·Slot 96.7787%·Exact 63.7097%·Error code 96.6667%·Multi-command order 100%·Schema 100%·Invalid menu 0%**, **guard가 42/124개 출력 변경**을 확인했다. 기존 계측 **median 857.5ms/p95 1182.5ms**와 달리 **RTX 5070 Ti·CUDA12.8·torch 2.11.0+cu128·transformers 5.15.0** target-env 재측정은 **median 1169.4ms/p95 1610.3ms**로 지연 **1.2초 p95 목표 미달**임을 보고했다. 이는 실제 LLM을 로드·생성한 벤치마크지만 전체 마이크/STT/TTS 앱 E2E는 아니다. 이 PR에서 `HTTPClientNLU`·NLU sidecar·`build_service(nlu=mock/qwen06b/http)`·WSL2 데스크톱 실행기를 구현하고 서로 다른 Python 의존성을 분리, merged 모델에 **PEFT 미설치** 상태 1건 생성 smoke·비정상 sidecar 실패 시 내부 URL/path 미노출 오류 처리를 확인했다.
+   - **실사용 계약 보강 [개인 PR #214](https://github.com/aihuman-7th/proj1-d/pull/214):** `Qwen3-0.6B` 입력 정규화와 **deterministic guard/RuleFirst**를 보완해 음성 STT 오인식 별칭·숫자·복수 메뉴·기존 Cart 추가·온도 누락 등의 문제를 줄였다. **기존 38문장 challenge에서 RuleFirst+guard 포함 서비스 전체 계약은 38/38 Semantic·Exact·Schema·Quantity 등 통과**, 측정된 NLU live GPU latency는 **median 1235.7ms/p95 1630.3ms**(p95 1.5초 기준도 초과). **초기 unguarded 0.6B 38문장 28.9%**와 후속 **guarded 전체 38/38**는 **파이프라인 구성이 달라 순수 fine-tuning 정확도 28.9%→100%의 인과 개선이라 쓰지 않는다**. MA-09 서비스 통합 경로 [#215](https://github.com/aihuman-7th/proj1-d/pull/215)와 최종 사용자 레벨 성능 [#222](https://github.com/aihuman-7th/proj1-d/pull/222)은 별도 작업군으로 기록한다.
+5. **결과:** 1.7B 모델의 높은 공식 Test Exact **88.67%에도 Error Code 70% gate 실패**와 느린 추론·실제 주문 표현 회귀가 있었음을 근거로, **작은 0.6B + BF16 merge + deterministic guard + 별도 sidecar** 구조를 선택·통합했다. 0.6B의 동일 124건 Focused 계약에서 **Intent 100%, Slot 96.78%, Schema 100%**, 38문장 서비스 smoke **38/38**을 기록하며 주문 명령의 의미·계약을 우선한 품질 결정 사례를 남겼다. 하지만 **target-env NLU p95 1.610초/후속 p95 1.630초는 1.2/1.5초 목표에 미달**했고, 실제 E2E Qwen fallback은 [#222](https://github.com/aihuman-7th/proj1-d/pull/222)에서 **p95 3.386초**로 전체 1.5초 요구를 달성하지 못했다. 따라서 '모델을 경량화해 전체 주문 응답이 실시간 요구를 충족'이라고 주장하지 않고, **'실제 주문 경로에서 안전한 NLU 선택·검증과 시스템 통합, 미달 latency를 정량 노출'**로 표현한다.
+
+### 평가 모집단과 성과 귀속을 섞지 않는 기준
+
+| 단계 | 모델/시스템 경계 | 건수·핵심 결과 | 사용 방법 |
+| --- | --- | --- | --- |
+| 팀 공식 Test | 1.7B 최종 보정 adapter / Guard 포함 여부 별도 | **300건**, Exact **88.67%**, Error Code **70%** | 팀원 #211의 gate 실패 결과; 개인 재현·후속 real-use와 분리 |
+| 개인 재현·실전 발화 | 1.7B/0.6B 모델 후보를 주문 challenge에서 직접 비교(당시 대화) | **38문장**, 1.7B semantic **18.4%**, 0.6B semantic **28.9%** | Raw 개인 실행 결과, 공개 artifact 완전 미확인 |
+| 일반 Validation | 0.6B epochs4_seed7 (서비스 후보 선택) | Exact **95.33%**, schema **99.33%** | 모델 선정 단계, focused 실험과 합산 금지 |
+| Focused contract-stress | 0.6B merged + PromptLookup8 + guard | **124건**, Intent **100%**, Slot **96.78%**, Schema **100%**, Exact **63.71%** | 서비스 계약 스트레스, 실제 고령 사용자 일반화 아님 |
+| Target env 124 재검증 | 동일 0.6B, RTX5070Ti/CUDA12.8 | **124건**, warm p95 **1.610초** (기존 1.182초) | 동일 의미/스키마 지표 재현·지연 regression |
+| Production real-use challenge | 0.6B+RuleFirst/normalizer/guard 통합 | **38/38** pass, GPU NLU p95 **1.630초** | 앱 보정 기능 검증, 순수 0.6B 성능 100% 아님 |
+| E2E Real Voice fallback | 실제 STT·Hybrid NLU·TTS·브라우저 | **30턴**, Qwen fallback p95 **3.386초** | **MA-10** 고유 제품 E2E 성과, MA-07 모델 평가로 이중 계상 금지 |
+
+### 귀속/수치/운영 주장 제한
+
+- **1.7B 데이터·학습 파이프라인과 초기 최종 Test:** 류승민(`Padong47`)의 [#195](https://github.com/aihuman-7th/proj1-d/pull/195)·[#197](https://github.com/aihuman-7th/proj1-d/pull/197)·[#206](https://github.com/aihuman-7th/proj1-d/pull/206)·[#211](https://github.com/aihuman-7th/proj1-d/pull/211) 및 팀원 윤태현(`surf7978`) [#205](https://github.com/aihuman-7th/proj1-d/pull/205)의 main 정합화. 이 팀의 성과를 '내가 3,000개 수집·학습 pipeline 전체를 최초 개발'이라고 쓰지 않음.
+- **최종 서비스 후보**는 **Qwen3-0.6B epochs4_seed7 merged BF16 + Prompt Lookup8 + deterministic guard**이며, 1.7B는 reference/demo. 최종 production의 규칙 기반 RuleFirst는 비정형 발화에 대한 **NLU fallback 경로**와 결합; '모든 turn에서 0.6B LLM을 호출해 100% 정답'은 허위다.
+- **#209 124건의 42개 guard 변경** 때문에 100% Intent/Schema를 파인튜닝 모델의 raw 출력 자체 품질로 주장 불가. **0.6B 일반 Validation 95.33% Exact**와 **Focused 63.71% Exact**는 다른 셋/후처리 조건.
+- **지연 실패 기록 필수:** #209 목표 환경 p95 **1.610s**는 1.2s target 위반, #214 NLU p95 **1.630s**도 p95 1.5s 목표 초과, #222 fallback E2E p95 **3.386s**는 전체 E2E requirement 1.5s 실패. MA-09/10에서 병목 추적/제품 실패 보고로 분리.
+- **지표 provenance:** 개인 대화의 1.7B Test 재평가 **Exact 89.67%**와 팀 [#211](https://github.com/aihuman-7th/proj1-d/pull/211) 공식 Test **88.67%**는 버전·실행 환경/판정 차이를 확인해야 하므로 둘 다 남기되 **이력서 주력 수치는 공식 88.67%, gate 실패 70%**를 사용한다. 기존 경험기술서의 Validation best step350/91.67%도 원본 실험 확인 전 대표치로 쓰지 않는다.
+- **원시 아티팩트**: 0.6B 모델 원본 SHA/124건 focused 실행 및 PR#209 target summary는 Git 문서로 재현 가능하나, 독립 개인 38 real-use 초기 비교와 1.7B 재학습 checkpoint, 15개 모든 sweep의 완료 로그는 **대화/로컬 자산 기록**에만 근거가 있다. 모델 가중치·원본 Test JSONL은 Git 추적 대상이 아님.
+- **직무 활용:** AI Model Engineer/MLOps에는 '작은 모델이 실제 주문 환경에서 더 유리해도 계약·지연 미달을 노출하면서 guard를 겹친 선택과 실환경 비교', Backend/Agent 시스템에는 'RuleFirst/HTTP sidecar/PEFT 분리·비정상 응답 누출 방지·계약 게이트' 중심으로 제시.
+
+원본: [1.7B 평가 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/nlu-qwen3-qlora-finetuning.md) · [1.7B 최종 Test #211](https://github.com/aihuman-7th/proj1-d/pull/211) · [0.6B 서비스/Sidecar #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [0.6B 서비스 후보 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/nlu-qwen06b-service-candidate.md) · [Focus124 Guarded Summary](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/nlu/focus3-20260825-115728/qwen06b-promptlookup8-guarded.summary.json) · [대상 환경 Summary](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/nlu/pr209-target-env/validation-summary.json) · [모델 자산 감사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) · [실사용 guard #214](https://github.com/aihuman-7th/proj1-d/pull/214).
+
+---
+
+## 3-8. MA-08 — Senior-first 9:16 화면 재설계와 Voice·Touch 비동기 상태 충돌 방지 (2026-10-23 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로는 고령 사용자에게 음성 중심 카페 주문을 제공하려는 3인 팀 프로젝트였다. 초기 GUI는 친숙한 녹색/크림 대비·대형 마이크·주문 목록·시스템 자막과 TTS 조작을 가진 **Voice-first 단일 화면**이었다. 이후 터치 메뉴·주문 수정·매장/포장·결제 등 기능이 추가되면서 화면은 **WELCOME→SERVICE_MODE→ORDER→ORDER_REVIEW/OPTION_CHANGE→PAYMENT→COMPLETE** 등의 여러 상태로 확장됐다.
+2. **문제:** 원래 화면의 작은 Web app 정보 밀도와 화면별 레이아웃 변화는 고령 사용자가 **지금 듣는지, 무엇이 주문됐는지, 다음에 어디를 눌러야 하는지** 이해하기 어렵게 했다. **TTS 재생을 Voice Overlay와 동일 상태로 묶으면 주문 내용이 가려지고**, 빠른 터치나 화면 이탈 중 늦은 API/마이크 권한 응답이 들어오면 **stale 화면·Cart 덮어쓰기·마이크 재시작·TTS 답변 지연**을 만들었다. 특히 UI 표시용 interaction generation과 **서버에서 확정된 Cart의 주문 session/명령 순서**를 같은 유효성 기준으로 처리하면 새로운 화면으로 이동한 뒤에도 진짜 주문 변경이 버려질 수 있었다. 터치 메뉴를 자연어처럼 NLU로 우회하면 대기·모호성도 불필요하게 늘었다.
+3. **판단:** 메뉴 선택·장바구니 변경은 **서버 결정론적 OrderCommand와 상태 스냅샷**을 우선하고, 화면 안내·TTS·마이크 인식은 별도의 **presentation/voice lifecycle**로 관리한다. 고령 사용자의 행동을 시각적으로 구분하도록 **1080×1920 기준 9:16·큰 타이포/터치 영역·단일 줄 메뉴 카테고리·주문 누적 화면과 명시적 주문 검토 화면**을 설계한다. 녹음 진행 중에만 반투명 Voice Overlay를 띄우고, 시스템이 읽는 `response_text`는 별도 Response Bar/TTS로 1:1 공유한다. **터치는 메뉴 ID·온도·수량을 `/api/commands`로 직접 전달**하고, 음성만 `Mic→STT→NLU→OrderCommand`를 거친다. 권한 대기/페이지 전환은 **lifecycle epoch**, 서버 Cart 커밋은 **orderSessionGeneration + mutationSequence**로 구별한다. **TTS 합성/재생 때문에 화면 이동·Cart 반영이 대기하지 않도록** 한다.
+4. **조치:**
+   - **초기 개인 GUI [PR #54](https://github.com/aihuman-7th/proj1-d/pull/54), 2026-08-17 무렵:** `web/index.html`·`styles.css`·`app.js`에 다크그린·웜크림·고대비 화면, 메뉴/온도/수량/총액 Cart, 시스템 응답 자막, 대형 Tap-to-talk/키보드, 다시·느리게·보통·직원 호출 및 듣는/처리/말하는 상태 UI, `src/domain/session_state.py`의 `SessionStatus`/SessionState와 단위 테스트를 작성했다. PR에는 **당시 저장소 전체 65 passed**. 이는 **실백엔드·마이크/PG 결제 완료가 아닌 정적/Mock 계열 초기 화면**이다.
+   - **Senior-first 화면 정보구조/PR 품질 [개인 #159](https://github.com/aihuman-7th/proj1-d/pull/159)·[#160](https://github.com/aihuman-7th/proj1-d/pull/160)·[#161](https://github.com/aihuman-7th/proj1-d/pull/161)·[#136](https://github.com/aihuman-7th/proj1-d/pull/136)·[#162](https://github.com/aihuman-7th/proj1-d/pull/162)·[#163](https://github.com/aihuman-7th/proj1-d/pull/163)·[#164](https://github.com/aihuman-7th/proj1-d/pull/164)·[#137](https://github.com/aihuman-7th/proj1-d/pull/137):** 거대한 UI PR을 **foundation/layout·portrait·context·HTML shell+메뉴 이미지·JavaScript 주문/음성 상태·회귀 테스트·polish CSS·UX 동작**으로 분할해 리뷰 가능한 stacked 순서 **#159→#160→#161→#136→#162→#163→#164→#137**로 재정렬했다. `web/styles/senior-portrait.css`는 1080×1920 기준 portrait 간격/타이포, `web/menu-metadata.js`는 실제 메뉴 이미지와 placeholder, `ORDER`는 누적 메뉴+고정 카테고리 탭·Cart 미니 요약, `ORDER_REVIEW`는 확인 목록/고정 합계·확정 CTA로 구분했다. 주문/음성 중 LISTENING·PROCESSING **반투명 Overlay**는 기존 본문·접근성 footer 위치를 움직이지 않고 표시, 시스템 Response Bar와 TTS 재생 하이라이트 `is-tts-playing`은 분리. 고정 Footer의 다시 듣기·말하기 속도·직원 호출·처음으로 **2×2 제어** 및 중앙 확대 mic, 사용자 요청 기반 TTS Level 순환, 세션/주문 확인/완료 UI를 정리했다. **#162의 변경 합계는 403줄(400줄 정책 +3 예외)**이고 나머지를 나눠 리뷰 범위를 제한했다. CI 사용량으로 Actions는 미실행되어 PR 기록은 코드·단위/구조/로컬 점검을 중심으로 한다.
+   - **권한/재생 lifecycle 안전 [#162](https://github.com/aihuman-7th/proj1-d/pull/162)·[#163](https://github.com/aihuman-7th/proj1-d/pull/163)·[#213](https://github.com/aihuman-7th/proj1-d/pull/213):** 화면 이탈 후 늦은 `getUserMedia` 승인은 **`voiceLifecycleEpoch` 불일치와 `track.stop()`**으로 폐기하고 `new MediaRecorder(stream)` 자체 실패 때도 media tracks 정리. front source 회귀를 #163에 따로 추가했다. 후속 #213에서는 터치 **`/api/commands` 직접 전달**, 음성 **`/api/audio/stt`→`/api/audio/interpret`** 2단계 분리로 STT transcript를 NLU 중 Voice Overlay에 먼저 보여주며, 응답을 해당 recording/lifecycle에 한해 반영. MeloTTS warm-up·fulfillment 메시지 순차 재생·Repeat TTS **single-flight 취소/구세대 playback callback 무시**, PAY/Empty Cart guard와 실제 마이크 수동 QA를 수행했다. #213에는 **frontend 7개, Python 관련 28개 로컬 테스트 통과 및 일부 실제 브라우저 수동 확인** 기록이 있다. 여기서 UI 화면·Input 상태 개선 성과만 MA-08로, provider/서버 안정화는 **MA-09/11**에서 겹치지 않게 분류한다.
+   - **터치 race·서버 Cart 우선·TTS presentation 독립 [개인 #225](https://github.com/aihuman-7th/proj1-d/pull/225):** `web/app.js`에서 presentation 상태 `interactionGeneration`과 별개로 **`orderSessionGeneration`·`nextCartMutationSequence`·`lastAppliedCartMutationSequence`**를 관리하고 `commitCartSnapshot`은 **이전 주문 세션·오래된 mutation 응답만 거부**한다. 최신 서버 Cart를 받은 즉시 `applyCartSnapshot`/화면 현재 상태 갱신·로컬 cart sync를 수행하여 **TTS 완료를 기다리지 않음**. `web/api-url.js`에서 LOCAL_TOUCH 모드가 서버로 handoff하는 동안 사용자가 Cart를 변경하면 `localCartDirtiedDuringHandoff`로 **늦은 remote snapshot은 버리고 LOCAL_TOUCH를 유지**, 뒤이은 handoff에서 최신 Cart를 재전송한다. `response_text`와 `tts_segments`는 별도 message stream/epoch로 진행하고 audio clip 사이 silence gap에서도 한 System Message로 표시한다. HTTP 복구 실패 시 **터치용 고정 안내는 우선 표시**하고 음성은 best-effort 재연결로 처리한다. `tests/frontend/handoff-lifecycle.test.js`에 **in-flight Cart 변경→stale handoff 폐기→다음 handoff 복구** 케이스, `cart-response-persistence.test.js`에 주문 검토 전후 응답 보존 케이스를 추가했다. PR 기록 **선별 frontend 6 passed·관련 Python 475 passed**, **실제 브라우저 재생/마이크 E2E는 이 변경의 자동 테스트 범위 밖**.
+   - **후속 TTS 정책 변경 [#225](https://github.com/aihuman-7th/proj1-d/pull/225)·[#226](https://github.com/aihuman-7th/proj1-d/pull/226):** MA-01/05 초기 설계의 **명시적인 '천천히/다시' 요청** 외에, 후기 시스템은 **NLU가 의미적으로 `REQUEST_CLARIFICATION`으로 분류한 이해 실패 신호가 성공적으로 해석된 최근 4개 사용자 turn 안에서 2회 생기면 한 단계 감속**했다. 첫 신호에서는 현재 Level 재안내, 두 번째에서 speech-only 알림 후 L1/L2로 재생·history 리셋, 오류·timeout·no speech/시스템 재질문은 신호로 계산하지 않음. **연령 추정/침묵 기반 자동 감속 아님**. #226의 후기 쇼케이스는 **L0 1.00×/0ms·L1 0.85×/280ms·L2 0.75×/480ms** chunk-gap 정책과 9개 WAV를 검증했다. **모델 품질/Adaptive TTS latency는 MA-04/05**에서 처음 선정·실측했고 이 정책의 사용자 이해도 상승률은 증명하지 않음.
+5. **결과:** 개인 PR #54와 #159~164/#136/#137에서 **음성 주문 화면을 9:16 Senior-first·큰 터치·명확한 주문 확인·Voice Overlay/Response Bar 이원화**로 발전시키고, #162/#163/#213에서 화면 이탈 중 stale permission/녹음·응답 오류를 방어했다. 후기 #225에서는 빠른 터치/서버 재연결/음성 요청의 **동시성 기준을 구분해 Cart의 최신 상태를 화면에 즉시 반영하고 오래된 요청만 거부하는 구조**를 구현했다. 주문 안전성과 사용성의 **코드/회귀 테스트/일부 브라우저 수동 QA 기반 개선**으로 기록한다. #225에서 **선별 6개 frontend 테스트·관련 Python 475개 통과**했으나 이 숫자는 **전체 브라우저 실사용자 과제 성공률·외부 고령 사용자 조사·스크린리더 WCAG AAA 통과 인증**의 증거가 아니다.
+
+### 초기 제품 기여/팀원 구현/후기 개선 경계
+
+| 결과 범위 | 개인 기여로 확인된 것 | 팀원/별도 실험 또는 주장 제한 |
+| --- | --- | --- |
+| 초기 Voice-first GUI | [#54](https://github.com/aihuman-7th/proj1-d/pull/54) 화면/SessionState·테스트 | 실제 Web checkout 결제 구현 아님 |
+| 주문 확정·확인/리셋의 첫 서버 연동 | **개인 기여 아님**(이후 Senior-first 개선의 기반) | 윤태현 [#103](https://github.com/aihuman-7th/proj1-d/pull/103) `ORDERING→CONFIRMING→COMPLETE` 구현·가상 결제 UI |
+| 세로형 Senior-first 구조·정보 위계 | 개인 [#159~164/#136/#137](https://github.com/aihuman-7th/proj1-d/pull/137) CSS layers·HTML shell·Voice Overlay·System Message·로컬 테스트 | 당시 Actions quota 소진, 모든 브라우저/고령자 인증 아님 |
+| 웹 마이크 WebM/Opus STT 디코딩 | 개인 구현 아님; 통합 QA에서 사용 | 윤태현 [#165](https://github.com/aihuman-7th/proj1-d/pull/165) PyAV fallback·unit 33 pass |
+| 터치/음성 API 구분 및 lifecycle | 개인 [#162](https://github.com/aihuman-7th/proj1-d/pull/162)/[#163](https://github.com/aihuman-7th/proj1-d/pull/163)/[#213](https://github.com/aihuman-7th/proj1-d/pull/213) | 서버 sidecar/본 모델 E2E는 MA-09/10/11 별도 |
+| 빠른 터치 race·로컬→원격 handoff | 개인 [#225](https://github.com/aihuman-7th/proj1-d/pull/225) Cart commit sequence, TTS nonblocking presentation, stale handoff discard | user task completion-rate, device-level race 발생률 전후 비교 미측정 |
+| Adaptation의 초기 규칙과 후기 자동 제어 | 초반 명시적 요청 [MA-01/05], 후기 이해 실패 누적 정책 [#225/#226](https://github.com/aihuman-7th/proj1-d/pull/225) | `REQUEST_CLARIFICATION` 연속 signal 기반이며 개인 연령/침묵 판단·실사용성 향상 효과 아님 |
+
+### 중복과 실험 수준 확인
+
+- **MA-01:** 60대 초기 13명 설문은 **UI 문제정의**, #54→#137 실제 구조 변경은 **MA-08 구현**. MA-01의 `Undo/Pending/Preview Cart` 제안은 후기 코드에 대한 단독 완료 증거 아님.
+- **MA-02/07:** `/api/commands` 직접 입력·deterministic Order Engine 및 Qwen guard는 기존 **백엔드 계약/모델**. 여기서는 **프런트 Input Router와 상태 동기화**만 MA-08으로 집계하며 API/Order Engine의 원 개발을 다시 개인 성과로 세지 않는다.
+- **MA-03/05:** Adaptive TTS Level·VoicePipeline 초기 연결은 **MA-03/05**. #225의 chunk TTS message stream/gap 표시·이해 신호 자동 감속은 **UI/후기 적응 정책 고도화**이지만 같은 합성 지연 수치를 MA-04/05에서 중복 계상하지 않는다.
+- **MA-09/11:** #213 P0 앱·사이드카·Melo warm-up, #215 외부 배포, #225 회귀와 #226 실제 마이크 QA는 다른 워크스트림에도 증거로 나오지만 **MA-08 고유 성과는 클라이언트 lifecycle과 stale-order race**, 서버 배포/포맷·QA 실행 자체는 MA-09/11의 주 성과로 귀속.
+- **검증 구분:** #54 65 passed, #213 frontend 7/Python28, #225 frontend 선별6/Python475는 **각 시점·다른 범위**. 65+7+6+475 신규 테스트로 합산하지 않는다. MA-08은 코드/Mock/mock fetch·브라우저 일부 수동 QA이며 실제 고령자 A/B·PG 결제·기기별 장시간 무장애 동작률/접근성 인증 없음.
+- **이전 주장 교정:** MA-01과 MA-05의 설계 원칙 '명시적 TTS 요청에만 Level 증가'는 **당시 정책**이며 후기에 **명시적 추가 설명 요청의 누적을 이해 실패 신호로 본 자동 1단계 감속(#225)**이 추가됐다. **생체/연령/침묵 기반 추정**이 추가된 것은 아님. '전체 서비스에서 항상 수동 Level만 허용'은 최종 상태를 잘못 설명한다.
+- **직무 활용:** HCI/Frontend는 고령자용 정보 위계·상태 일관성과 9:16 큰 터치/UI를, Backend/AI System은 **비동기 mutation 순서·server-snapshot SSOT·voice lifecycle epoch·TTS latency와 UI update decoupling**을 강조한다. 이 항목의 실험/테스트 성공은 제품 사용 효과의 통계적 입증과 별개다.
+
+원본: [초기 GUI #54](https://github.com/aihuman-7th/proj1-d/pull/54) · [Senior UI spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/senior-first-web-ui.md) · [분리 CSS #159](https://github.com/aihuman-7th/proj1-d/pull/159)·[#160](https://github.com/aihuman-7th/proj1-d/pull/160)·[#161](https://github.com/aihuman-7th/proj1-d/pull/161) · [HTML shell #136](https://github.com/aihuman-7th/proj1-d/pull/136) · [동작 #162](https://github.com/aihuman-7th/proj1-d/pull/162) · [테스트 #163](https://github.com/aihuman-7th/proj1-d/pull/163) · [polish #164](https://github.com/aihuman-7th/proj1-d/pull/164) · [UX #137](https://github.com/aihuman-7th/proj1-d/pull/137) · [초기 checkout 팀원 #103](https://github.com/aihuman-7th/proj1-d/pull/103) · [초기 WebM decoder 팀원 #165](https://github.com/aihuman-7th/proj1-d/pull/165) · [실마이크/터치 개선 #213](https://github.com/aihuman-7th/proj1-d/pull/213) · [경합 방지 #225](https://github.com/aihuman-7th/proj1-d/pull/225) · [후기 TTS 설정/QA #226](https://github.com/aihuman-7th/proj1-d/pull/226).
+
+---
+
+## 3-9. MA-09 — 모델 의존성 충돌을 HTTP Sidecar로 격리하고 Vercel·Cloudflare와 연결 (2026-10-23 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로의 음성 주문 흐름을 실제 브라우저·로컬 GPU에서 사용하려면 Whisper Train65 STT, Qwen3-0.6B NLU, MeloTTS G_2800을 **한 서비스에서 이어서 호출**해야 했다. 각 모델은 개별 실험 환경에서 작동했고 정적 UI는 Vercel에, 대용량 모델은 **CUDA GPU가 있는 로컬/WSL 환경**에 두는 하이브리드 구조를 선택했다.
+2. **문제:** MeloTTS의 `transformers 4.27.4`와 Qwen NLU의 `transformers 5.15.0` 요구가 충돌했으며, Windows 환경에서는 Whisper와 Melo를 한 프로세스에 결합할 때 **cuDNN native symbol crash**가 보고됐다. 각각 따로 실행하는 모델을 웹과 연결할 때 **포트 충돌·의존성 미설치·서버 readiness 전 요청·가중치 cold load·브라우저별 장바구니 혼선·터널 토큰 노출**까지 조정해야 했다. 단순히 파일을 Vercel에 업로드하면 GPU 추론이 되는 구조가 아니며, Cloudflare URL을 열었다는 사실만으로 **STT/NLU/TTS 전체 E2E p95 1.5초 달성**은 보장되지 않았다.
+3. **판단:** 전체 서비스를 **Gateway `127.0.0.1:8000` + STT `:8001` + NLU `:8002` + TTS `:8003`의 네 프로세스**로 분리하고, 네 포트 모두 로컬 **loopback에만 bind**한다. 최종 개발 환경은 **Gateway/STT/TTS 프로세스가 `.venvs/runtime`(transformers 4.27.4), Qwen NLU가 `.venvs/nlu`(5.15.0)**인 **2개의 독립 Python 가상환경**을 사용한다. sidecar 모델은 상주 상태로 두고 **`/health` readiness→`/warmup` 실제 추론 성공 이후 Gateway 노출**, 실패 시 child 전체 정리 원칙으로 모델 초기화 실패를 사용자에게 숨긴다. 브라우저는 Vercel HTTPS→Cloudflare remotely-managed Named Tunnel→**Gateway만 호출**, 내부 모델 포트에 직접 연결하지 않는다. 브라우저 UUID 세션 및 **`X-Mallo-Session-ID`** 헤더별 mutable Cart·TTS·주문 상태를 격리하고 공통 추론 모델만 공유한다.
+4. **조치:**
+   - **선행 팀원 구현 경계:** 윤태현(`surf7978`)이 [PR #204](https://github.com/aihuman-7th/proj1-d/pull/204)의 **STT HTTP Sidecar 및 `HTTPClientSTT`**를 먼저 구현해 Windows 동일 프로세스 cuDNN 충돌을 회피했고, `mock NLU` 포함 RTX 4060 Ti warm E2E **0.61초**를 보고했다. #204는 GitHub 기록에서 **merged=false**이므로 '**해당 PR이 개별적으로 main 병합**'됐다고 쓰지 않는다; #215 통합선에서 선행 코드를 수용한 경위와 구분한다. 브라우저 WebM/Opus STT PyAV 폴백은 윤태현 [PR #165](https://github.com/aihuman-7th/proj1-d/pull/165) 독자 구현으로 귀속한다.
+   - **개인 Qwen NLU sidecar [PR #209](https://github.com/aihuman-7th/proj1-d/pull/209):** `HTTPClientNLU`, 상주 `nlu_sidecar_server.py`, `build_service(nlu=mock/qwen06b/http)`, WSL2 CUDA12.8 데스크톱 구동 도구를 연결했다. **Qwen3-0.6B `epochs4_seed7` merged BF16 + PromptLookup8+guard**, PyTorch 2.11.0+cu128·Transformers 5.15.0에서 실제 모델 load/generation을 재확인하고, **PEFT 미설치로 merged 모델 1건 생성 smoke**를 통과했다. 124건 focused 계약은 유지했지만 p95가 **1.610초**로 나빠져 목표 미달했음을 공개했다. sidecar 연결/HTTP 상태·Schema 실패는 URL·socket·CUDA·모델 경로를 사용자/TTS에 그대로 반환하지 않고 고정 복구 메시지로 변환하는 오류 계약을 추가했다. **모델 정확도/후반 Qwen 실험은 MA-07에만 집계**한다.
+   - **개인 fresh runtime 호환 수정 [PR #212](https://github.com/aihuman-7th/proj1-d/pull/212):** clean `.venv-runtime-cu128`에서 `melotts==0.1.2`가 PyPI에 없어서 설치 불가, `jsonschema` 누락으로 Web/Order server startup 실패, 브라우저 WebM/Opus 입력에 `av` 필요 문제를 확인해 **동작이 검증된 upstream MeloTTS git commit `20914537...`에 설치 버전 고정** 및 requirements 보완을 적용했다. PR 기록상 Python 3.11.9·CUDA12.8·Torch2.11.0+cu128·Transformers4.27.4 환경에서 **서버 startup** 재현 성공. 다른 컴퓨터의 Docker/Kubernetes 배포까지 자동화했다는 근거는 없다.
+   - **개인 통합/외부 공개 [PR #215](https://github.com/aihuman-7th/proj1-d/pull/215):** 대규모 통합선 `test/pr204-ui-ux`를 main에 병합하면서 `src/app/launcher.py`/[`scripts/run_mallo_server.py`](https://github.com/aihuman-7th/proj1-d/blob/main/scripts/run_mallo_server.py)로 **Sidecar subprocess 생성·포트 선검사·Environment version check·각 health·STT→NLU→TTS warm-up·Gateway startup·SIGINT/SIGTERM/child exit 시 종료** 동작을 제공했다. Gateway/Sidecar가 모두 준비된 뒤 `cloudflared` Quick/Named Tunnel을 기동하고, Named production은 `CLOUDFLARE_TUNNEL_TOKEN`을 환경변수로만 입력하고 token/weight를 Git에 올리지 않는 계약을 적용했다. Vercel 정적 프런트는 `MALLO_API_BASE_URL` HTTPS Gateway를 `web/api-url.js`로 결합; `sessionStorage` UUID 기반 **세션별 Cart/Conversation/TTS state**, 요청 ID tracing 및 lock으로 같은 세션 내 변경을 순차화했다. 브라우저 Web mic→실 STT/NLU/TTS 외부 접속과 **다중 세션 분리**를 **당시 production 경로에서 실제 검증한 기록**이 있고, frontend/focused gateway·launcher/session 로컬 테스트·Python compileall/JS syntax/`git diff --check` 통과를 명시했다. GitHub Actions는 사용량 한도 소진으로 **CI 녹색이라고 주장하지 않는다**. [README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md)는 배포 주소 `https://mallo-kiosk.vercel.app/`를 표기한다.
+   - **기준 아키텍처는 실제 Flask/FastAPI가 아님:** `src/app/server.py`의 `MalloServerApp`, `SessionManager`, `BaseHTTPRequestHandler`, **`ThreadingHTTPServer` 기반 HTTP gateway**이며, 이전 `experiences/mallo.md`의 '**FastAPI gateway**' 표기는 **잘못된 프레임워크 귀속으로 수정**한다. `src/app/launcher.py`의 현 코드에는 `HOST=127.0.0.1`, gateway=8000·stt=8001·nlu=8002·tts=8003과 subprocess 관리가 있다. **`scripts/run_mallo_server.py`는 현재 338바이트의 wrapper이고 실제 실행 로직은 `src/app/launcher.py`**에 있다. [Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md)은 STT=Train65 BF16·NLU=Qwen0.6B BF16·TTS=G_2800과 loopback 규칙을 정한다.
+5. **결과:** 독립 모델들이 충돌 없이 공존하도록 **4개 상주 프로세스·2개의 패키지 가상환경·Gateway 단일 진입점**을 갖춘 GPU 음성 주문 런타임과 정적 Vercel UI의 **HTTPS/Named Tunnel 연결 경로를 배포**했다. 사용자는 브라우저별 세션으로 STT→NLU→Order Engine→TTS를 호출하며, 앱은 sidecar 준비/워밍업 확인 후 서비스를 제공하고 세션별 주문 상태가 섞이지 않게 운영하도록 설계됐다. #215에 **실제 외부 통합/다중 세션 수동 검증과 로컬 테스트** 기록은 있으나, 이번 점검에서 사이트의 현재 실시간 온라인 상태를 보증한 것은 아니다. 지연 성능은 별도로 [PR #222](https://github.com/aihuman-7th/proj1-d/pull/222)에서 **최종 Real Warm 50 Turn p95 3.338초, 30/50건 1.5초 초과**로 Requirement 미달이므로 **배포 성공=성능 요구 충족**이라고 쓸 수 없다.
+
+### 아키텍처·검증 경계
+
+| 구분 | 실제 최종 구현/소유권 | 과장 금지 |
+| --- | --- | --- |
+| Sidecar 선행 | 윤태현 #204의 STT HTTP adapter·Windows cuDNN 회피 / #165 WebM decoder | #204를 독립 main merge라고 쓰지 않음, 팀원 작성 코드를 개인 직접 작성으로 이전 금지 |
+| NLU 프로세스 | 김재훈 #209: 별도 Python 3.11.9·Transformers 5.15.0·CUDA12.8; PEFT 없는 merged BF16 smoke | Focused 124건 guard 정확도는 MA-07, 여기서는 호환/프로세스/계약 검증 |
+| Runtime 프로세스 | `.venvs/runtime`의 Gateway+Whisper STT+MeloTTS **세 개 별도 프로세스**·Transformers4.27.4 | 세 모델 각각 별도 venv라고 쓰지 않음, 프로세스/패키지 환경 구분 |
+| Gateway | `BaseHTTPRequestHandler` / `ThreadingHTTPServer`·SessionManager·HTTP proxy·warmup | **FastAPI/Flask 아님**, Kubernetes/Docker orchestration 아님 |
+| 외부 공개 | 김재훈 #215: Vercel HTTPS UI→Cloudflare Named Tunnel→local Gateway, 8001~3 loopback | 모델을 Vercel에 호스팅하거나 내부 STT/NLU/TTS 포트 직접 외부 공개한 것이 아님 |
+| 운영 검증 | #215 당시 실제 외부 요청·세션 분리·warmup/health, local focused test | CI quota로 Actions 실패, 무중단/SLA·상시 가동·사업자 클라우드 GPU 배포 미검증 |
+| 최종 성능 | MA-10 #222 Real 50 Turn warm p95 **3.338초** | 1.2초 Target·1.5초 Requirement **미달**. Sidecar 구축으로 E2E 목표를 달성했다는 주장 금지 |
+
+### MA-06~MA-11에서 같은 PR이 재등장할 때
+
+- **MA-06**은 **STT 모델 선택** Train65·Clean/Cafe Accuracy, **MA-07**은 **Qwen NLU 0.6B/guard 모델 평가와 안전 계약**, **MA-09**는 그 모델을 결합하는 **실행 환경·프로세스 관리·외부 서빙**이라는 서로 다른 결과로 분리한다.
+- **MA-08**의 브라우저 세션 ID·Cart의 빠른 터치 경합은 **프런트 상태**, MA-09의 `SessionManager`/lock은 **서버의 서로 다른 세션 분리 및 동시 요청 직렬화**이다. 같은 #215/#225에 걸쳐도 독립 레이어 기여를 구분한다.
+- **MA-10** 최종 E2E latency / #222는 **성능 평가**이며 배포 성공 자체의 성과로 가져오지 않는다. **MA-11**의 WebM/Opus·VAD·TTS 재생 QA는 문제 재현/복구를 다룬다.
+- **첫 통합 실험과 최종 production 분리:** 팀 #204은 RTX4060Ti·Mock NLU **0.61초** 조건, 개인 #215는 RTX5070Ti·실 Qwen sidecar/Named Tunnel의 외부 배포 경로. Mock 0.61초를 최종 production Real E2E 성능이라고 하지 않는다.
+- **현재 서비스 상태를 모름:** 실 URL은 README와 #215 작성 당시 배포 기록으로만 인용한다. 지금 켜져 있는지, Named Tunnel token이 여전히 활성인지, Vercel production과 Gateway의 외부 health가 오늘 준비됐는지는 **이번 GitHub 증거 조회만으로 단정하지 않는다**.
+
+원본: [팀 STT sidecar #204](https://github.com/aihuman-7th/proj1-d/pull/204) · [팀 브라우저 디코딩 #165](https://github.com/aihuman-7th/proj1-d/pull/165) · [개인 NLU 격리 #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [개인 런타임 수정 #212](https://github.com/aihuman-7th/proj1-d/pull/212) · [개인 통합·배포 #215](https://github.com/aihuman-7th/proj1-d/pull/215) · [Multi-service Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md) · [서버](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/server.py) · [런처](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/launcher.py) · [Python 환경 규칙](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/python-environment.md) · [최종 Real E2E #222](https://github.com/aihuman-7th/proj1-d/pull/222).
+
+---
+
+## 3-10. MA-10 — 실제 브라우저 음성 주문 Warm 50턴/Cold 3회 재계측과 지연 병목 판정 (2026-10-23 검증 완료)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로는 실제 Whisper Train65 STT·Qwen3-0.6B/RuleFirst NLU·Order Engine·MeloTTS G_2800·Vercel/Cloudflare 브라우저 배포까지 구현했다(MA-09). 원래 서비스 요구는 **발화 종료부터 최초 음성 재생까지 Warm E2E p95 Target ≤1.2초 / Requirement ≤1.5초**, 그리고 50턴 중 1.5초 초과 최대 2턴·처리 실패 0건이다.
+2. **문제:** 이전 **p95 312.2ms (실 STT/NLU + MockTTS)** 및 **FasterWhisper+MockNLU/G_3600 36회 p95 368.7ms**는 실제 mic/VAD·브라우저 Audio.onplay·실제 Qwen/G_2800을 모두 충족한 최종 E2E가 아니다. MockNLU를 사용하고 TTS 완료 시각을 실제 재생 시작으로 취급했던 계측 도구는 팀원 [#183](https://github.com/aihuman-7th/proj1-d/pull/183)에서 **MOCK_E2E 재분류**·최종 requirement 판정 금지로 정정됐다. 초기 최종 50턴 진단에서는 같은 Cart Session을 재사용해 주문 상태가 누적되는 **측정 오염**도 발견됐다. 전체 지연과 NLU fallback·STT·TTS·HTTP의 비중을 혼동해서는 최적화 우선순위를 알 수 없다.
+3. **판단:** **REAL_E2E=Chromium MediaRecorder/WebAudio/VAD의 vad-speech-end → 실제 HTML5 Audio.onplay**, 실 STT/NLU/Order/TTS를 통과한 요청만으로 정의한다. 모델·프로세스는 Warm 상주하고 처음 3개 warm-up 턴은 제외, Cold Start 3회는 별도 계측한다. 매 측정 Turn에 **고유 X-Mallo-Session-ID·/api/reset·fulfillment 초기화**를 적용하고 옵션 변경 시나리오의 초기 아이스 아메리카노는 **비측정 precondition**으로 준비한다. 원래 **10문장×5회** 계약을 유지하려 했지만 제출 실험은 Showcase 고정 음원 **5종×10회**이므로 변경을 **protocol deviation**으로 공개하고, threshold/p95 정의는 소급 수정하지 않는다. 합산/median은 원시 CSV와 **nearest-rank p95**로 재검증하며, **음성 재생 실패·단일 Turn 주문/과제 실패·성능 목표 미달을 분리**한다.
+4. **조치:**
+   - **개인 프로토콜 [PR #75](https://github.com/aihuman-7th/proj1-d/pull/75):** 메뉴 탐색·주문·수정·어조·결제 5대 과제, Touch/FixedTTS/AdaptiveVoice 비교군, TCR/TCT/ERR/E2E/SUS/MOS 지표와 세션 JSON 로그 스키마를 설계했다. 테스트 전체 390 passed/3 skipped는 **계약·로그·평가 도구 검증**이지 실제 참가자 연구 완료가 아니다.
+   - **개인 측정 기준 [PR #122](https://github.com/aihuman-7th/proj1-d/pull/122):** 10×5 Warm50, warm-up 제외, Cold3, 실제 input_end→first_audio_start, nearest-rank p95, threshold 1.2/1.5초 계약을 문서화하고 과거 36회를 최종 판정에서 제외했다. 후속 윤태현 작성 [#183](https://github.com/aihuman-7th/proj1-d/pull/183)·[#185](https://github.com/aihuman-7th/proj1-d/pull/185)의 Mock 계측 재분류는 **팀원 구현**이고 #183은 개별 merged=false이다.
+   - **최종 Real evidence [개인 PR #222](https://github.com/aihuman-7th/proj1-d/pull/222), 측정일 2026-08-28:** RTX5070Ti 16GB·WSL2 Ubuntu24.04.4·CUDA12.8·Python3.11.9, Chromium152, Train65 BF16·Qwen0.6B+RuleFirst·Melo G_2800의 실제 서비스 경로를 검증했다. 최초 세션 누적 오염 진단 run을 폐기하고 **Turn별 세션 격리**한 Warm 50행·Cold 3행 CSV를 커밋했다. **VAD→HTML Audio.onplay**, 5개 고정 STT Showcase 음원×10회 반복, warm-up3 제외, Cold3 분리, stt-04 옵션 변경용 장바구니 precondition을 적용했다. 원본 JSON SHA와 Stage별 trace·실패 사유·Spec의 **10×5→5×10 프로토콜 변경**을 기록했다. #222는 **모델/서비스 코드를 바꾸지 않고 측정 결과·최종 판정 근거만 추가**하는 PR이다.
+   - **이번 경험 검증에서 공개 raw 재집계:** 저장소의 [Warm 50턴 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-warm-50-turns-isolated.csv) 50행과 [Cold3 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-cold-start-3-runs.csv) 3행에서 숫자를 재계산했다. Warm **mean 1915.6ms·median 2166.5ms·p95 3338ms(ceil(50×0.95)=48번째 값)·max 3448ms·1.5초 초과 30건**, playback 50/50·order/task 20/50이 #222 기록과 일치한다. Cold 8804/7274/7035ms, 평균 **7704.3ms**. **새로운 GPU E2E 실험을 2026-10-23 재실행했다고 쓰지 않고, 기존 원시 기록을 독립적으로 재집계한 검증**으로 구분한다.
+5. **결과:** **최종 Real Warm p95 3.338초·50턴 중 30턴이 1.5초 초과·Playback Failure 0·Order/Task Failure 30**으로 원래 Requirement에 **미달**했음을 숨기지 않고 보고했다. **RuleFirst 20턴 p95 967ms(mean 729.1ms)는 Target 충족**, **Qwen fallback 30턴 p95 3386ms(mean 2706.5ms)는 Requirement 미달**로 tail latency 원인을 구분했다. 전체 50턴의 **Interpret HTTP roundtrip mean 1397.2ms/p95 2641ms**, STT roundtrip mean **495.1ms/p95 693ms**, Interpret 응답→실제 Audio.onplay **20.5ms/p95 32ms**여서 후속 우선순위는 Qwen 추론/interpret 경로 및 안전한 RuleFirst coverage 확장이었다. **Interpret 'network RTT'는 HTTP 전송 시간만이 아니라 서버 NLU 추론·처리까지 포함**하므로 네트워크 회선 자체가 1.397초를 유발했다고 쓰지 않는다.
+
+### 원시 CSV 재계산 요약
+
+| 항목 | 표본 | 평균 | 일반 Median | Nearest-rank p95 | 성능 판정 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Real Warm E2E | **50턴** | **1915.6ms** | **2166.5ms** | **3338ms** | **Requirement ≤1500ms 미달** |
+| RuleFirst | 20턴 | 729.1ms | 709.0ms | **967ms** | 해당 경로 Target ≤1200ms 달성 |
+| Qwen fallback | 30턴 | 2706.5ms | 2668.5ms | **3386ms** | Requirement 미달 |
+| Interpret HTTP RTT(서버 추론 포함) | 50턴 | 1397.2ms | 1695ms | **2641ms** | 구간 계측값 |
+| STT HTTP RTT(서버 추론 포함) | 50턴 | 495.1ms | 480ms | **693ms** | 구간 계측값 |
+| Interpret 후 Audio.onplay 준비 | 50턴 | 20.5ms | 17ms | **32ms** | 구간 계측값 |
+
+### 실패 원인·귀속·프로토콜 한계
+
+- **성능 실패와 기능/재생 실패 다름:** 샘플 stt-01(아이스 아메리카노 2잔)·stt-02(따뜻한 카페라떼 포장) 각 **10/10 Task 성공**. stt-03은 복수 메뉴의 미지정 온도를 **정상적으로 clarification**한 결과라 단일 Turn 주문 완료 기준 0/10; stt-04는 샷 추가 표현 '추가'를 옵션 변경 guard cue로 인정하지 않아 0/10; stt-05는 원음 '어... 아이스 카페라떼 두 잔 주세요'를 전부 **'아이스티 카페라떼 두 잔 주세요'로 STT 오인식**해 0/10이었다. 30건을 시스템 crash/재생 실패와 동일시하지 않는다.
+- **Cold 3회:** 8804/7274/7035ms는 순수 모델 추론시간이 아니라 **프로세스·sidecar 준비, CUDA context/model load 및 첫 요청/응답을 포함한 Raw startup-to-first-response**이다. production launcher의 사전 warmup을 거치는 일반 Warm path와 별개의 지표다.
+- **고정 음원 5개×10회:** 실제 Chromium/VAD/MediaRecorder/Audio.onplay 경계를 포함하지만 **50명의 고령 참가자가 매번 라이브 발화한 실험이 아니다**. 원 계약 10문장×5회보다 고유 발화 커버리지가 줄어든 프로토콜 차이를 명시한다.
+- **Mock·선행 36회:** 제한조건 312.2ms p95(Mock TTS)와 36회 368.7ms p95(Mock NLU)는 최종 3338ms와 provider/checkpoint/Audio.onplay 모집단이 다르므로 속도 개선/악화 인과율 계산 금지. Mock 재분류 팀원 PR #183을 내 코드 작성으로 귀속하지 않는다.
+- **완료는 계측·판정 완료:** #222 및 최종 티켓의 'COMPLETED / REQUIREMENT MISSED'는 실제 성능 달성이 아니라 **정량 검증 완료 및 실패 원인 공개**. 기능동결 이후 모델/코드를 바꿔 요구시간을 달성했다고 주장할 근거가 없다.
+- **실행 담당에 대한 증거 경계:** PR #222는 'nanocode00' 작성·원시 측정치/환경 문서화·최종 합격 여부 결정이 직접 확인된다. **실험 장비의 모든 수동 조작을 본인이 혼자 수행했다**는 주장은 PR metadata만으로 단정하지 않는다.
+- **직무 활용:** AI System/Backend는 세션 독립성·stage tracing·cold/warm·tail p95·NLU 경로별 병목, ML 평가에서는 Mock/Real 분리·측정 프로토콜 변경 기록·raw evidence/실패 원인 재현성에 초점.
+
+원본: [평가 계약 #75](https://github.com/aihuman-7th/proj1-d/pull/75) · [E2E spec #122](https://github.com/aihuman-7th/proj1-d/pull/122) · [팀 Mock 계측 교정 #183](https://github.com/aihuman-7th/proj1-d/pull/183) · [최종 Real 계측 #222](https://github.com/aihuman-7th/proj1-d/pull/222) · [E2E Latency Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/e2e-latency.md) · [최종 Evidence](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-final-real-e2e.md) · [Warm Raw CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-warm-50-turns-isolated.csv) · [Cold Raw CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-cold-start-3-runs.csv).
+
+---
+
+## 3-11. MA-11 — 실제 마이크 음성 주문 QA로 안전한 추가 문진·결제·재생·기록 계약 보강 (2026-10-23 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로의 Whisper STT·RuleFirst/Qwen NLU·Order Engine·MeloTTS와 Senior-first 화면을 실제 데스크톱/브라우저에 연결해 시연하고 있었다. Mock/단위 테스트가 정상이어도 **실제 마이크 발화의 동음이의·조사·머뭇거림·다회차 정정**, 사용자의 짧은 결제 표현, 실시간 TTS·마이크 lifecycle이 조합될 때 응답의 안전성과 사용성이 달라질 수 있었다. **8/26 P0 실마이크 QA(#213)**와 **8/30 기능동결 후 마지막 발화·서버 QA(#226)**를 구분한다.
+2. **문제:** 마이크에서 들어오는 음성은 **STT 오인식된 메뉴명(예: `케모마일티`), 메뉴 직후 조사 `도/는/은/을/를`, 수량 중복, 앞 발화 정정, 카테고리 질문 `차는 뭐가 있죠?`**처럼 정형 학습 문장과 다르다. Qwen fallback이 '아메리카노 두 잔'을 온도 누락 `ADD_ITEM`으로 반환할 때 **기존 pending 질문으로 수량·이용 방식·옵션을 넘기지 못하면** 뒤이어 '아이스로'라고 답해도 주문 맥락을 잃는다. 특히 **'결제'라는 단어만으로 `CONFIRM_ORDER`를 실행하면 사용자가 단순히 결제 방법을 묻는 발화까지 주문 확정**시킬 수 있다. 브라우저에서는 반복 TTS·느린 권한 승인·VAD 무음·짧은 STT 전사·화면 이탈이 서로 경합하며, 긴 장바구니 안내가 두 줄 이상 넘치거나 TTS 완료를 기다려 화면이 지연될 수 있었다.
+3. **판단:** 음성 모델을 전면 재학습하기보다 **실제 실패 발화를 재현 가능한 RuleFirst/입력 정규화·서버 계약 회귀로 흡수**하되, 애매할 때는 사용자에게 확인하고 Cart를 바꾸지 않는 결정을 우선한다. **강한 명시적 주문 확정 표현**(예: '결제할게요', '결제 진행할게요')과 **bare '결제'/결제 방법 질문**을 분리한다. Qwen fallback에도 **RuleFirst의 pending ADD/온도 추가 문진 state**를 적용해 후속 수량·온도·fulfillment를 잃지 않게 한다. 음성 클라이언트는 터치와 다른 경로에서 STT transcript→NLU를 단계적으로 보여주며, **마이크/녹음/TTS마다 lifecycle token·single-flight/cancel**로 오래된 응답을 폐기한다. **서버/STT/NLU semantic log, UI Response Bar와 TTS 원본**을 구분해 오류를 사후 추적한다.
+4. **조치:**
+   - **개인 [PR #213](https://github.com/aihuman-7th/proj1-d/pull/213), MERGED 8/26:** P0 실마이크/브라우저 QA에서 **터치 `/api/commands` 직접 실행 vs 음성 `/api/audio/stt`→`/api/audio/interpret`**를 구분하고, 음성 transcript를 NLU 처리 중 Voice Overlay에 미리 표시했다. **MeloTTS startup warm-up/ready 로그**, 매장·포장 응답 순차 TTS, 고정 온도 메뉴 안내, **repeat TTS single-flight·cancel·stale playback guard**, VAD/MediaRecorder lifecycle, STT sanity guard, 빈 Cart/결제 상태/음성 복구 안내를 보강했다. **로컬 Node frontend 7 passed·Python unit/integration 선택 28 passed**, **실브라우저 수동 확인**(터치 명령·Melo warm-up·순차 안내·repeat 취소·전사 표시 등)이 PR에 남았다. **프런트 입력 상태 머신 자체는 MA-08, Melo 실행 환경/준비는 MA-09**, 여기서는 **실 QA 재현→회귀 보강**의 사례로 귀속한다. 간헐적 TTS volume transient는 PR 시점 **재현 대기/추가 진단 항목**이었지 완전 해결 사례가 아니다.
+   - **개인 [PR #216](https://github.com/aihuman-7th/proj1-d/pull/216), MERGED 8/27:** **원샷 주문→PAYMENT** 및 매장/포장·온도·수량 자연어 처리/일부 온도 변경, 주문 확인 화면과 TTS 안내, 터치 수량/온도 변경의 상호작용을 기능동결 데모 기준으로 검증·정리했다. GitHub Actions는 **quota로 미실행**, 관련 Python/Node **로컬 회귀만 보고**했으며 PR 본문은 구체적 테스트 개수를 제시하지 않으므로 임의 개수를 만들지 않는다. 원샷 결제는 **UI의 가상 결제 상태로 진입**하는 것이지 실제 PG 결제 승인/정산 구현이 아니다.
+   - **개인 [PR #226](https://github.com/aihuman-7th/proj1-d/pull/226), MERGED 8/30:** 실제 마이크 QA로 발견된 표현을 **`RuleFirstNLU`, `input_normalizer`, `ConversationAgent`, `/api/audio/interpret`** 등 경계에 반영했다. `케모마일티` STT alias/조사, 자기정정·중복 수량·카테고리 질의·장바구니 전체 비우기, 기존 복수 HOT/ICED 메뉴에 대한 모호한 삭제의 안전 거부, **Qwen fallback missing temperature → RuleFirst pending으로 이전 order state(수량·옵션·fulfillment) 보존**, 명시적 `결제할게(요)`·`결제 진행할게(요)`만 `CONFIRM_ORDER`로 인정하는 gate를 강화했다. 카운터 없이 무조건 '결제'를 confirm으로 해석하지 않는다. 긴 Response Bar는 **실제 DOM 표시 폭·font size·weight를 기준으로 2줄 내 segment/final-fit**, 단일 어절도 폭 초과면 말줄임표 처리했다. STT/NLU Sidecar·Gateway에 **semantic application log** 및 `cloudflared` HTTP/2 transport 선택지를 보강했다. 의미/스키마/장바구니 회귀를 추가하고 과거 Qwen runtime 및 undo 테스트 기대값 중 **현 계약과 다르게 남은 것**을 교정했다.
+   - **#226 검증 등급 정확히 구분:** PR 본문에는 이전 작업 단계의 **RuleFirst/통합/HTTP 405 passed, TTS showcase 35 passed**가 있고, 마지막 QA 반영 시점에는 **관련 Python 306 passed (`test_rule_first_nlu.py`+`test_server_voice_command_payload.py`), frontend microphone lifecycle 42 passed, UI 2 passed**가 별도로 기록돼 있다. 각 수치는 실행 시점과 대상이 달라 **405+306+42+35 신규 테스트**로 합산하지 않는다. 일부 sandbox에서는 loopback socket 생성 권한 때문에 HTTP 6개가 **`PermissionError: [Errno 1] Operation not permitted`**였고, 정상 권한의 환경에서 306개 재실행 통과 기록이 있다. 이는 QA 제품 오류가 아니라 **테스트 실행 환경 제약**이었다. 실제 사용 조건·자동 테스트 범위를 혼동하지 않는다.
+5. **결과:** **정형 발화에서 놓쳤던 실제 STT/사용자 표현**을 테스트 가능한 명령/상태 변환으로 보완하고, Qwen missing-temperature 주문에서도 **수량·옵션·매장/포장 문맥을 보존하는 추가 문진**을 구현했다. 단순 '결제' 발화는 주문을 확정하지 않으며 **명시적 확정 의사**를 요구해 주문 상태 변경의 안전성을 높였다. 재생·마이크 권한·발화 표시 문제도 명시적 취소·stale result guard·Response Bar 폭 기준 분절로 회귀를 확보했고 **#226 관련 Python 306/Node microphone 42 및 UI 2 통과** 기록을 남겼다. 이는 **실사용 QA 발견 결함의 수정·테스트 결과**이며 **고령 사용자 과제 성공률의 향상/종단 간 p95 1.5초 달성**으로 주장하지 않는다.
+
+### 버전·남은 제약/기여 구분
+
+- **최종 Real E2E #222(8/28)보다 #226 QA 수정(8/30)이 나중임:** #222의 [Real 50턴](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-final-real-e2e.md)에서 stt-03 온도 미지정 추가 문진 / stt-04 `샷 추가` 옵션 변경 guard 누락 / stt-05 `아이스티 카페라떼` 오인식을 보였다. #226 후속 QA에서 **일부 해당 유형의 별칭·RuleFirst·pending·옵션 단서를 보완**했다고 기록할 수 있지만, 동일 Real 50턴을 다시 계측한 근거가 없으므로 **#222의 30/50 Task 미완료가 #226 이후 해결됐다고 수치화하지 않는다**. 특히 `아이스 카페라떼→아이스티 카페라떼` 같은 모든 STT 오인식을 근본 해결했다고 쓰지 않는다.
+- **자동 Listening 범위:** 시스템이 응답을 요구하고 Voice mode일 때 TTS 종료 후 자동 재청취를 구현한 상태지만, **PAYMENT 화면의 자동 재청취 프런트 로직은 #226 변경 범위에서 명시적으로 제외**됐다. 화면/상황과 무관하게 언제나 자동으로 듣는다고 표현 금지. 무음/VAD 오류·마이크 권한 실패 시 전송/재시작 정책은 별도 UI test 대상이다.
+- **컴포넌트 ownership:** STT의 Whisper 원학습과 NLU의 3천 데이터셋 원작성은 타 팀원(윤태현/류승민). #226의 `RuleFirst` 코딩/인터페이스·QA 결과를 개인 기여로 검증하지만, **기본 학습 모델 품질의 독자 개선**으로 쓰지 않는다. #213의 터치·음성 분리·시각/음성 생명주기는 MA-08, #226의 최신 쇼케이스 WAV/HTML 9개·영상/6화면 자산은 **MA-12**, TTS Level 지연은 **MA-05**, 사이드카/클라우드 포트 구조는 **MA-09**에서 주요 성과로 귀속한다.
+- **주문 안전 정책:** `bare 결제`·결제 방식 질의·온도 미확정 명령에는 Cart 무분별 변경 방지. 단, QA에서 전체 안전성의 완전한 입증, 취소 불가능한 실제 결제/환불 기능 개발, 항상 정확한 STT라는 주장은 하지 않는다.
+- **부재·미해결:** #213에는 간헐적 TTS transient 진단 보류, #226에는 PAYMENT automatic relisten 미포함. 최종 배포가 모든 기기/노인 사용자에게 장시간 무장애였다는 측정 없음.
+- **직무 활용:** Backend/AI System에는 **LLM fallback→결정론적 pending/Order Engine 연결, 안전 확정 gate·회귀, 장애 경계와 semantic log**, Frontend/HCI에는 **실마이크 UX·TTS cancel·stale callback·복구 안내**를 강조한다.
+
+원본: [실마이크 P0/Voice QA #213](https://github.com/aihuman-7th/proj1-d/pull/213) · [원샷·주문/화면 QA #216](https://github.com/aihuman-7th/proj1-d/pull/216) · [최종 발화·서버 QA #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [#226 병합 시점 RuleFirst](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/src/orchestrator/rule_first_nlu.py) · [#226 병합 시점 입력/확정 회귀](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/tests/unit/test_rule_first_nlu.py) · [#226 HTTP pending 온도 테스트](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/tests/unit/test_server_voice_command_payload.py) · [프런트 마이크 경계](https://github.com/aihuman-7th/proj1-d/blob/2d558624fa24994e9b15734e914aa7729192dee5/tests/frontend/microphone-lifecycle.test.js).
+
+---
+
+## 3-12. MA-12 — STT/TTS 오프라인 공개 산출물·라이선스 응답·모델 재배치·기능동결 인계 (2026-10-23 검증)
+
+### 상황 → 문제 → 판단 → 조치 → 결과
+
+1. **상황:** 말로의 세 모델 STT Train65 BF16·NLU Qwen3-0.6B BF16·TTS MeloTTS Friendly G_2800 및 Vercel 키오스크를 최종 발표/인계해야 했다. GPU/Cloudflare가 꺼져도 심사자가 **실제 음성·전사·응답·키오스크 화면**을 확인할 수 있는 정적 자료가 필요했고, 연구 때 사용한 AI Hub 데이터/학습 가중치와 공개 가능한 결과를 분리해야 했다.
+2. **문제:** 대용량 원천 데이터·모델·중복 체크포인트가 로컬 `src/`, `logs/`, 기타 디렉터리에 섞여 있었고, 유일한 최종 TTS 가중치 `G_2800.pth`가 정리 대상 `logs/` 밑에 있어 **실수로 삭제할 위험**이 있었다. 처음에는 `docs/repository-cleanup-audit.md`가 **조사·정리 계획일 뿐 삭제/이동 미수행** 상태였다. 모델 미로딩·실시간 Gateway 미가동 시 데모가 불가능하고, AI Hub 원본·라벨·재가공 오디오를 공개 저장소에 올리는 것도 허용되지 않았다. 기능동결 시 기존 `tasks.md`의 체크박스가 **실제 MVP 제외 범위·미실행 사용자 평가**와 불일치했다.
+3. **판단:** **모델 3종의 canonical path+SHA256 보존→호환 경로와 가상환경을 검증한 뒤 legacy 정리**, source/runtime vs training/eval/showcase 분리를 우선한다. 공개 쇼케이스는 **서버/API 없이 상대 경로만 사용하는 HTML·WAV·JSON**, STT는 **직접 녹음한 대표 5건**, TTS는 **프로젝트 자체 문장을 Melo Base/G_2800 같은 정규화로 합성한 3문장×2모델=6건 + Adaptive 3문장×3 Level=9건(총 15건)**으로 구성한다. 데이터 71349 사용 범위는 **AI Hub 공식 1:1 답변**을 받아 원본/재가공 데이터 미공개·결과/필수 출처 표시를 적용한다. 기능동결은 '**NOT PLANNED**와 '**테스트 미실행**'을 분리하고 성능 실패를 지우지 않는다.
+4. **조치:**
+   - **개인 [PR #217](https://github.com/aihuman-7th/proj1-d/pull/217), 8/28:** 저장소를 `src` runtime / `scripts/{data,train,models,eval,showcase,runtime}` / `tests` / `data` / `artifacts`로 구분하고 requirements runtime/nlu/dev/train/lock·`.venvs/runtime`/`.venvs/nlu`/`.venvs/dev`를 정리했다. [사전 자산 실사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md)는 STT 쪽 source 아래 197GB 및 TTS `logs/G_2800` 위험·중복 모델을 파악했고, **본 실사에서 삭제/이동은 수행하지 않았다**. 이어 [마이그레이션 실행 기록](https://github.com/aihuman-7th/proj1-d/blob/main/docs/cleanup-migration-log.md)은 STT **1.52GB** `models/stt/final-train65-merged-bf16`, NLU **1.19GB** `models/nlu/final-qwen06b-merged-bf16`, TTS **595MB + 4.1KB config** `models/tts/mallo-friendly/`로 **SHA256 일치 이동**을 기록한다. AIHub STT/TTS 원본은 **`data/{stt,tts}/raw`에 Git 미추적·원본 내부 보존**(전면 삭제 X), 쓸모없는 legacy 중복만 검증 후 일부 삭제/정리했다. canonical 경로의 smoke·compile·shell syntax·frontend **153/153**, NLU/환경/showcase 관련 Python **62/62**, broken symlink 0 기록. 모델 자체를 public Git에 올린 것이 아니며 디스크 절감량 전체를 코드 커밋 크기로 계산하지 않는다.
+   - **개인 링크/출처 [PR #219](https://github.com/aihuman-7th/proj1-d/pull/219):** 4개 링크 **Vercel production** `https://mallo-kiosk.vercel.app/`, **Intro** `https://nanocode00.github.io/mallo-intro/`, **STT** `https://nanocode00.github.io/stt_showcase/`, **TTS** `https://nanocode00.github.io/tts_showcase/`를 README에 명시하고 AI Hub 노인 자유대화(107)·중노년층 방언(71517)·감성/발화스타일 TTS(71349) 및 팀 자체 NLU 3,000문장 출처를 정리했다. 이것은 **작성 당시 공개 링크 기록**이고 이번 조사에서 현재 가동 여부를 live 검증하지 않았다.
+   - **라이선스 문의·정량 문서 개인 [PR #220](https://github.com/aihuman-7th/proj1-d/pull/220):** [T-29 AI Hub 문의](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md)를 **8/27 20:21 접수→8/28 09:04:31 답변 수신**으로 완료. AI Hub 안내 요약에 따라 **AI Hub 원천·라벨·재가공 데이터의 외부 재배포 불가**, fine-tuned AI 모델/직접 생성한 합성 음성은 조건 준수 범위 내 활용 가능, 공개 웹은 **데이터명과 'AI 허브' 표기**를 유지, 샘플 건수/길이에 일률적 한도 없음을 명시했다. 답변은 계정 소유자의 **비공개 1:1 문의**로 원문 전문은 Git에 없으므로 요약/판정 기록까지만 증거로 다룬다. 동일 PR의 E-09 발표용 STT/NLU/TTS/E2E 정량 수치는 **각각 서로 다른 장치·dataset·모델 시점·후처리 경계**가 있으며 '고령자 만족도 향상' 연구 결과가 아니다.
+   - **개인 최종 범위 [PR #221](https://github.com/aihuman-7th/proj1-d/pull/221):** `docs/prd.md`, `docs/tasks.md`, `docs/final-ticket-reconciliation.md`에서 **Size 음성 주문/수정(N-23), backend payment_status(O-12), 개별 주문 Pending Confirmation(O-17), 새 STT 재학습 체인**을 `NOT PLANNED`로 종료했다. **ORDER_REVIEW 단계 명시 확인·가상 결제 UI**는 지원 범위이나 실제 PG·취소/환불 엔진이 아니다. **I-08은 실제 E2E 계측 완료/성능 Requirement 미달**, E-05 파일럿·E-06 최종 사용자 평가·E-07 사용자 결과 분석·T-24/30 외부 음성 품질/이해도는 완료 근거 없이 OPEN 유지했다.
+   - **개인 최종 정적 쇼케이스 [PR #224](https://github.com/aihuman-7th/proj1-d/pull/224):** `artifacts/intro/`에 고객/평가자용 정적 HTML·실 UI 6화면·시연 영상, `artifacts/showcase/stt/`에 **프로젝트에서 직접 녹음한 16kHz mono 5 WAV + `results.json`(reference/transcript/comparison/CPU replay inference metadata)**, `artifacts/showcase/tts/`에 **Melo baseline vs G_2800 3쌍 6 WAV + Level 0/1/2 세 문장 9 WAV = 15 WAV**와 HTML/JSON을 만들었다. Source vs 공개 snapshot의 SHA256, 상대 asset 경로, 100MB 넘는 개별 파일 없음, 정적 총 용량 약 **12.1MB**를 검증했다. STT 5건은 **대표 데모 샘플**이며 전체 506문장 domain evaluation의 CER/Recall과 별개. CPU `inference_ms`는 시연 생성 당시 값으로 GPU STT benchmark에 혼합 금지.
+   - **개인 출시 직전 변경 [PR #226](https://github.com/aihuman-7th/proj1-d/pull/226), 8/30:** 쇼케이스 Adaptive WAV **9개**를 현재 생산 정책 **L0 1.0×/gap0ms, L1 0.85×/280ms, L2 0.75×/480ms**에 맞춰 다시 생성하고 실제 `AdaptiveResponseRealizer`·생성 chunk·수사 정규화·silence 삽입·HTML `results.json` 정합을 검증했다(관련 **35 tests**). **기존 base vs G_2800 6 WAV는 수정하지 않음**. 소개페이지의 화면 캡처 6종(원본 비율 **488×869 WebP**), 1080p 시연 영상, TTS Level 3종 쇼케이스를 최신화했다. 이 과정에서 TTS 모델을 새로 재학습하거나 STT 5개 모델 accuracy를 높였다는 주장은 하지 않는다.
+   - **팀원 작성과 구분:** 기존 별도 `web/intro2/`의 일반 사용자용 소개페이지 최초 코드는 **윤태현 [PR #210](https://github.com/aihuman-7th/proj1-d/pull/210)** 작성. 개인 #217/#224의 **최종 정적 intro 스냅샷 정리·배포 링크/동기화**와 구분하고 `intro2`의 첫 프런트 디자인을 내 단독 구현으로 주장하지 않는다.
+5. **결과:** 백엔드/GPU 없는 환경에서도 **음성을 재생하고 전사·합성 결과를 대조할 수 있는 STT 5건·TTS 15건 정적 쇼케이스**와 6화면/시연영상 소개페이지를 확보했다. 최종 모델 3종을 **SHA 확인 후 canonical path**에 보존하고 Python·프런트엔드·경로·ignore/lock을 정리해 재현/인계시 실수로 최종 체크포인트를 지우는 위험을 줄였다. AI Hub 문의에 근거해 **원본·라벨·재가공 데이터 비공개 + 자체 합성 결과/코드와 출처 고지 중심 공개 조건**을 마련했고, 기능동결의 제외 항목·검증 미실행 항목을 구별했다. PR #217 테스트 **frontend 153/153·관련 Python 62/62**, PR #224 **5+15 WAV·약 12.1MB**는 서로 다른 제출 검증이다. **실제 사용자 E-05~07 및 T-24/T-30은 당시 완료되지 않았고**, 8/28 Real E2E **Warm p95 3.338초 Requirement 미달** 또한 프로젝트 완료 후 사라지는 수치가 아니다.
+
+### 공개와 평가의 원칙
+
+- **AI Hub 권리 문서:** [T-29 문의 기록](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md)의 `ALLOWED/CONDITIONAL`은 **원본·재가공 데이터 노출 금지/출처 표시 등 조건을 수반**한다. **모든 AI Hub 자료나 임의 공개 모델 파일을 무제한 재배포할 권리**라는 뜻은 아니며, 비공개 원문·개인 계정 정보도 Git에 없음.
+- **STT 공개 음원 화자:** [#224](https://github.com/aihuman-7th/proj1-d/pull/224)는 고령 화자라고 할 근거가 없는 직접 녹음 5건을 **'실제 노인 목소리'라고 부르지 않도록** 텍스트를 수정했다. 고령자 전반 STT 인식률/평가를 이 5개 시연으로 입증하지 않는다.
+- **쇼케이스 분모:** TTS WAV 총 **15 = 6(3개 예문×Base/G_2800)+9(3개 예문×L0/L1/L2)**. 초기/후기 Level WAV 정규화 정책과 `G_2000` 4후보 20문장 GPU TTS 벤치마크는 **서로 다른 평가**. 쇼케이스 `results.json`에는 모델 지연·sample rate가 있으나 **cold load가 섞일 수 있어 서비스 평균 latency의 근거로 합산하지 않는다**.
+- **STT 평가 분모:** 쇼케이스 `artifacts/showcase/stt/data/results.json`는 **5행**이며 본체 `docs/final-quantitative-results.md`의 STT 도메인 **506문장/최종 CER 0.1131**과 다른 시점·조건. 쇼케이스 README의 **CER 0.1095, 메뉴 Recall 89.13%** 또한 다른 집계 조건/버전 가능성이 있어 서로 '최종 정답'으로 비교하지 않는다; **MA-06 Train65 Clean/Cafe 결과를 별도로 유지**한다.
+- **사용자 평가의 결정적 결론:** 기획용 [초기 60대 탐색 설문](https://github.com/aihuman-7th/proj1-d/blob/main/docs/survey-pipeline-update.md) **13명**은 확실하나, 최종 [기능동결 정합화 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)와 [발표용 정량 보고서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md)는 **E-05·E-06·E-07 실제 참가자 평가 미수행**, T-24·T-30도 OPEN이라고 명시한다. 기존 `experiences/mallo.md`에 있던 **최종 n=13·만족 92.3%**에는 이와 양립하는 참가자별 결과·실행 기록 근거가 없으므로 **채용용 확정 수치에서 제외한다.** 13명 설문과 13명 최종 만족도를 서로 다른 cohort라고 설명하는 것도 **존재가 증명되지 않은 두 번째 시험을 전제**하므로 금지한다.
+- **범위 제외의 언어:** `NOT PLANNED` Size 음성·PG payment/backend status·Pending Confirmation은 실제 구현 성과로 기재하지 않는다. 보존한 주문 최종 확인(ORDER_REVIEW)과 가상 완료 UI는 별도.
+- **자료 유지 상태:** 8/27 사전 감사는 삭제·이동 미실행 **계획**이고 같은 날짜 [Migration Log](https://github.com/aihuman-7th/proj1-d/blob/main/docs/cleanup-migration-log.md)는 **뒤이어 이동·중복 삭제/검증한 별도 실행 기록**이다. 원본 대규모 AI Hub 데이터는 삭제했다고 주장하지 않고 **Git 미추적 로컬 원본 보존**으로 표현한다.
+- **직무 활용:** AI System/MLOps는 **세 모델 SHA·canonical runtime path·환경 lock/health/smoke·릴리스 범위 정합성**, Backend/Documentation은 **요구사항/티켓/평가 분모 정직한 봉인**, Developer Advocacy/HCI는 **백엔드 없이 재생 가능한 음성/전사/화면·영상 proof**로 활용한다.
+
+원본: [Repo cleanup #217](https://github.com/aihuman-7th/proj1-d/pull/217) · [README 출처 #219](https://github.com/aihuman-7th/proj1-d/pull/219) · [AI Hub/정량 #220](https://github.com/aihuman-7th/proj1-d/pull/220) · [기능동결 #221](https://github.com/aihuman-7th/proj1-d/pull/221) · [정적 산출물 #224](https://github.com/aihuman-7th/proj1-d/pull/224) · [최신 청음/6화면 #226](https://github.com/aihuman-7th/proj1-d/pull/226) · [팀 Intro2 #210](https://github.com/aihuman-7th/proj1-d/pull/210) · [실사](https://github.com/aihuman-7th/proj1-d/blob/main/docs/repository-cleanup-audit.md) · [마이그레이션](https://github.com/aihuman-7th/proj1-d/blob/main/docs/cleanup-migration-log.md) · [AI Hub 문의](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md) · [사용자 평가 미실행](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md).
+
+---
+
+## 4. 최종 교차감사 — 개인/팀 기여·측정 범위·진위 (2026-10-23)
+
+### 4-1. 12개 작업군 중복·주도/협업 판정
+
+| 작업군 | 개인 기여로 증명된 고유 성과 | 팀/후속 중복·검증 한계 |
+| --- | --- | --- |
+| **MA-01** | PR #83 설문 근거 제품 우선순위·PRD 정합화 | 13명 직접 전원 인터뷰 주장 금지; **외부 최종 평가 미수행** |
+| **MA-02** | PR #23 `OrderCommand[]` 계약 **문서**, #55 초기 6개 주문 관리 Intent 코드 | #23은 런타임 Validator 구현 아님, 초기 변경/삭제 혼합 Batch 전체 지원 아님 |
+| **MA-03** | PR #68 mock E2E·실패 계약, #69 실제 Melo/Qwen 어댑터 | #68 MockSTT/NLU/TTS 정확도·GPU 음성 품질 근거 아님 |
+| **MA-04** | #33/#63/#71 동일 20문장 모델 평가·학습 기록, #152 G_2800 선정 | **G_2000 vs G_2800 vs G_3600**, CPU/GPU 분리; 사용자 청음 블라인드 미완료 |
+| **MA-05** | #97/#116 발화 수사/Level 차별화, #150 G_3600 Level0/1 지연 200회 | Level2 latency 실측 없음, 사용자 이해도 개선 통계 없음 |
+| **MA-06** | 개인 후반 Golden-500 17회/32후보 검토 **대화·로컬 기록**, #214 Train65 기본 전환, #218 평가 호환 | **윤태현 초기 STT split·QLoRA·ONNX와 분리**. 17회 raw Git 전체 미확인 |
+| **MA-07** | 개인 0.6B sweep/target-env #209 및 guard/production #214 | **류승민 3,000행/1.7B 학습·Test, 윤태현 #205 통합**, 124건은 guard 포함. 초기 38 vs 후속 38 모집단·파이프라인 다름 |
+| **MA-08** | 개인 #54/#159~164/#136/#137 9:16 UI, #213/#225 client lifecycle·Cart race | **윤태현 #103 초기 확인/결제 서버·#165 WebM/Opus fallback**은 개인 구현으로 전용 금지 |
+| **MA-09** | 개인 #209 NLU 격리·#212 환경·#215 통합/외부 배포 | **윤태현 #204 초기 STT sidecar**, Gateway는 FastAPI 아님. **4 process/2 venv** |
+| **MA-10** | #75 평가 틀, #122 기준, #222 50턴 Raw 결과/판정 문서 | **윤태현 #183 Mock 재분류**. 최종 Real p95 3338ms·미완료30/50, 5종×10회 deviation; 코드 최적화 완료 아님 |
+| **MA-11** | #213/#216 실마이크/원샷 QA, #226 안전 주문/서버 회귀 | #222 측정(8/28) **이후** #226(8/30). 변경 후 동등 Real50 재검증 없음 |
+| **MA-12** | #217 canonical 모델 SHA/저장소 정리, #219~221 범위·라이선스·정량, #224·#226 정적 쇼케이스 | **윤태현 #210 intro2 최초 코드**, STT5/TTS15/6화면은 제품 성능·참가자 테스트 아님 |
+
+### 4-2. 교정된 수치 및 증거 등급
+
+1. **사용자 만족도 삭제:** 증빙 가능한 것은 8/19의 **60~69세 탐색 설문 n=13**뿐이다. [최종 정합화](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)에 **E-05~E-07 실제 참가자 평가 미실행**이 명시됐다. 기존 '최종 만족 92.3%/n=13'은 출처와 모순돼 확정 성과에서 **제외**. 실제 참가자 user study를 새로 실행했다고 보고하지 않는다.
+2. **STT 평가 구분:** [최종 발표](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md)의 팀 domain STT **CER 0.1131/WER 0.3352/메뉴 Recall 89.5%**, [STT Showcase](https://github.com/aihuman-7th/proj1-d/blob/main/artifacts/showcase/stt/README.md)의 **CER 0.1095/메뉴 Recall 89.13%**, 개인 Train65 Clean **CER 0.1357**, Cafe5 **CER 0.2057**은 서로 다른 모델 평가 경계·문서 버전·입력 구성이다. 동일한 최종 성능/개인 향상률로 합산 금지.
+3. **NLU 평가 구분:** **1.7B 공식 Test 300건 Exact 88.67%/Error code70%(팀원)**, **0.6B Focused 124건 Intent100%/Slot96.78%/Exact63.71%(Guard 포함)**, **38건 RuleFirst+Guard 38/38**, **0.6B 목표 환경 p95 1610ms**는 서로 다른 테스트·후처리/서비스 조건이다. 0.6B raw 모델 단독 100% 또는 종단 E2E p95 1.2초 충족이라 쓰지 않는다.
+4. **TTS 지표 구분:** PoC **G_2000 204.1ms**, 사용성 후보 **G_2800 195.1ms 별도 20문장**, Level policy 비용 **G_3600 L0 169.4ms/L1 210.1ms**, 다른 생산 benchmark **0.38초/p95 0.53초**는 체크포인트·목적이 달라 실측 개선율로 연결 불가. 44.1kHz는 샘플레이트/품질 개선율 아님. **Static showcase results.json 첫 음성 cold-load 결과는 통제된 GPU latency 아님**.
+5. **최종 E2E 진위:** Mock/제한 312.2ms를 최초 재생 E2E로 주장하지 않는다. 최종 **Real Warm50 p95 3.338초·1.5초 초과 30건/Task20건 성공**, **Cold3 평균 7.704초**. RuleFirst 20턴 p95 0.967초는 **해당 경로에 한한 성공**, Qwen fallback 30턴 p95 3.386초는 **요구 미달**. Interpret RTT=서버 추론/처리 포함. #226 이후 같은 50턴 재측정 미확인.
+6. **표본/대응 구분:** STT 대표 녹음 5개는 **직접 녹음 샘플**, 고령 사용자 음성이란 근거가 없고 50턴 Real E2E 역시 **그 고정 음원 5종 반복**이다. TTS WAV 15개는 **6 모델 비교 + 9 Level 비교**, 사용자 음성 MOS/Blind A/B 15명 아님.
+7. **릴리스/배포:** 브라우저 static Vercel→Cloudflare Named Tunnel→로컬 Python `ThreadingHTTPServer` Gateway, Sidecar **8001~8003 loopback**, runtime/NLU 별도 venv. 모델 3종 weight는 Git 공개 파일이 아니며 source/평가 코드와 별개. 클라우드에서 상시 GPU 운영/SLA를 주장하지 않는다.
+8. **데이터 라이선스:** [AI Hub 비공개 문의 결과 공개 요약](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md)의 **원천/라벨/재가공 외부 공유 금지**, 프로젝트 자체 작성 문장 합성 음성 활용·출처 표시 **조건부** 허용. AI Hub 전체 자료 자유 재배포 증거가 아니다.
+9. **기능동결:** Size 음성, 개별 주문 Pending Confirmation, PG/backend payment_status는 `NOT PLANNED`. ORDER_REVIEW/가상 완료 화면만 구현. 후반 자동 TTS 감속은 성공적으로 이해된 4턴 중 명시적 clarification 요청 2회 규칙이며 연령 추정/침묵 기반 아님.
+10. **증거 위계:** (A) Git 원본 PR+병합 시점 코드+원시 CSV/JSON, (B) 당시 PR worklog·실험 요약, (C) 이전 대화의 로컬 개인 학습/수동 UI 점검 기록으로 구분. **A 수준에서 미확인된 QLoRA 17회·Qwen 재학습/15 sweep**은 로컬 기록이라고 표시하고, 독립 비교/재현이 끝난 것처럼 홍보하지 않는다. 테스트 **70/297/306/509/547/153/62/475** 등은 당시 각 PR **저장소 전체 또는 특정 범위 통과 건수**이지 개발자가 새로 쓴 테스트 수를 더한 값이 아니다.
+
+### 4-3. 채용용 5선 — AI 시스템/백엔드 관점
+
+| 순위 | 사례(교차감사 근거) | 면접에서 설명할 고유 판단 |
+| ---: | --- | --- |
+| 1 | **MA-02 OrderCommand/Cart SSOT** | LLM 의미 파싱과 실제 금액/주문 상태 변경의 책임 분리, rollback/유효성/초기 모호성 미완성까지 설명 |
+| 2 | **MA-07 Qwen0.6B·Guard NLU 서비스 선정** | 높은 Test Exact보다 실제 주문 계약·오류율·속도/sidecar 안정성 중시, Focused/Target/Live 평가 분리 |
+| 3 | **MA-09 Multi-process inference 배포** | Transformers 충돌과 Windows cuDNN 문제를 4-proc/2-venv HTTP architecture, readiness/warmup/세션 격리로 해결 |
+| 4 | **MA-10 Real E2E 병목 계측** | Mock→Real metric 교정, 세션 오염 제거, RuleFirst p95 0.967s vs Qwen 3.386s; 전체 p95 3.338s 실패 명시 |
+| 5 | **MA-04~05 TTS 모델/문장 정책 결정** | 같은 20문장 비교에서 Friendly +2.8% 합성 비용, 한자어/고유어 수사·L0~L2 정책, G_3600 Level 비용 별도 검증 |
+
+**보조 사례:** MA-08 비동기 Cart snapshot·마이크 epoch, MA-06 후반 STT 평가·Train65 서빙 선정, MA-11 실마이크 안전 회귀, MA-12 모델/라이선스/showcase 인계. AI/Backend 직무는 위 5선, HCI는 MA-01·MA-08, ML/MLOps는 MA-04·MA-06·MA-07·MA-12로 강조점을 변경한다.
+
+### 4-4. 미완료/검증 보류 항목 (추가 산출물 부재)
+
+- 외부 참가자 기반 E-05~07/T-24/T-30 사용자 평가·블라인드 TTS MOS: **미수행으로 명시**, 임의 수치 금지.
+- MA-06 후반 Golden-500 17회/32후보 로컬 원시 ledger, MA-07 1.7B 재평가·0.6B 15 sweep 완료 run: **대화/일부 자산 로그 기반**, 원시 Git 전체 미공개.
+- 배포 URL의 현재 온라인/Cloudflare token 상태, 실제 PG·추가 음성 Size/PendingConfirmation 동작, 수정 후 50턴 재계측: **이번 작업에서 재검증 안 됨**.
+- PR 리뷰/CI는 `nanocode00/resume`의 글쓰기·근거 정리에 대한 점검일 뿐, 다른 개인의 STT/NLU/TTS 코드·GPU 모델을 이번 턴에 재훈련/기동했다고 주장하지 않는다.
+
+---
+
+## 5. 과거 대화 재확인 — GitHub 원장 외 누락 사례 추가 (2026-10-23)
+
+기존 MA-01~12는 프로젝트 저장소의 작업군을 중심으로 복원했다. 과거 대화에서 **개인적으로 보고한 현상/결정/실험 과정**을 다시 찾아 원본 커밋과 교차 검증한 결과, 같은 12개 작업군 안에 아래 **5가지 추가 경위**가 있다. 근거 등급은 **A=개인 author 원본 Git 커밋/PR, B=당시 제품 문서·공식 worklog, C=대화에서 사용자 본인이 제시한 콘솔·스냅샷·수동 QA(이번 턴 해당 원시 artifact 재실행/독립 검사 없음)**로 구분한다.
+
+### 5-1. MA-01/MA-08 — Notion 4개 UX 문서·Flow/Voice/UI/Trigger 정합성 감사와 설계 vs 구현 구분 (A+B+C)
+
+- **대화 발굴:** 2026-08-19 제품 명칭을 **Talkiosk가 아닌 말로(Mallo)**로 통일하고, Flow·음성 시나리오·UI·Trigger의 **Notion 4개 핵심 문서**를 의사결정 SSOT로 삼았다. 8/20에는 **기존 구현을 수정하지 않고** 문서 대비 **작업 branch/worktree/commit/Mock NLU 수준별 Gap Matrix를 먼저 산출**하도록 요청했다. 당시 gap에는 **WELCOME→SERVICE_MODE 건너뜀**, 자동 Listening/VAD 없음, PROCESSING 안내 UI 부족 등이 남아 있었으며, 원본 문서와 구현 상태를 혼동하지 않았다(대화·내보내기 자료, **C**).
+- **Git 재확인:** 개인 [PR #113 `docs: reconcile Mallo product decisions`](https://github.com/aihuman-7th/proj1-d/pull/113)은 Notion/제품 결정을 **21개 문서·SSOT/Implementation Gap**으로 정리해 실제 병합됐고, **문서만 수정/당시 pytest 502 passed**로 기술했다(**A**). `docs/notion-reconciliation-report.md`에 version provenance/충돌 해결·잔여 gap, PRD/TRD/Audio-Input/메뉴옵션/OrderCommand/E2E Spec의 소유권·우선순위를 봉인했다. Mixed Intent 회귀가 proposal/PRD/TRD/사용자 평가 프로토콜에 누락된 점도 동시에 회복했다. **21개 문서 정합화 = 21개 기능 개발**은 아니다.
+- **핵심 결정의 버전 차이:** [#113](https://github.com/aihuman-7th/proj1-d/pull/113)의 당시 UX 계약은 **'주문하기' 1회→매장/포장→TTS 종료 후 필요할 때 자동 재청취, 수동 마이크 Fallback**, **Wake Word/Always Listening/Barge-in 제외**였고, Size/Decaf/IceAmount/Shot/Syrup 등은 **당시 기획 지원 후보**였다. 8/28~8/30 [기능동결 문서](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)에서는 **Size 음성 N-23 제외**, PAYMENT 자동 재청취는 [#226](https://github.com/aihuman-7th/proj1-d/pull/226) 미포함. 또 #113 Plan A는 '**Local PC FastAPI/AI**'라는 당시 설계 표현이나 최종 [`src/app/server.py`](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/server.py) 실제 Gateway는 **ThreadingHTTPServer**다. **기획 문서·동기화 완료 vs runtime feature 완료**로 전용하지 않는다.
+
+### 5-2. MA-09 — Vercel 정적 배포에서 `runtime-config` 생성 위치 오류 수정 (A+C)
+
+- 개인 원본 [커밋 `7617d691`](https://github.com/aihuman-7th/proj1-d/commit/7617d69178734fc299fc9867e3de2280dc819db8)은 `CLOUDFLARE_DOMAIN` 값을 로컬 `.env`/환경에서 읽어 `web/runtime-config.js`와 `window.MALLO_RUNTIME_CONFIG.apiBaseUrl`을 생성하는 Python/JS 스크립트, launcher·browser API base 우선순위, 관련 회귀를 도입했다. 단, 처음에는 `vercel.json`에 `buildCommand=node scripts/runtime/generate_runtime_config.js`도 추가해 **Vercel remote build가 로컬 `.env`를 가질 거라는 잘못된 전제**가 들어갔다(**A**).
+- 사용자는 8/27 실제 Vercel 배포 과정에서 **정적 결과에 API domain이 누락되는/달라지는 문제**를 보고하고, '로컬에 `CLOUDFLARE_DOMAIN` 주입→`runtime-config.js` 생성→정적 Vercel CLI 배포'로 **생성 위치를 로컬로 고정**하도록 결정했다(**C**). 해당 개인 [수정 커밋 `bcf55885`](https://github.com/aihuman-7th/proj1-d/commit/bcf558858a065a4de56c5f3deb791aa0252d1419)이 **`vercel.json`의 `buildCommand`를 제거**한 diff로 확인된다(**A**). 당시 대화에서는 배포 정상화를 직접 확인했으나 현재 온라인 검증/CI 성공으로 일반화하지 않는다.
+- **기여 포인트:** Cloudflare tunnel 접속 성공 그 자체 외에, **빌드 시 설정 생성 책임(로컬 CLI)과 Vercel 정적 산출물 배포 책임을 분리**하여 실제 환경 구성·API URL 주입의 실패를 수정했다. `MALLO_RUNTIME_CONFIG` 공개 URL에는 token/secret을 넣지 않는 제약을 유지한다.
+
+### 5-3. MA-12 — 별도 `nanocode00/mallo-intro` 공개 저장소의 화면 QA·홈 내비게이션·favicon (A+C)
+
+- 과거 대화에서 사용자는 [별도 공개 `mallo-intro` 저장소](https://github.com/nanocode00/mallo-intro)를 만들고 **기술평가자용 소개 / 일반 고객용 소개**를 구분해 랜딩에서 분기하도록 선택했다(8/26, **C**). 원본의 `web/intro2/` 최초 코드 작성은 윤태현 [#210](https://github.com/aihuman-7th/proj1-d/pull/210)이며, **개인 기여는 공개 정적 배포·통합·시각 회귀 개선**이라는 경계가 있다.
+- 개인 [커밋 `baa5a4c`](https://github.com/nanocode00/mallo-intro/commit/baa5a4cb670ce8612b111648b5431c03a8df7f01)에서 **무제한 SVG 아이콘 크기로 거대한 검은 도형이 나타난 UI 결함**을 구체적인 `.icon/.icon-sm/.icon-md` width/height·stroke 계약으로 정리하고, 정적 CSS cache를 우회하도록 `?v=20260828v3`를 붙였다. 실제 웹 시각 QA로 오래된 placeholder/cache 상태를 점검한 과정은 대화 기록(C)이며, **Git 코드 수정은 A**다.
+- 개인 [`4308036`](https://github.com/nanocode00/mallo-intro/commit/43080362f1d8ca6fc65bec4cd5917c0db18c7b88)에서 evaluator/customer **브랜드 로고·소개 홈 버튼·footer 링크를 `./`로** 통일해 랜딩 복귀를 지원하고, [`d92fa30`](https://github.com/nanocode00/mallo-intro/commit/d92fa3091b65df372c6b917f151b9d4a45e5e398)에서 favicon·apple-touch icon·theme-color를 3개 소개 페이지에 추가했다. **공개 사이트 시각 QA 후 반영한 수정 커밋**이며, 메인 프로젝트 [#224](https://github.com/aihuman-7th/proj1-d/pull/224) 내부 정적 스냅샷의 화면/영상 산출물과 **근거·저장소는 별개**, 성과를 두 번 세지 않는다.
+
+### 5-4. MA-06 — Whisper LoRA 실제 적용 여부를 teacher-forced logits로 진단 (C)
+
+- **2026-08-26 대화에 사용자가 직접 제공한 로컬 smoke 결과**: Whisper LoRA **144개 대상 모듈, adapter parameter 2,359,296개**, teacher-forced 비교에서 baseline과 LoRA 간 **logits max diff 0.515625/mean diff 0.127805**, adapter applied 검증 `true`; 해당 시점 관련 **44개 단위 테스트 통과** 기록이 있다. 현행 Git에 이 콘솔 원본을 독립 재조회하거나 checkpoint/run 매칭을 재실행하지 않았으므로 **대화 기반 C등급 보강 사례**로 보존한다.
+- **판단 포인트:** 일부 발화의 **동일 decoding 결과를 'LoRA가 적용되지 않았다'고 단정하지 않고 logits 변화/모듈 수를 확인**한 디버깅 사례다. 이것은 **모델 성능 향상·WER/CER 감소의 증거가 아니며**, MA-06 Clean/Cafe 최종 Train65 평가셋과 직접 병합하지 않는다.
+- 8/22 사용자 실험 대화에는 카페 noise 원음 **high 약 94.9분·medium 약 91.8분** 확보와 domain Golden150 CER0.199356 vs fast-exp 자체 validation CER0.08494가 있으나 **검증셋이 달라 비교하지 않는다는 판단**이 남아 있다(C). Golden-only baseline/추가 후보 provenance 확인과 함께 연구 맥락으로 보존하고, 최종 Train65 서비스 정량 지표로 옮기지 않는다.
+
+### 5-5. MA-11 — 실제 결제 화면 흐름 실패 관찰과 안전한 수정/미수정 구분 (A+C)
+
+- 사용자 **8/26 Vercel 실브라우저 확인 대화**에는 화면 전환은 되었지만 **TTS 종료 후 마이크 Overlay가 남는 현상, 결제수단 선택 동작의 불안정**, `카드로 결제할게`는 `CONFIRM_ORDER`로 처리되는 반면 짧은 `카드`는 `QUERY_MENU/INVALID_OPTION`에 떨어지는 **상황별 의도 불일치**가 기록돼 있다(C). 사용자는 '**~로 결제**'에서 불필요한 재질문 없이 진행되길 원했다.
+- 개인 [PR #216](https://github.com/aihuman-7th/proj1-d/pull/216)은 One-shot 음성 주문→PAYMENT와 `docs/specs/voice-one-shot-payment.md`, 주문·화면·TTS 계약을 수정한 원본 근거(A)다. 후속 #226에서 명시적 결제 의사만 `CONFIRM_ORDER`로 처리하는 서버 게이트는 Git 확인됐으나, **'카드' 하나만으로 실제 PG 결제가 성공한다거나 PAYMENT 화면 자동 재청취가 완성**됐다는 근거는 없으므로 고쳐졌다는 수치를 새로 주장하지 않는다. 안전한 확정/가상 결제 UI와 실제 결제 Provider 동작을 분리한다.
+
+### 5-6. 기존 MA 문서에 반영할 중요 개념
+
+- MA-01은 **설문→Notion SSOT·문서 정합성·구현 Gap 감시**, MA-08은 **그 뒤 실제 9:16 UI 및 voice lifecycle 구현**으로 각 역할을 나눈다.
+- MA-09는 '**Named Tunnel 접속**'에 더해 **런타임 공개 API config의 생성 위치/배포 책임을 교정한 실문제 해결**을, MA-12는 '**제출용 오프라인 정적 산출물**'과 **개인 별도 GitHub Pages 소개사이트의 시각 QA/내비게이션**을 각각 기록한다.
+- MA-06의 LoRA smoke/Noise Golden 실험과 MA-11의 결제 UX 수동 관찰은 **대화 자료에서만 구체 수치/오류가 확인된 C등급**이다. 원본 로그가 Git에 있다고 하거나 코드 수정을 완전히 재현했다는 주장 금지.
+- 현재 상태의 원시 Git/PR·다른 팀원 코드·모델 benchmark 결과와 과거 대화 주장을 **맞는 수준까지만 연결**한다. 새로운 MA-13을 임의로 만들거나 팀원 초기 구현을 개인 작업으로 재귀속하지 않는다.
+
+---
+
+## 6. 기록 유지 원칙
+
+1. 각 MA 단위는 **프로젝트 원본/개인 PR+리뷰/실제 로그/대화 기억**을 별도로 확인하고 5단계를 작성한다.
+2. 수치의 **baseline vs friendly, Mock vs Real, local vs public, initial survey vs final evaluation** 조건을 혼합하지 않는다.
+3. 팀 전체 결과를 개인 실행 결과로 옮기지 않고, 최종 서빙 모델은 후보 실험과 분리한다.
+4. 12개 후 전부 교차검증하고 **AI Agent·Backend·Voice AI·UX 직무별 핵심 3~5개**를 선정한다.
+5. `experiences/README.md`와 연대기는 최종 감사 뒤 수정하고, `resume.md`는 다른 프로젝트 전체 우선순위와 함께 조정한다.
