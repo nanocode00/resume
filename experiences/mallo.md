@@ -202,26 +202,25 @@ Qwen3-0.6B의 개인 8/25 **15개 overnight sweep 실험 자산**을 보존하�
 
 근거: [0.6B 생산/sidecar PR #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [서비스 guard #214](https://github.com/aihuman-7th/proj1-d/pull/214) · [팀 1.7B Test #211](https://github.com/aihuman-7th/proj1-d/pull/211) · [모델 후보 Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/nlu-qwen06b-service-candidate.md) · [목표 환경 평가 JSON](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/nlu/pr209-target-env/validation-summary.json) · [MA-07 검증 원장](mallo-rework-checkpoint.md).
 
-## 6. dependency 충돌을 sidecar로 분리
+## 6. MA-09 — 다중 AI 모델 런타임 격리와 Vercel·Cloudflare 하이브리드 서비스 배포 (검증 완료)
 
-후반 runtime에서 실제 문제가 된 부분은 모델별 Python dependency였습니다.
+**상황:** 말로의 실제 사용자 주문을 처리하려면 **Whisper Train65 STT·Qwen3-0.6B NLU·MeloTTS G_2800** 모델을 하나의 음성 주문 API로 연결해야 했어. 정적 키오스크 화면은 Vercel에 제공하되, GPU 모델과 가중치는 로컬 Windows/WSL2 환경에서 추론하는 구조가 필요했어.
 
-`275929306...` 커밋에는 다음 이유가 명시되어 있습니다.
+**문제:** 서로 다른 모델의 실행 환경이 충돌했어. **MeloTTS 런타임 `transformers 4.27.4` vs Qwen NLU `5.15.0`**였고, Windows에서는 STT와 TTS를 같은 프로세스에 적재했을 때 **cuDNN native crash**가 보고됐어. 또한 신설 환경에서 MeloTTS PyPI 설치 경로·`jsonschema`·WebM/Opus용 PyAV 누락으로 서버가 시작되지 않았고, 모델 readiness 이전 호출·초기 GPU 적재·여러 브라우저가 주문 상태를 공유할 위험·터널 비밀 정보 관리도 해결해야 했어.
 
-- STT/TTS runtime: `transformers 4.27.4` 필요
-- Qwen NLU: `transformers 5.15.0` 필요
-- 동일 venv로 통합하지 않고 separate venv + resident HTTP sidecar 사용
+**판단:** 대형 GPU 모델을 Vercel에 올리지 않고, **정적 프런트엔드→HTTPS Cloudflare Named Tunnel→로컬 HTTP Gateway→모델 Sidecar**로 분리했어. 서비스는 네 프로세스이되 **`.venvs/runtime`(Gateway·STT·TTS, `transformers 4.27.4`)과 `.venvs/nlu`(Qwen3-0.6B, 5.15.0)의 두 패키지 환경**으로 운영하고, Gateway `127.0.0.1:8000`, STT `:8001`, NLU `:8002`, TTS `:8003`를 모두 loopback에 bind했어. 사용자는 Gateway만 호출하고, **`/health` readiness·`/warmup` 실추론 성공 후 노출**하며, 사용자 세션별 Cart·TTS·주문 상태는 격리하도록 설계했어.
 
-최종 port 구조:
+**조치:** STT Sidecar의 최초 코드와 HTTP adapter는 팀원 윤태현의 [PR #204](https://github.com/aihuman-7th/proj1-d/pull/204)에 출처를 두었어. 해당 PR은 개별적으로 main에 병합된 상태가 아니며, 이후 통합 브랜치에 수용된 작업으로 구분했어. 브라우저 WebM/Opus를 PyAV로 디코딩하는 폴백도 윤태현 [PR #165](https://github.com/aihuman-7th/proj1-d/pull/165) 구현이야.
 
-- Gateway/FastAPI: `127.0.0.1:8000`
-- STT sidecar: `127.0.0.1:8001`
-- NLU sidecar: `127.0.0.1:8002`
-- TTS sidecar: `127.0.0.1:8003`
+개인 [PR #209](https://github.com/aihuman-7th/proj1-d/pull/209)에서는 **`HTTPClientNLU` 및 Qwen3-0.6B 상주 Sidecar**를 연결하고 CUDA 12.8·PyTorch2.11·Transformers5.15 환경에서 **PEFT 없는 merged BF16 모델 load+1회 generation smoke**를 확인했어. `build_service`의 Mock/직접 Qwen/HTTP NLU 선택과 장애 시 내부 socket·URL·CUDA 정보를 사용자 응답/TTS에 노출하지 않는 복구 계약을 구현했어. 정확도/124건 focused 평가·NLU p95 미달은 **MA-07 모델 선정**의 성과로 따로 집계했어.
 
-통합 launcher는 각 child process를 시작하고 `/health` readiness를 확인한 뒤 실제 inference warm-up을 수행하고 마지막에 gateway를 시작합니다.
+개인 [PR #212](https://github.com/aihuman-7th/proj1-d/pull/212)에서는 동작 확인된 MeloTTS upstream git commit을 설치 기준으로 고정하고 `jsonschema`, `av` 의존성을 추가해 **새 CUDA12.8 Runtime에서 서버 startup**을 재현했어. 개인 [PR #215](https://github.com/aihuman-7th/proj1-d/pull/215)에서는 전체 통합선과 런처·Gateway를 main에 반영했어. `src/app/launcher.py`는 Sidecar 포트 선확인→각 프로세스 `/health` 확인→**STT/NLU/TTS 실제 추론 `/warmup`→Gateway 시작→Cloudflare Tunnel 연결**, 종료·child 실패 시 프로세스 일괄 정리를 수행해. `src/app/server.py`의 `SessionManager`는 **`X-Mallo-Session-ID`별 Cart·Conversation·TTS 상태**를 나누고 같은 세션 요청을 lock으로 직렬 처리하며, 웹의 `sessionStorage` UUID·request ID를 함께 연결해. Vercel 웹은 `web/api-url.js`에서 HTTPS Gateway URL만 사용하며 내부 모델 Sidecar에 직접 접속하지 않아.
 
-모델을 매 요청마다 load하지 않고 resident process로 유지해 model loading cost도 요청 path에서 제거했습니다.
+**결과:** **서로 충돌하던 모델을 네 상주 프로세스·두 가상환경의 HTTP 구성으로 연결**하고, Vercel·Cloudflare Named Tunnel 경로를 통해 당시 **실제 외부 STT/NLU/TTS 호출과 다중 세션 격리를 수동으로 검증**했어. [원본 README](https://github.com/aihuman-7th/proj1-d/blob/main/README.md)에는 배포 프런트 주소 `https://mallo-kiosk.vercel.app/`가 기록돼 있어. #215에서 frontend/launcher/gateway/session 로컬 테스트와 코드 구문·diff 검증을 보고했지만 GitHub Actions는 사용량 제한으로 실행되지 않았어. **이번 조사로 서비스가 현재 온라인인지 확인한 것은 아니며**, 최종 Real E2E 50턴은 [PR #222](https://github.com/aihuman-7th/proj1-d/pull/222)에서 **warm p95 3.338초·50턴 중 30턴이 1.5초 초과**로 성능 요구 미달이었어. 따라서 '배포에 성공'과 '실시간 지연 요구 충족'을 구분해 적었어.
+
+**개인·팀 기여 및 기술 정확성:** 팀원 윤태현의 STT Sidecar/Windows cuDNN 문제 회피·WebM 디코더를 개인 직접 구현으로 주장하지 않았어. **Sidecar 세 개가 서로 독립 프로세스**라는 것과 **세 개가 모두 별도 Python 가상환경**이라는 것은 다르므로, 최종 런타임의 **두 가상환경**을 그대로 적었어. Gateway는 과거 요약처럼 **FastAPI가 아니라 Python `BaseHTTPRequestHandler`·`ThreadingHTTPServer` 기반 HTTP 서버**야. Docker/Kubernetes 운영, 원격 클라우드 GPU, 무중단/SLA, 현재 외부 접속 상태와 실제 서비스 E2E 1.2/1.5초 달성을 추가로 주장하지 않아. 기존 MA-06은 STT 모델/검증, MA-07은 NLU 모델/guard, MA-08은 브라우저 입력·Cart race이며, 이 MA-09의 독립 성과는 **실행 환경 격리·프로세스 supervision·세션 격리·공개 배포**야.
+
+근거: [NLU Sidecar #209](https://github.com/aihuman-7th/proj1-d/pull/209) · [runtime 호환 #212](https://github.com/aihuman-7th/proj1-d/pull/212) · [전체 production 통합 #215](https://github.com/aihuman-7th/proj1-d/pull/215) · [팀 STT Sidecar #204](https://github.com/aihuman-7th/proj1-d/pull/204) · [Multi-service Gateway Spec](https://github.com/aihuman-7th/proj1-d/blob/main/docs/specs/multi-service-gateway.md) · [실제 런처](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/launcher.py) · [Gateway 서버](https://github.com/aihuman-7th/proj1-d/blob/main/src/app/server.py) · [MA-09 검증 원장](mallo-rework-checkpoint.md).
 
 ## 7. MA-08 — Senior-first 9:16 UI·음성/터치 분리와 비동기 Cart 경합 해결 (검증 완료)
 
@@ -249,16 +248,7 @@ Qwen3-0.6B의 개인 8/25 **15개 overnight sweep 실험 자산**을 보존하�
 
 ## 8. Hybrid deployment
 
-구조:
-
-`Vercel Static Frontend → Cloudflare Tunnel → Local FastAPI Gateway → STT/NLU/TTS Sidecars`
-
-- Web UI: Vercel
-- inference: CUDA가 있는 local Windows/WSL
-- API: FastAPI gateway
-- public connection: Cloudflare Tunnel
-
-대형 model artifact를 Vercel에 올리지 않고 정적 UI만 hosting하고, GPU inference는 local runtime에서 수행했습니다.
+**MA-09에서 아키텍처·배포 근거를 통합 정리했어.** 정적 Vercel UI→Cloudflare Named Tunnel→**Python `ThreadingHTTPServer` Gateway**→STT/NLU/TTS sidecar의 구조이며, **FastAPI가 아니고 모델 가중치는 로컬 CUDA GPU에 상주**해. 외부 접속은 프로젝트 당시 검증했고 현재 온라인 여부는 확인하지 않았어.
 
 ## 9. E2E latency breakdown
 
