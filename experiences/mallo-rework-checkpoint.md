@@ -417,6 +417,59 @@
 
 ---
 
+## 4. 최종 교차감사 — 개인/팀 기여·측정 범위·진위 (2026-10-23)
+
+### 4-1. 12개 작업군 중복·주도/협업 판정
+
+| 작업군 | 개인 기여로 증명된 고유 성과 | 팀/후속 중복·검증 한계 |
+| --- | --- | --- |
+| **MA-01** | PR #83 설문 근거 제품 우선순위·PRD 정합화 | 13명 직접 전원 인터뷰 주장 금지; **외부 최종 평가 미수행** |
+| **MA-02** | PR #23 `OrderCommand[]` 계약 **문서**, #55 초기 6개 주문 관리 Intent 코드 | #23은 런타임 Validator 구현 아님, 초기 변경/삭제 혼합 Batch 전체 지원 아님 |
+| **MA-03** | PR #68 mock E2E·실패 계약, #69 실제 Melo/Qwen 어댑터 | #68 MockSTT/NLU/TTS 정확도·GPU 음성 품질 근거 아님 |
+| **MA-04** | #33/#63/#71 동일 20문장 모델 평가·학습 기록, #152 G_2800 선정 | **G_2000 vs G_2800 vs G_3600**, CPU/GPU 분리; 사용자 청음 블라인드 미완료 |
+| **MA-05** | #97/#116 발화 수사/Level 차별화, #150 G_3600 Level0/1 지연 200회 | Level2 latency 실측 없음, 사용자 이해도 개선 통계 없음 |
+| **MA-06** | 개인 후반 Golden-500 17회/32후보 검토 **대화·로컬 기록**, #214 Train65 기본 전환, #218 평가 호환 | **윤태현 초기 STT split·QLoRA·ONNX와 분리**. 17회 raw Git 전체 미확인 |
+| **MA-07** | 개인 0.6B sweep/target-env #209 및 guard/production #214 | **류승민 3,000행/1.7B 학습·Test, 윤태현 #205 통합**, 124건은 guard 포함. 초기 38 vs 후속 38 모집단·파이프라인 다름 |
+| **MA-08** | 개인 #54/#159~164/#136/#137 9:16 UI, #213/#225 client lifecycle·Cart race | **윤태현 #103 초기 확인/결제 서버·#165 WebM/Opus fallback**은 개인 구현으로 전용 금지 |
+| **MA-09** | 개인 #209 NLU 격리·#212 환경·#215 통합/외부 배포 | **윤태현 #204 초기 STT sidecar**, Gateway는 FastAPI 아님. **4 process/2 venv** |
+| **MA-10** | #75 평가 틀, #122 기준, #222 50턴 Raw 결과/판정 문서 | **윤태현 #183 Mock 재분류**. 최종 Real p95 3338ms·미완료30/50, 5종×10회 deviation; 코드 최적화 완료 아님 |
+| **MA-11** | #213/#216 실마이크/원샷 QA, #226 안전 주문/서버 회귀 | #222 측정(8/28) **이후** #226(8/30). 변경 후 동등 Real50 재검증 없음 |
+| **MA-12** | #217 canonical 모델 SHA/저장소 정리, #219~221 범위·라이선스·정량, #224·#226 정적 쇼케이스 | **윤태현 #210 intro2 최초 코드**, STT5/TTS15/6화면은 제품 성능·참가자 테스트 아님 |
+
+### 4-2. 교정된 수치 및 증거 등급
+
+1. **사용자 만족도 삭제:** 증빙 가능한 것은 8/19의 **60~69세 탐색 설문 n=13**뿐이다. [최종 정합화](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-ticket-reconciliation.md)에 **E-05~E-07 실제 참가자 평가 미실행**이 명시됐다. 기존 '최종 만족 92.3%/n=13'은 출처와 모순돼 확정 성과에서 **제외**. 실제 참가자 user study를 새로 실행했다고 보고하지 않는다.
+2. **STT 평가 구분:** [최종 발표](https://github.com/aihuman-7th/proj1-d/blob/main/docs/final-quantitative-results.md)의 팀 domain STT **CER 0.1131/WER 0.3352/메뉴 Recall 89.5%**, [STT Showcase](https://github.com/aihuman-7th/proj1-d/blob/main/artifacts/showcase/stt/README.md)의 **CER 0.1095/메뉴 Recall 89.13%**, 개인 Train65 Clean **CER 0.1357**, Cafe5 **CER 0.2057**은 서로 다른 모델 평가 경계·문서 버전·입력 구성이다. 동일한 최종 성능/개인 향상률로 합산 금지.
+3. **NLU 평가 구분:** **1.7B 공식 Test 300건 Exact 88.67%/Error code70%(팀원)**, **0.6B Focused 124건 Intent100%/Slot96.78%/Exact63.71%(Guard 포함)**, **38건 RuleFirst+Guard 38/38**, **0.6B 목표 환경 p95 1610ms**는 서로 다른 테스트·후처리/서비스 조건이다. 0.6B raw 모델 단독 100% 또는 종단 E2E p95 1.2초 충족이라 쓰지 않는다.
+4. **TTS 지표 구분:** PoC **G_2000 204.1ms**, 사용성 후보 **G_2800 195.1ms 별도 20문장**, Level policy 비용 **G_3600 L0 169.4ms/L1 210.1ms**, 다른 생산 benchmark **0.38초/p95 0.53초**는 체크포인트·목적이 달라 실측 개선율로 연결 불가. 44.1kHz는 샘플레이트/품질 개선율 아님. **Static showcase results.json 첫 음성 cold-load 결과는 통제된 GPU latency 아님**.
+5. **최종 E2E 진위:** Mock/제한 312.2ms를 최초 재생 E2E로 주장하지 않는다. 최종 **Real Warm50 p95 3.338초·1.5초 초과 30건/Task20건 성공**, **Cold3 평균 7.704초**. RuleFirst 20턴 p95 0.967초는 **해당 경로에 한한 성공**, Qwen fallback 30턴 p95 3.386초는 **요구 미달**. Interpret RTT=서버 추론/처리 포함. #226 이후 같은 50턴 재측정 미확인.
+6. **표본/대응 구분:** STT 대표 녹음 5개는 **직접 녹음 샘플**, 고령 사용자 음성이란 근거가 없고 50턴 Real E2E 역시 **그 고정 음원 5종 반복**이다. TTS WAV 15개는 **6 모델 비교 + 9 Level 비교**, 사용자 음성 MOS/Blind A/B 15명 아님.
+7. **릴리스/배포:** 브라우저 static Vercel→Cloudflare Named Tunnel→로컬 Python `ThreadingHTTPServer` Gateway, Sidecar **8001~8003 loopback**, runtime/NLU 별도 venv. 모델 3종 weight는 Git 공개 파일이 아니며 source/평가 코드와 별개. 클라우드에서 상시 GPU 운영/SLA를 주장하지 않는다.
+8. **데이터 라이선스:** [AI Hub 비공개 문의 결과 공개 요약](https://github.com/aihuman-7th/proj1-d/blob/main/docs/aihub-tts-license-inquiry.md)의 **원천/라벨/재가공 외부 공유 금지**, 프로젝트 자체 작성 문장 합성 음성 활용·출처 표시 **조건부** 허용. AI Hub 전체 자료 자유 재배포 증거가 아니다.
+9. **기능동결:** Size 음성, 개별 주문 Pending Confirmation, PG/backend payment_status는 `NOT PLANNED`. ORDER_REVIEW/가상 완료 화면만 구현. 후반 자동 TTS 감속은 성공적으로 이해된 4턴 중 명시적 clarification 요청 2회 규칙이며 연령 추정/침묵 기반 아님.
+10. **증거 위계:** (A) Git 원본 PR+병합 시점 코드+원시 CSV/JSON, (B) 당시 PR worklog·실험 요약, (C) 이전 대화의 로컬 개인 학습/수동 UI 점검 기록으로 구분. **A 수준에서 미확인된 QLoRA 17회·Qwen 재학습/15 sweep**은 로컬 기록이라고 표시하고, 독립 비교/재현이 끝난 것처럼 홍보하지 않는다. 테스트 **70/297/306/509/547/153/62/475** 등은 당시 각 PR **저장소 전체 또는 특정 범위 통과 건수**이지 개발자가 새로 쓴 테스트 수를 더한 값이 아니다.
+
+### 4-3. 채용용 5선 — AI 시스템/백엔드 관점
+
+| 순위 | 사례(교차감사 근거) | 면접에서 설명할 고유 판단 |
+| ---: | --- | --- |
+| 1 | **MA-02 OrderCommand/Cart SSOT** | LLM 의미 파싱과 실제 금액/주문 상태 변경의 책임 분리, rollback/유효성/초기 모호성 미완성까지 설명 |
+| 2 | **MA-07 Qwen0.6B·Guard NLU 서비스 선정** | 높은 Test Exact보다 실제 주문 계약·오류율·속도/sidecar 안정성 중시, Focused/Target/Live 평가 분리 |
+| 3 | **MA-09 Multi-process inference 배포** | Transformers 충돌과 Windows cuDNN 문제를 4-proc/2-venv HTTP architecture, readiness/warmup/세션 격리로 해결 |
+| 4 | **MA-10 Real E2E 병목 계측** | Mock→Real metric 교정, 세션 오염 제거, RuleFirst p95 0.967s vs Qwen 3.386s; 전체 p95 3.338s 실패 명시 |
+| 5 | **MA-04~05 TTS 모델/문장 정책 결정** | 같은 20문장 비교에서 Friendly +2.8% 합성 비용, 한자어/고유어 수사·L0~L2 정책, G_3600 Level 비용 별도 검증 |
+
+**보조 사례:** MA-08 비동기 Cart snapshot·마이크 epoch, MA-06 후반 STT 평가·Train65 서빙 선정, MA-11 실마이크 안전 회귀, MA-12 모델/라이선스/showcase 인계. AI/Backend 직무는 위 5선, HCI는 MA-01·MA-08, ML/MLOps는 MA-04·MA-06·MA-07·MA-12로 강조점을 변경한다.
+
+### 4-4. 미완료/검증 보류 항목 (추가 산출물 부재)
+
+- 외부 참가자 기반 E-05~07/T-24/T-30 사용자 평가·블라인드 TTS MOS: **미수행으로 명시**, 임의 수치 금지.
+- MA-06 후반 Golden-500 17회/32후보 로컬 원시 ledger, MA-07 1.7B 재평가·0.6B 15 sweep 완료 run: **대화/일부 자산 로그 기반**, 원시 Git 전체 미공개.
+- 배포 URL의 현재 온라인/Cloudflare token 상태, 실제 PG·추가 음성 Size/PendingConfirmation 동작, 수정 후 50턴 재계측: **이번 작업에서 재검증 안 됨**.
+- PR 리뷰/CI는 `nanocode00/resume`의 글쓰기·근거 정리에 대한 점검일 뿐, 다른 개인의 STT/NLU/TTS 코드·GPU 모델을 이번 턴에 재훈련/기동했다고 주장하지 않는다.
+
+---
+
 ## 4. 진행 원칙
 
 1. 각 MA 단위는 **프로젝트 원본/개인 PR+리뷰/실제 로그/대화 기억**을 별도로 확인하고 5단계를 작성한다.
