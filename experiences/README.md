@@ -17,7 +17,7 @@
 
 | 경험 | 핵심 키워드 | 활용하기 좋은 문항 |
 |---|---|---|
-| [Mallo](mallo.md) | Voice AI, TTS, 팀장, 접근성, 서비스 통합 | 최근 프로젝트, 리딩, AI 직무, 사용자 경험 |
+| [Mallo](mallo.md) | Voice-first Kiosk, OrderCommand/Cart SSOT, Whisper/Qwen/Melo, 4-프로세스 추론, Senior-first UX·Real E2E | AI 시스템/백엔드·ML 모델 검증·리딩·HCI |
 | [말해봄 Mk.2](malhaebom.md) | FastMCP/Agent 검증, OpenRouter 모델 평가, Whisper QLoRA, JWT 공고 E2E, PR·CI 품질 게이트 | AI Agent·백엔드, 모델 평가, 시스템 신뢰성, 기술 의사결정 |
 | [HummingBlocks](hummingblocks.md) | Android, CV, 제품 출시, 사용자 경험, 문제 해결 | 대표 프로젝트, 어려움 극복, 직무 역량, 협업 |
 | [CNN Accelerator](cnn-accelerator.md) | PyTorch, Verilog, 검증, OpenROAD | 기술 역량, 디버깅, HW/SW 융합 |
@@ -36,4 +36,5 @@
 - 역할을 팀 전체 성과와 개인 기여로 구분합니다.
 - 결과만 적지 않고 판단 기준과 문제 해결 과정을 함께 남깁니다.
 - 같은 경험도 지원 직무에 따라 다른 부분을 강조할 수 있도록 세부 내용을 충분히 보존합니다.
+- 말로는 [12개 개인/팀 기여·수치/모집단 교차검증 원장](mallo-rework-checkpoint.md)과 [AI 시스템/백엔드 핵심 사례 5선](mallo.md#채용용-핵심-사례-5선--ai-시스템백엔드-기준)을 구분합니다. 60대 초기 탐색 설문 13명과 미실행 최종 사용자 평가는 별개이며, Real E2E p95 3.338초는 요구 1.5초 미달이라는 한계를 포함합니다.
 - 말해봄은 [12개 작업군·대화 누락 감사·귀속/중복 교차검증 원장](malhaebom-rework-checkpoint.md)과 [AI Agent/Backend 우선 사례 5개](malhaebom.md#채용용-핵심-사례-5선--ai-agentbackend-기준)를 구분해 활용합니다. 검증 완료는 실제 운영 전체 E2E·마감 제출·독립 사람 품질 평가를 뜻하지 않습니다.
