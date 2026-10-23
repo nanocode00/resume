@@ -249,19 +249,34 @@ Qwen3-0.6B의 개인 8/25 **15개 overnight sweep 실험 자산**을 보존하�
 
 **MA-09에서 아키텍처·배포 근거를 통합 정리했어.** 정적 Vercel UI→Cloudflare Named Tunnel→**Python `ThreadingHTTPServer` Gateway**→STT/NLU/TTS sidecar의 구조이며, **FastAPI가 아니고 모델 가중치는 로컬 CUDA GPU에 상주**해. 외부 접속은 프로젝트 당시 검증했고 현재 온라인 여부는 확인하지 않았어.
 
-## 9. E2E latency breakdown
+## 9. MA-10 — 실제 브라우저 음성 주문 E2E 지연 측정 및 RuleFirst/Qwen 병목 분석 (검증 완료)
 
-최종 isolated 50-turn voice pipeline:
+**상황:** STT·NLU·Order Engine·TTS를 Sidecar/Gateway로 결합한 뒤, 고령 사용자의 주문 발화 종료부터 **실제 첫 음성 안내가 재생되기까지** 지연이 제품 기준을 충족하는지 판정해야 했어. 기준은 **Warm E2E Target p95 ≤1.2초 / Requirement p95 ≤1.5초**, 50턴에서 1.5초 초과 최대 2건·실패 0건이었어.
 
-- p50: **253.9ms**
-- p95: **312.2ms**
-- STT median: 약 **188.5ms**
-- NLU median: 약 **15.6ms**
-- NLU latency 비중: 약 **6.2%**
+**문제:** 초기 p95 **312.2ms**는 MockTTS를 포함한 제한 조건이었고, 과거 36턴 지표에도 MockNLU/실제 브라우저 `Audio.onplay` 부재 문제가 있었어. 최종 Real 50턴 첫 진단에도 **같은 세션에 장바구니 변경이 누적되는 실험 오염**이 있어 유효한 개인 주문 결과로 판정하기 어려웠어. 전체 지연만 보면 STT/TTS·NLU fallback·브라우저 어느 곳이 원인인지 구분할 수 없었어.
 
-이 결과로 해당 test 구성에서는 NLU보다 STT가 주 latency bottleneck임을 확인했습니다.
+**판단:** 기존 Mock/제한 조건 수치와 실제 E2E를 명확히 나누고, **Chromium VAD 입력 종료(`vad-speech-end`)→HTML5 Audio의 실제 재생 시작(`Audio.onplay`)**을 Real E2E 경계로 정의했어. 실제 Whisper Train65·RuleFirst/Qwen3-0.6B·Order Engine·MeloTTS G_2800·서버 Sidecar를 모두 통과하도록 했어. **첫 Warm-up 3턴은 통계에서 제외**, Cold Start 3회는 별도 평가하며, **매 측정 턴 고유 `X-Mallo-Session-ID`·Cart/fulfillment reset**으로 상태 오염을 차단하고, 경로/단계별 RTT를 기록하기로 했어.
 
-주의: 이 run은 **real STT + real NLU + MockTTS**입니다. 따라서 `실제 TTS 생성까지 포함한 전체 E2E p95 312.2ms`라고 말하지 않습니다. 실제 TTS는 별도 production benchmark를 사용합니다.
+**조치:** 개인 [PR #75](https://github.com/aihuman-7th/proj1-d/pull/75)에서 사용자 주문 과제·E2E/TCR/TCT/ERR/SUS/MOS 지표·세션 로그 스키마를 정의했어. [PR #122](https://github.com/aihuman-7th/proj1-d/pull/122)에서 **10개 문장×Warm 5회=50턴**, nearest-rank p95, Cold Start 3회 및 1.2/1.5초 판정 기준을 측정 계약으로 고정하고 초기 36회는 참고용으로 분리했어. 당시 MockNLU·실제 first_audio_start 부재 측정기를 `MOCK_E2E`로 재분류한 코드는 **윤태현 [#183](https://github.com/aihuman-7th/proj1-d/pull/183) 작업**으로 별도 귀속했어.
+
+최종 개인 [PR #222](https://github.com/aihuman-7th/proj1-d/pull/222)(측정일 2026-08-28)에서 최초 동일 세션 오염 결과를 제외하고 **Turn별 새 세션·reset·비측정 옵션 변경 사전 조건**을 적용한 **Real Warm 50턴과 Cold 3회 원시 CSV**를 저장했어. 환경은 **RTX 5070 Ti 16GB, WSL2 Ubuntu 24.04.4, CUDA12.8, Python 3.11.9, Chromium 152**였어. 입력 데이터는 실제 고령자 50명 발화가 아니라 **공개 STT Showcase 고정 음원 5종×10회**, 원래 10종×5회 계약에서 바뀌었으므로 **protocol deviation**으로 명시하고 Target/Requirement나 p95 계산 방식은 변경하지 않았어.
+
+| 최종 실측 | Mean | Median | p95 |
+| --- | ---: | ---: | ---: |
+| **Real Warm E2E 전체 50턴** | **1,915.6ms** | **2,166.5ms** | **3,338ms** |
+| **RuleFirst 경로 20턴** | 729.1ms | 709ms | **967ms** |
+| **Qwen fallback 경로 30턴** | 2,706.5ms | 2,668.5ms | **3,386ms** |
+| Interpret HTTP roundtrip(모델 처리 포함) | 1,397.2ms | 1,695ms | 2,641ms |
+| STT HTTP roundtrip(모델 처리 포함) | 495.1ms | 480ms | 693ms |
+| Interpret 응답 후 실제 Audio.onplay | 20.5ms | 17ms | 32ms |
+
+Cold Start 별도 3회는 **8,804 / 7,274 / 7,035ms(평균 7,704.3ms)**였어. 이 시간에는 **Sidecar 시작·GPU 가중치 적재·CUDA context/readiness·첫 요청/응답**이 모두 포함돼 있어 순수 Whisper 추론 시간이 아니야.
+
+**결과:** 공개 CSV 50행을 재집계해 **Warm E2E p95 3.338초·1.5초 초과 30/50턴·Playback Failure 0/50**이 일치함을 확인하고, **기존 1.5초 Requirement 미달**을 투명하게 기록했어. 반면 **RuleFirst 20턴 p95 967ms는 초기 1.2초 Target을 충족**했으며, **Qwen fallback 30턴 p95 3,386ms**가 전체 tail latency의 주된 원인이었어. `Interpret network RTT`라는 로그 필드는 **순수 인터넷 왕복이 아니라 HTTP 내부 NLU 추론·처리를 포함**하기 때문에, 단순 회선 문제로 단정하지 않고 **Qwen 처리/안전한 RuleFirst 커버리지 확장**을 후속 최적화 후보로 선정했어.
+
+**한계 및 개인 기여:** 50턴 모두 음성 파일은 재생됐지만 **단일 턴 주문/과제 완료는 20/50**이었어. 실패 분류 중 `stt-03`은 복수 메뉴 온도 누락으로 **정상 clarification을 반환했으나 한 번에 주문 완료는 못 한 경우**, `stt-04`는 '샷 추가'를 옵션 변경 단서로 처리하지 않은 **안전 가드 미지원 사례**, `stt-05`는 '아이스 카페라떼'가 '아이스티 카페라떼'로 전사된 **STT 오인식**이었어. 즉 **Order/Task 30건 미완료=모델 충돌·음성 재생 실패 30건**은 아니야. #222에서 GitHub로 확인되는 기여는 **원시 evidence와 실험 조건·구간별 실패/지연 분석·최종 판정 정합화**이며, 물리 장비에서 모든 실험 조작을 독자 수행했다고 PR author만으로 단정하지 않았어. **실제 고령 사용자 50명 대상 품질 검증도 아님**을 명시했어. 처음 312.2ms(MockTTS)와 최종 3.338초를 직접 성능 개선/악화율로 비교하지 않고, **측정 조건이 다른 실험**으로 보존했어. #222는 모델·런타임 코드 변경이 없는 **평가/문서 PR**이므로 병목을 실제 개선 완료한 것으로 주장하지 않았어.
+
+근거: [프로토콜 #75](https://github.com/aihuman-7th/proj1-d/pull/75) · [측정 Spec #122](https://github.com/aihuman-7th/proj1-d/pull/122) · [최종 Real 결과 #222](https://github.com/aihuman-7th/proj1-d/pull/222) · [50턴 원시 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-warm-50-turns-isolated.csv) · [Cold 3회 원시 CSV](https://github.com/aihuman-7th/proj1-d/blob/main/docs/evidence/e2e/i08-real-e2e-cold-start-3-runs.csv) · [계측 원장 MA-10](mallo-rework-checkpoint.md).
 
 ## 10. Showcase와 사용자 평가
 
