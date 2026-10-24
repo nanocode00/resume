@@ -60,6 +60,8 @@
 
 - `추가 자료설명.pptx`는 NeoPixel RGB/밝기 범위, 버튼 A/B에 따른 분기, 기울기 X/Y/Z축 기반 색상 변화와 소등 조건을 설명.
 - `microbit/moodlight-final/`, `moodlight-5sec/`에는 여러 main/controller HEX 변형이 남음.
+- **추가 코드 복원(2026-10-24):** MakeCode HEX의 LZMA 임베디드 payload에서 `main.ts`/`main.blocks`를 복원했고, 기울기 ±512 기반 4방향 상태 제어, 조도 40 기준, NeoPixel 12채널 RGB 타이머, radio group 42 및 시험 주기별 버전을 확인. `moodlight_controller`는 `radio.sendValue`, 일부 메인은 `onReceivedNumber`이므로 정확히 해당 조합의 통신 성공까지 확정 불가.
+- `2019 국제로봇콘테스트_네모감성팀.hwp` 원문에서 **회전 시 색상 갱신 오류 수정**과 **BLE/NeoPixel 확장 라이브러리 충돌 → micro:bit 간 radio로 대체**했다는 당시 기술적 판단이 명시돼 있다. 카드보드형 및 3D프린팅형 **두 프로토타입**도 문서에 기재됨. [2019 Link Cube·스마트 무드등 조사 원장](linkcube-2019.md) 참고.
 - 2020 `교육자료/examples/`에는 LED 출력, 버튼·조건문, 조도, 자기장, 가속도, servo, NeoPixel 및 기초·심화반 자료가 정리되어 있음. 일부 `microbit-1조/2조/3조.hex`는 학생 또는 팀별 산출물일 가능성이 있어 개인 제작으로 귀속하지 않음.
 - HEX는 배포·시연 후보 artifact라는 근거이지 실제 현장 동작이나 개인 저작의 결정적 증거는 아님.
 
