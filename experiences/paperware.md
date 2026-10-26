@@ -179,12 +179,12 @@ A는 당시 자료에서 직접 확인 가능한 사실, B는 과거 회고에�
 |---|---|
 | `nemomotor_mounted` | **Paperware 신규 모터 모듈 설계 확인.** `M1` 모터 풋프린트가 PCB에 직접 배치된 장착형. FM116C 모터 구동 IC, 4핀 제어 연결부, 100nF ×2, 표시 LED·저항과 로고·접점 구조. **시제품 발주·제작 없음(사용자 확인)**. 화면상 일부 배선 완료 여부도 미확정. [상세 조사](nemogamsung-early-maker-evidence.md) |
 | `neoboard` | **별도 회로·PCB·BOM 4장 검토 완료.** ATtiny85 계열 MCU+WS2812E NeoPixel 8개와 Micro-USB·6핀 프로그래밍 헤더 통합. 시판 ATtiny 보드의 공개 회로도 참고(원천 회로 저작 주장 금지), 실물 제작 및 다이오드 역방향·ATtiny45 부품 선택 오류·LED 미점등·USB 높이 간섭·제조 시리얼 마킹 문제 수정/관찰(2026-10-26 사용자 진술). **Paperware 소속 여부는 아직 미확정**이며 [별도 기술 기록](nemogamsung-early-maker-evidence.md)에서 추적 |
-| `nemotiny` | **회로도·PCB 2안·BOM 스크린샷 확인**. **micro:bit 대체 목적의 ATtiny85 기반 보드**로, 배터리 입력·Micro-USB·센서 연결용 후면 3영역 패드 및 전원회로를 설계. **`PCB_nemotiny` 실제 발주 확인(사용자 진술)**, 배터리 연결 시 과열·커패시터 극성 조건 확인·USB 커넥터 높이 간섭·스텐실 주변 도포 문제 발생. **접지 안정성을 고려한 대안 `PCB_nemotiny_a`는 미발주**. Paperware 실제 적용·문제 완전 해결은 미확정. [상세 자료](nemogamsung-early-maker-evidence.md) |
-| `ble-cc2541` | 프로젝트 폴더 이름만 확인. 무선 모듈과 관계는 이름상 추정일 뿐, 실제 회로·기능·제작 미확인 |
-| `earphonemouse` | 프로젝트 폴더 이름만 확인. 장치 목적·완성도·제작 여부 미확인 |
+| `nemotiny` | **회로도·PCB 2안·BOM 스크린샷 확인**. **micro:bit 대체 목적의 ATtiny85 기반 보드**로, 배터리 입력·Micro-USB·센서 연결용 후면 3영역 패드 및 전원회로를 설계. **`PCB_nemotiny` 실제 발주 확인(사용자 진술)**. **`neoboard`의 2×3 ICSP 헤더와 달리 별도 헤더 없이, 펌웨어 업로드용 추가 신호를 뒷면의 분산 패드로 배치**함(실제 업로드 성공·정확한 핀맵 미확인). 배터리 연결 시 과열·커패시터 극성 조건 확인·USB 커넥터 높이 간섭·스텐실 주변 도포 문제 발생. **접지 안정성을 고려한 대안 `PCB_nemotiny_a`는 미발주**. Paperware 실제 적용·문제 완전 해결은 미확정. [상세 자료](nemogamsung-early-maker-evidence.md) |
+| `ble-cc2541` | **작업하다 중단한 미완성 설계**(2026-10-26 사용자 확인). 폴더명만으로 무선 기능·PCB 완성·발주·실물 제작·Paperware 소속은 판단하지 않음 |
+| `earphonemouse` | **작업하다 중단한 미완성 설계**(2026-10-26 사용자 확인). 이름 외 정확한 장치 기능·회로 구현 범위·발주·실물 제작·Paperware 소속은 미확정 |
 | `nemomotor_connector` | **실제 프로젝트명 확인.** FM116C 모터 구동 IC, 2핀 모터 연결 커넥터(`CN1`), 4핀 제어 연결 헤더(`H1`), 표시 LED·100nF 커패시터 ×2, 넓은 후면 패드 및 클립형 외곽 구조. **Paperware 새 모듈로 설계까지만 진행했고 발주·제작 없음(사용자 확인)**. [상세 조사](nemogamsung-early-maker-evidence.md) |
 
-**독립 설계 경계:** `neoboard`는 ATtiny+NeoPixel 통합 보드, **`nemotiny`는 micro:bit 대체 목적의 ATtiny85 제어보드**로 별개다. `nemotiny`의 **2022-01-13 회로도 날짜**도 확인됐다(발주일과 다름). 두 보드 모두 Paperware 키트의 어떤 최종 제품에 사용됐는지는 아직 사용자 확인이나 당시 자료가 없다. **앞선 NeoPixel 전용 PCB의 연속 Rev로 계산하지 않는다.** 제조 후 문제·수리 내용은 [초기 메이커 증거 원장](nemogamsung-early-maker-evidence.md)에 구분해 기록했다.
+**독립 설계 경계:** `neoboard`는 ATtiny+NeoPixel 통합 보드, **`nemotiny`는 micro:bit 대체 목적의 ATtiny85 제어보드**로 별개다. `nemotiny`의 **2022-01-13 회로도 날짜**도 확인됐다(발주일과 다름). 두 보드 모두 Paperware 키트의 어떤 최종 제품에 사용됐는지는 아직 사용자 확인이나 당시 자료가 없다. **앞선 NeoPixel 전용 PCB의 연속 Rev로 계산하지 않는다.** `nemotiny`의 **후면 분산 프로그래밍 패드**도 센서 접점과 구분하며, 사용자의 직접 설명 외 핀맵/업로드 성공은 추정하지 않는다. 제조 후 문제·수리 내용은 [초기 메이커 증거 원장](nemogamsung-early-maker-evidence.md)에 구분해 기록했다.
 
 **중간 각진 NeoPixel 설계:** 디지털 파일을 현재 찾지 못한 것으로 사용자 보고. **실물 PCB가 남아 있다고 재확인**했으므로 나중에 사진이 제공되면 모양/패드/홀/실장 상태를 비교하되, 실물 사진 없이 CAD 상세나 특정 제조 오류를 복원했다고 주장하지 않는다. 과거 파일 복구를 계속 진행할 필요는 없으며 **현재 확인 가능한 다른 설계 조사부터 진행**한다.
 
