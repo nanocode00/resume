@@ -64,6 +64,13 @@ PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 �
 
 **상황 → 문제 → 판단 → 조치 → 결과:** 예외 발생 후 복귀할 수 있는 CP0 경로가 필요했다(상황). 최종 시험에서 예외 경로 진입 뒤 **EPC 복귀 주소가 저장되지 않았다(C)**(문제). 당시 대안·우선순위 판단은 미확정. EPC/Status/Block/Cause와 벡터·ERET 제어, 테스트 및 파형 스크립트를 작성했다(A)(조치). **복귀 주소 저장 실패를 해결하지 못했고 남은 시간이 부족해 미완성 종료했다(C)**(결과). 보존된 RTL의 EPC 조건 충돌 및 ERET 인코딩 오류(A)는 당시 현상과 부합하지만, 실제 오류 원인이 오직 이 코드였다고 단정하지 않는다. 보고서의 포괄적 '정상 검증'보다 구체적 실패 경험을 우선해 기록한다.
 
+### 2026-10-27 원본 Logisim 회로 역대조와 사후 개선안
+
+- **A — 원본 구조:** [`yuxincs/MIPS-CPU/src/common/cp0.circ`](https://github.com/yuxincs/MIPS-CPU/blob/master/src/common/cp0.circ)의 EPC는 **32비트 `Register`에 `trigger="low"`**가 설정되어 있고, 그 앞에 데이터 선택용 Multiplexer, `HasExp` 터널, enable 관련 논리 및 clk 연결이 있다. Logisim의 LOW 레벨 감응 Register와 Verilog `reg`에 대한 `always @(*)` 조건 대입은 **동등한 RTL 구현이라고 자동으로 볼 수 없다**.
+- **A — Verilog와 관찰된 실패의 연결:** 현재 Verilog는 `HasExp = clk && counter0`, 저장 조건은 `if (!clk) if (HasExp)`여서 이진 논리상 `~clk & HasExp == 0`. 이 조건은 EPC 자동 저장 실패(C)와 부합한다. 다만 **원본 Logisim 회로가 동일한 시험에서 정상 동작했는지**는 시뮬레이션 결과가 없어 확인할 수 없다. 저장 소자와 게이트 전파의 차이가 원인일 수 있다는 것은 **사후 분석(D)**이지 당시 확정 진단이 아니다.
+- **사후 개선안(D, 당시 구현 아님):** 예외 수락 신호(`exception_taken`)를 `clk` 레벨과 분리해 만들고, **같은 `posedge clk`에 `EPC <= exception_pc;`, `PC <= 32'h800;`을 비차단 대입**하도록 PC와 EPC 업데이트 순서를 구성한다. `PC_Buffer`/반전 `clk_PC`도 새 동기화 구조와 함께 재검토한다. 저장 주소가 현재 PC인지 다음 PC인지는 재시작/복귀 ISA 규약에 따라 별도 결정해야 하며, **여기서는 완성된 코드 수정이나 실험 성공을 주장하지 않는다**.
+- **사후 개선안(D):** `eret` 전체 인코딩 `32'h42000018`을 정확히 디코딩하고, 예외 마스크/Block을 설정한 testbench에서 **예외 진입 → EPC 기대값 저장 → `0x800` 벡터 → ERET → PC 복귀**를 기대값 assertion으로 검증한다. 기존 저장소에 이 수정·성공 결과를 남겼다는 의미가 아니다.
+
 **별개인 syscall:** 일반 syscall은 `SyscallDecoder`의 `$v0/$a0`로 처리되며 `ExpSrc` exception과 연결된 자동 트리거로 작성되지 않았다. `tb_CP0`에 `Inst=0x0000000C`('syscall')을 넣고 `ExpSrc=001`도 함께 준 것을 근거로 **syscall 자체가 CP0 예외를 발생시킨다고 쓰지 않는다**.
 
 ## 6. GROUP-04 — Syscall/Statistics/Memory 구현과 ModelSim 관찰
