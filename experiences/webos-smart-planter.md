@@ -1,278 +1,123 @@
-# webOS Smart Planter
+# webOS Smart Planter — Canonical 경험 기록
 
-## 한 줄 요약
+> **상태 (2026-10-27):** GitHub 9개 브랜치, 고유 커밋 313개 중 본인 author 일반 커밋 26개 전수 diff 1차 검토를 반영한 **사실 기준 문서 v1**. 기능 단위 기여와 검증 한계를 확정 가능한 수준에서 정리했으나, 실제 시연 영상의 동작 구간·일부 당시 판단은 **추가 확인 필요**다. 세부 SHA·변경 전후·불확실성은 [개발작업 원장](webos-smart-planter-commit-ledger.md)을 따른다. 이 문서의 문장 전체가 바로 이력서에 실릴 수 있다는 의미는 아니다.
 
-Raspberry Pi 4의 webOS OSE와 Arduino를 I2C로 연결하고, 실제 센서 수집과 조명·급수 actuator 제어를 webOS JS Service에 통합한 5인 팀 스마트 홈 가드닝 프로젝트입니다. 하드웨어 firmware와 JS Service를 함께 수정해 `Sensor → Arduino → I2C → webOS → 제어 로직 → Actuator` 흐름을 실제 장치까지 연결했습니다.
+## 1. 프로젝트 개요
 
-## 기간 및 프로젝트 정보
+- **주제:** webOS OSE 기반 스마트 홈 가드닝 솔루션 개발. 온습도·조도·수위 등 환경 센서값을 수집하고, NeoPixel 조명·급수 펌프를 제어하며, 식물 상태 확인/원격제어 화면을 연결하는 5인 팀 프로젝트.
+- **팀 및 대외 협력:** 학부생 5명, LG전자 협력 산학 프로젝트. 당시 [수행계획서](https://drive.google.com/file/d/18LWxavmFAWhKTcsNzp8NcVUUII7MqT5t7-c5WA97lR4/view)는 **2024-03-01~06-30**을 공식 수행기간으로 기재. 사용자 작성 커밋상 실제 하드웨어/서비스 집중 구현은 **6월**, Camera·운영 후속 작업은 **9~10월**에 존재. 추후 작성된 개인 졸업포트폴리오에는 3~11월 참여 활동으로 기록되어 있으나, 공식 수행기간과 **구분**해 이해한다.
+- **팀 공개 자료:** [webos-gardening 저장소](https://github.com/dudgns128/webos-gardening), [프로젝트 소개 및 아키텍처](https://github.com/dudgns128/webos-gardening#readme), README에 연결된 [데모 영상](https://youtu.be/0eDjUXKEMuM).
+- **대외 결과:** 개인 졸업포트폴리오에는 **2024 제22회 임베디드 소프트웨어 경진대회 webOS 부문 입선**으로 기재됨(**B: 본인 사후 기록**). 상장 원본/대회 공식 명단을 이 조사에서 직접 검증한 것은 아니며 수상의 개인 원인·순위를 과장하지 않는다.
+- **초기 목표와 구현 구분:** [초기 제안 발표](https://drive.google.com/file/d/15_vLdybpZ2_TmFOs9tNfTs9j0ke8cksP/view)에는 얼굴 인식, Open API, 게이미피케이션, 알림 등 **제안 기능**이 포함된다. 최종 기능·개인 구현이 입증됐다는 자료가 아니므로 Git과 하드웨어 기록에서 확인된 범위만 본문에 기술한다.
 
-- 초기 기획 자료: **2024년 3월**
-- GitHub에서 직접 HW/서비스 연동 작업이 확인되는 시점: **2024년 6월**
-- 하드웨어 정리 문서: **2024년 7월**
-- 5인 팀: 김영훈, 김재훈, 박지환, 오승우, 홍지승
-- 2024 제22회 임베디드 소프트웨어 경진대회 webOS 부문 입선
+## 2. 시스템 구조와 개인 역할의 경계
 
-초기 제안 발표에서는 다음 기능을 목표로 제시했습니다.
+**팀 전체 구조(README 근거):**
 
-- 홈 가드닝 키트에서 센서 기반 상태 모니터링과 정보 표시
-- 웹 앱에서 사용자/식물 정보 등록, 환경 데이터 확인, 알림
-- 수분량·일조량 제어
-- Open API 기반 정보 제공
-- 사용자 얼굴 인식, 게이미피케이션
+`센서(Arduino) → I2C → Raspberry Pi 4 / webOS OSE JS Service → DB8·WebSocket·React 화면·외부 Spring Boot 서버 → I2C → NeoPixel/펌프`
 
-다만 이 문서는 **초기 기획 자료**이므로 얼굴 인식이나 게이미피케이션을 최종 구현 기능으로 자동 간주하지 않습니다. 이 경험 문서에서는 Git과 후속 하드웨어 자료로 확인되는 기능을 중심으로 정리합니다.
+- **HW:** Raspberry Pi 4 + webOS OSE 2.24.0, Arduino **Uno R3 개발 배선**(당시 하드웨어 정리 문서), **Nano 최종 구성**(README와 이전 경험 기록). SDA/SCL I2C, DHT11(pin 2), 24구 NeoPixel(pin 3), 펌프(pin 4), CDS 조도(A0), 수위(A1), 토양 수분용 A2 입력이 기록돼 있다. 펌프에는 트랜지스터·다이오드 회로 사용. **Uno→Nano 직접 전환 작업의 개인 소유권/구체적 검증 시점은 커밋만으로 미확정**.
+- **webOS:** Peripheral Manager의 Luna I2C API, JS Service, DB8, 자동 환경 관리 로직.
+- **프런트·서버:** React 화면 / WebSocket 연동. 외부 Spring Boot(AWS EC2), MySQL, InfluxDB 등은 **팀 전체 구성**이며 본인 단독 서버/DB 원저작으로 기재하지 않는다. README는 `main`에 **dummy data**가 남아 있고, 실제 하드웨어 통합 코드는 `Webos/devHW`를 보라고 구별한다.
 
-## 전체 시스템 구조
+| 기여 종류 | 직접 확인한 개인 기여 | 최초/최종 소유권에 대한 주의 |
+|---|---|---|
+| **임베디드 펌웨어** | Arduino I2C slave·10바이트 센서 패킷·NeoPixel/펌프 명령 처리, webOS CLI I2C 시험 스케치/앱 | Adafruit DHT 라이브러리 **원작은 타인**. 원시 바이트 노출 함수 `readRawBytes()`는 직접 추가했다는 사용자 회고(C)와 코드 존재(A)를 함께 기록. 10월 센서 처리 위치·초기화 수정은 **팀원 author** |
+| **webOS 서비스 통합** | dummy 센싱을 I2C 실데이터 코드로 변경, Luna API·async 호출·제어 함수 연결 및 응답 형식 수정 | DB8·만족도·자동제어 기존 로직 **전체의 최초 구현은 타인/공동 작업**. 전체 최종 서비스 코드도 팀원 후속 수정 포함 |
+| **원격제어/웹페이지 연결** | JS Service에 `ws` 의존성·수신 JSON 처리, React 화면의 `WebSocketUtil`·메시지 송신·이벤트 기반 상태 갱신, 자동제어 토글 버그 수정 | 기존 React 화면·외부 서버 구현/프로토콜 원안은 본인 단독 저작으로 주장하지 않음 |
+| **후속 기술 탐색·유지보수** | Camera API 예제 기반 테스트앱·`luna-send` 메모, `.gitignore`, 타인 변경 revert, gh-pages 정적 빌드 반입 | 9~10월 작업을 3~6월 산학협력 정식 기간 안의 핵심 구현과 구분. 예제·외부 패키지·번들/폰트 원작 제외 |
 
-공개 README에서 확인되는 전체 구조는 다음과 같습니다.
+## 3. 통합 경험 GROUP-01 — 센서·액추에이터 I2C 인터페이스 구축
 
-- Raspberry Pi 4 + webOS OSE
-- Arduino
-- DHT11 온습도 센서
-- 조도 센서
-- 수위 센서
-- 토양 수분 센서용 입력
-- 24개 WS2812B NeoPixel Ring
-- Water Pump
-- webOS JS Service
-- DB8
-- React WebApp
-- WebSocket 기반 외부 서버 연동
-- Spring Boot + AWS EC2
-- MySQL + InfluxDB
+**작업 ID:** `HW-01` · 핵심 근거 [a94a8fc (2024-06-02)](https://github.com/dudgns128/webos-gardening/commit/a94a8fc01c9f), [I2C 통신 로그](https://github.com/dudgns128/webos-gardening/blob/Hardware/i2clog.txt).
 
-센서 데이터는 Arduino에서 수집하고 Raspberry Pi의 webOS JS Service가 I2C로 읽습니다. 반대로 JS Service에서 조명 밝기와 급수 명령을 Arduino로 전달합니다. React WebApp과 외부 서버는 JS Service를 통해 상태 조회와 원격 제어 흐름에 연결됩니다.
+- **상황:** Raspberry Pi의 webOS 서비스와 Arduino를 연결해 센서값을 읽고 실제 제어 명령을 내려보내야 하는 하드웨어 통합 단계였다.
+- **문제:** 센서 데이터 필드·바이트 순서와 명령 형식의 공통 인터페이스가 필요했다. 당시 테스트에선 **토양습도 센서가 없어 A2 핀을 GND에 연결**한 기록이 존재하므로 모든 센서의 실측값 검증으로 말할 수 없었다.
+- **판단:** Arduino를 **I2C slave address 1**로 구성하고 mode `0`(밝기), `1`(펌프), `2`(센서 갱신)로 구분했다. 데이터는 DHT11 습도·온도 원시 바이트 **4바이트 + 아날로그 CDS·수위·토양 수분 각 2바이트 = 총 10바이트**로 만들었다. 왜 다른 인터페이스보다 I2C를 택했는지는 명시적 회고/문서가 없어 미확정.
+- **조치:** `Wire.onReceive`/`onRequest` 콜백, `analogRead` 값의 상·하위 바이트 분해, 밝기 0~100→PWM용 색상 밝기 0~255 변환 및 NeoPixel 24개 설정, 펌프 GPIO ON/OFF 코드를 추가했다. **Adafruit DHT 원본 라이브러리에 `readRawBytes()` 함수를 직접 추가**해 데이터 변환 전 원시 바이트 4개를 I2C 패킷으로 전달할 수 있게 했다고 사용자 직접 확인(C). 해당 라이브러리 자체를 직접 만든 것은 아님.
+- **결과(A):** Raspberry Pi의 `luna-send` 로그에는 `i2c/open`·`write([0,2])`·`read(size:10)`·`close` 성공 응답과 실제 10바이트 배열이 있다. **실제 I2C 버스에서 데이터가 왕복한 것은 확인**되나, DHT11 원시 데이터 해석의 정확도·모든 센서 정상 계측·LED/펌프의 실물 동작은 이 로그만으로 증명되지 않는다.
+- **후속 구현 소유권(A):** 2024-10-09 팀원 커밋 `a6aa3a5`의 센서 읽기 콜백→`loop()` 이동, `4b52723`의 `dht.begin()` 추가는 본인 성과와 분리.
 
-공개 README에는 InfluxDB를 약 5초 주기의 환경 센싱 시계열 데이터 저장에 사용하고, MySQL은 사용자/식물 기본 정보 저장에 사용한다고 정리되어 있습니다. 이는 팀 전체 아키텍처이며 개인 구현으로 과장하지 않습니다.
+**자료 주의:** `dataIO.txt`의 ADC 2바이트 결합 `×128` 메모와 실제 Arduino(상위 8비트 이동)/JS Service(`×256`) 코드는 **불일치**한다. 근거 있는 구현 표현은 실제 소스의 `256`이며, 당시 메모를 올바른 포맷으로 무조건 채택하지 않는다.
 
-## 실제 하드웨어 구성
+## 4. 통합 경험 GROUP-02 — JS Service의 dummy → 실센서·장치 명령 통합
 
-2024년 7월 하드웨어 정리 문서에는 다음 구성이 기록되어 있습니다.
+**작업 ID:** `SVC-01A` · [f2e890a](https://github.com/dudgns128/webos-gardening/commit/f2e890aab82d) → [6fc7336](https://github.com/dudgns128/webos-gardening/commit/6fc7336eae66) → [ea08aa6](https://github.com/dudgns128/webos-gardening/commit/ea08aa6a93d6) (2024-06-12).
 
-- Raspberry Pi 4: **webOS OSE 2.24.0** 설치, Arduino 전원 공급
-- Arduino: Raspberry Pi와 SDA/SCL로 I2C 연결
-- NeoPixel Ring 24개: Arduino pin 3, `Adafruit_NeoPixel` 사용
-- Water Pump: Arduino pin 4, **다이오드 + 트랜지스터 전류 증폭 회로** 사용
-- DHT11: Arduino pin 2, 프로젝트에서 수정한 DHT library 사용
-- CdS 조도 센서: A0, 10K pull-up resistor
-- 수위 센서: A1
-- 토양 수분 입력: A2
+- **상황:** 기존 webOS JS Service는 `getSensingDataJSON()`에서 랜덤 센서값을 반환하고 제어 함수에는 미완성 TODO/출력 경로가 있었다. Arduino 측 I2C 프로토콜은 앞서 구현되어 있었다.
+- **문제:** JS Service와 실제 하드웨어 사이의 I2C 함수, 응답 처리 및 비동기 호출이 맞지 않았다. 실제 관찰한 오류 메시지는 남아 있지 않다.
+- **판단:** webOS Peripheral Manager의 `luna://com.webos.service.peripheralmanager/i2c/{open,write,read,close}`를 이용하고 센싱/제어 함수가 동일한 `address:1`과 명령/패킷 구조를 사용하도록 연결했다. **문제가 있는 동안 제어 호출을 잠시 주석 처리하여 센서 경로만 분리 점검하려 했다는 사용자 회고(C)**가 있다. 특정 장애 원인은 확정하지 않는다.
+- **조치:** `readSensor()` 호출을 통한 10바이트 파싱, `getSensingDataJSON()`을 `async`로 변경, 센싱 주기 경로에 `await` 추가. `service.call` 및 `res.payload.returnValue` 방식으로 인자/응답을 정리하고 조명·급수 동작을 I2C write에 연결. 급수 코드에는 펌프 ON→약 3초 대기→OFF 호출 흐름이 있다.
+- **결과(A):** **dummy→실장 센서 데이터 읽기 코드 경로와 서비스→Arduino 명령 전송 경로의 구현**이 확인된다. 다만 `readSensor()`가 콜백 완료 신호를 직접 기다리는 대신 고정 지연(50ms→1000ms→500ms)을 이용했으므로 **비동기 완료 보장이나 장기간 통신 안정성은 입증되지 않았다**. 'HW 완성' 커밋 제목만으로 최종 E2E 통과는 주장하지 않는다.
+- **팀 구현 경계:** 기존 DB8 데이터 모델/식물 만족도/자동 제어 조건 전체를 최초 구현한 것으로 쓰지 않는다.
 
-### Arduino Uno → Nano 전환
+## 5. 통합 경험 GROUP-03 — webOS↔외부 서버↔React 원격 제어 메시지 연결
 
-개발 중반까지는 **Arduino Uno R3**를 사용해 I2C 통신과 센서·액추에이터 제어를 개발하고 검증했습니다. 이후 최종 하드웨어 형태를 구성하면서 **Arduino Nano로 교체**했습니다.
+**작업 ID:** `SVC-01B`, `WEB-01A`, `WEB-01B` · 2024-06-06~12.
 
-하드웨어 정리 문서에도 이 두 단계가 함께 남아 있습니다.
+- **상황·문제:** 기존 React 화면의 `WebOSServiceBridge` 직접 호출과 외부 WebSocket 연결 시도가 혼재했고, 초기 서버 URL·수신 JSON 구조·타이머 기반 표시 방식 등이 실제 통신 계약과 일치하도록 조정이 필요했다.
+- **판단·조치:** webOS JS Service에 Node `ws` 모듈 의존성과 외부 서버 주소를 설정하고 `JSON.parse(rawMessage)` 및 명령 ID 정합성을 수정했다([1275599](https://github.com/dudgns128/webos-gardening/commit/1275599ddfce), [6783a5d](https://github.com/dudgns128/webos-gardening/commit/6783a5de18a7)). React에서는 `WebSocketUtil.js`를 추가하고 로그인(`method:10`), 식물 선택(`12`), 급수(`14`), 광량(`15`), 자동제어(`16`) 메시지를 각 화면에 연결했다([0896075](https://github.com/dudgns128/webos-gardening/commit/08960758c838) 등).
+- **디버깅과 선택:** 처음엔 화면이 `setInterval(...,3000)`/1.5초 `setTimeout`으로 공유 객체 값을 기다렸다. 후속 [cd97e39](https://github.com/dudgns128/webos-gardening/commit/cd97e39ace46)부터 `WebSocketUtil.onReceive…Callback`을 연결해 **수신 메시지 도착 시 해당 React 화면의 state를 변경**하는 방식으로 수정. [1377108](https://github.com/dudgns128/webos-gardening/commit/1377108fb518)에는 수신 목록 캐시·초기 로딩 조건 보완이 있다. 이것을 변경했다는 사실은 확인되나, 당시 체감한 타이밍 장애의 정확한 원인은 미확정.
+- **결과(A):** 수신 콜백 기반 상태 반영·원격 명령 생성 코드가 후속 `WebPage/dev`에도 **구조적으로 유지**된다. 그러나 WebSocket 연결 성공을 보여주는 테스트 로그, 외부 서버의 전체 API 계약 통과 또는 물리 장치까지의 원격 제어 시연 구간은 아직 직접 검증하지 않았다.
+- **외부 코드 경계:** [3bd71c5](https://github.com/dudgns128/webos-gardening/commit/3bd71c54270e)에서 추가된 **5,308행은 Node `ws` 설치 패키지 파일**로, 직접 구현한 서비스 코드량이 아니다. 기존 React 디자인/화면과 Spring Boot 서버 전체의 원저작도 이 작업의 개인 성과로 합산하지 않는다.
 
-- 초기/개발 단계: Uno R3의 SDA/SCL, pin 2/3/4, A0/A1/A2 배선 기록
-- 최종 형태: Nano의 SDA/SCL, pin 2/3/4, A0/A1/A2에 동일 기능을 대응한 배선 기록
-- 공개 README의 최종 Hardware Setup도 Arduino Nano를 기준으로 설명
+## 6. 통합 경험 GROUP-04 — 자동제어 상태 불일치 수정
 
-즉 Uno와 Nano 기록은 서로 충돌하는 자료가 아니라 **개발 보드에서 최종 소형 보드로 교체된 과정**으로 이해하는 것이 정확합니다. 이력서에서는 보통 `Arduino`로 간결하게 쓰고, 하드웨어 개발 과정을 설명할 때는 `Uno에서 기능을 검증한 뒤 최종형에서 Nano로 교체`했다고 설명할 수 있습니다.
+**작업 ID:** `WEB-01C` 관련 [8725eed](https://github.com/dudgns128/webos-gardening/commit/8725eedb1078) → [0ec37f0](https://github.com/dudgns128/webos-gardening/commit/0ec37f08e857) → [b257d57](https://github.com/dudgns128/webos-gardening/commit/b257d57062dd) → [5946539](https://github.com/dudgns128/webos-gardening/commit/5946539cf3fa) (6/8~12).
 
-### 토양 수분 센서 검증 범위
+- **상황·문제(A):** React 자동제어 토글에서 `setCurrentState(!currentState)`와 서버로 보내는 `isAutoControl: currentState`가 서로 어긋나는 중간 코드가 있었다. 추가 수신 콜백에서는 **해당 컴포넌트에 존재하지 않는 `setPlants`/`setLoading` 함수**를 호출하도록 잘못 연결한 버전도 있었다.
+- **판단·조치(A):** 전송 payload를 `!currentState`로 수정하고, 자동제어 응답을 담당 모달의 `setCurrentState(isAutoControl)`에 연결하여 **상태 변경 대상 및 메시지 값을 일치시키는 방향**으로 수정했다.
+- **결과(A):** 문제 코드와 수정 diff가 나란히 존재하며 후속 `WebPage/dev`에도 같은 개념의 콜백/토글 처리가 유지된다. **프로덕션 서비스에서 모든 상황의 상태 동기화가 보장됐다는 주장**까지 이 커밋들에서 확인되는 것은 아니다.
+- **대표성:** 통합 과정의 구체적인 버그 수정 사례로는 유효하지만, 더 큰 GROUP-03(React 원격 제어) 안의 서브 에피소드로 묶는 것을 우선 권장.
 
-firmware와 공개 README에는 A2의 토양 수분 센서 입력이 포함되어 있습니다. 다만 하드웨어 정리 문서의 Uno 사용 단계에는 당시 토양 수분 센서를 아직 보유하지 못해 **A2를 GND에 연결해 사용했다**는 기록이 있습니다.
+## 7. 보조 경험 — Camera API PoC와 후속 유지보수
 
-최종 Nano 배선 문서에는 A2에 토양 수분 센서를 연결하는 구성이 적혀 있지만, 현재 보관 자료만으로 실제 최종형에서 토양 수분 센서까지 end-to-end 측정한 결과는 별도로 확인되지 않습니다.
+- **CAM-01 (9~10월):** [2cbed98](https://github.com/dudgns128/webos-gardening/commit/2cbed98d4d47)에 webOS 카메라 열기·촬영·닫기 테스트 웹앱과 패키지, [0bc6ba5](https://github.com/dudgns128/webos-gardening/commit/0bc6ba58f073)·[991d884](https://github.com/dudgns128/webos-gardening/commit/991d8843aa7b)에 camera2 / webOS media 관련 `luna-send` 호출 메모를 추가했다. **테스트앱 HTML에 LG전자 예제 저작권 표시가 있음**. 실제 사진 저장 성공·정식 서비스 채택·코드 전체 신규 저작은 미확정.
+- **OPS-01 (9~10월):** [.gitignore 추가](https://github.com/dudgns128/webos-gardening/commit/ec8f0e20fb48), [타인 UI 변경 revert](https://github.com/dudgns128/webos-gardening/commit/5fa0831b9bac), [gh-pages 정적 React 빌드 산출물 반입](https://github.com/dudgns128/webos-gardening/commit/cec22e9efdba) 및 10/31 상대 `homepage` 경로 설정. **원래 UI 저작·빌드 번들 원작·배포 정상 운영**으로 확대하지 않는다.
+- 카메라 관련 **2024-10-21 팀원 커밋**에 서비스·UI 연동 코드가 별도로 있으므로 모든 Camera 관련 최종 변경을 개인 성과로 표시하지 않는다.
 
-따라서 다음을 구분합니다.
+## 8. 시간순 요약
 
-- 토양 수분 입력을 포함한 firmware/protocol 구현: 확인 가능
-- 최종 Nano 하드웨어의 토양 수분 센서 배선 설계: 확인 가능
-- 실제 토양 수분 측정 결과까지 포함한 end-to-end 검증 완료: 현재 자료만으로는 단정하지 않음
+| 시기 | 확인 가능한 단계 | 증빙 |
+|---|---|---|
+| 2024.03~06 | 산학협력 프로젝트 공식 수행기간. 초기 제안에 다양한 기능 제시 | 수행계획서·초기 PPT |
+| 2024.06.02 | Arduino I2C slave·센서 패킷·NeoPixel/펌프 제어 및 CLI 버스 테스트 코드 추가 | `a94a8fc`, `00e4febe`, `i2clog.txt` |
+| 2024.06.06~08 | React 화면 WebSocket 초안 구현·서버 URL/응답 JSON 수정, JS Service `ws` 연결 | `1263977`, `0896075`, `8725eed`, `1275599`, `ec3d2ce` |
+| 2024.06.11~12 | React 콜백 기반 상태 갱신, 자동제어 상태 버그 수정, JS Service 실센서/I2C 통합 | `cd97e39`, `1377108`, `0ec37f0`, `b257d57`, `5946539`, `f2e890` 등 |
+| 2024.09~10 | 카메라 API 별도 시험, 코드 revert/빌드·배포 준비, 이후 팀원 통합 변경 | `Camera`, `Hardware`, `WebPage/dev`, `Webos/devHW` 커밋 |
 
-이력서나 면접에서는 DHT11, 조도, 수위 센서의 실제 연동과 NeoPixel/Pump actuator 제어를 중심으로 설명하는 것이 안전합니다.
+## 9. 검증된 결과와 명시적 한계
 
-## Git으로 확인되는 직접 기여
+| 주장 | 현재 인정 가능한 수준 | 근거 및 제한 |
+|---|---|---|
+| 10바이트 I2C 센서 패킷 송수신 | **직접 확인(A)** | Raspberry Pi `i2clog.txt` 성공 응답 및 값 배열. 실제 센서별 교정·물리 액추에이터 시험은 별개 |
+| Arduino↔webOS JS Service I2C API 통합 | **코드 구현 확인(A)** | 코드 양쪽 프로토콜/호출 경로 일치. 서비스 전체 E2E 시연 로그 별도 미확인 |
+| 원시 DHT 바이트 반환 코드 개인 작성 | **함수 존재(A) + 사용자 직접 확인(C)** | 원본 Adafruit DHT 라이브러리의 확장으로만 표현 |
+| NeoPixel·펌프 자동 동작 | **회로/제어 코드·팀 README 확인(A/B)** | 실제 모든 장치의 E2E 동작·안정성은 사용자가 봤던 시연 구간으로 추가 확인 필요 |
+| 토양 수분 센서 실제 측정 | **코드·최종 구성의 계획/기재는 확인(A/B)** | 당시 A2를 GND에 연결한 개발 단계 확인. 실제 최종 측정 결과 미확인 |
+| React 원격제어·콜백 구조 | **구현 및 후속 유지 확인(A)** | 서버/디바이스 전체 원격 시험은 별도 |
+| webOS 부문 입선 | **사용자 사후 이력 기록(B)** | 원본 상장/공식 결과를 이번 조사에서 직접 확인하지 않음 |
+| Camera 촬영/공개 배포 성공 | **테스트앱·명령 및 정적 파일 존재(A)** | 실제 성공 영상·로그, 공개 서비스 정상 운영 미확인 |
 
-`nanocode00` 계정의 커밋에서 다음 작업이 직접 확인됩니다.
+**시연 증거의 범위:** GitHub README는 데모 영상 URL을 제공한다. 이번 조사에서는 링크 존재까지만 확인했고 **영상의 구체적인 작동 장면을 직접 검수하지 못했다**. 따라서 읽지 못한 화면/장면을 보았다고 서술하지 않는다.
 
-### Arduino 하드웨어 제어
+## 10. 이력서·포트폴리오로 압축할 후보
 
-2024년 6월 2일 `i2c hardware control` 커밋에서 Arduino I2C 제어 코드가 추가되었습니다.
+다음은 **확정 사실 수준**으로 작성한 후보이며, 사용자가 구체적 시연을 확인하면 결과 문구를 그 범위에서 보강할 수 있다.
 
-최종 `i2cSlaveFinal.ino`의 주요 구조는 다음과 같습니다.
+1. **대표 우선 — HW/SW 인터페이스:** Arduino에서 주소 1의 I2C slave·10바이트 센서 패킷·NeoPixel/펌프 명령 처리 코드를 구현하고, Raspberry Pi webOS OSE의 Peripheral Manager로 10바이트 실제 응답을 확인. Adafruit DHT 라이브러리에 원시 바이트 반환 인터페이스 추가.
+2. **대표 우선 — 실제 데이터 통합:** webOS JS Service의 dummy 센서값을 I2C 센서 읽기로 교체하고 Luna API 비동기 응답·`await` 처리, 제어 함수 연동을 수정. 센서/제어 호출을 분리해 문제를 좁혀본 경험 포함.
+3. **보조 또는 웹/서비스 직무용 — 원격 상태 갱신:** React의 WebSocket 연동 화면을 주기적 공유 데이터 읽기에서 수신 콜백 기반으로 변경하고, 자동제어 토글의 전송값/상태 갱신 오류를 수정.
+4. **부수 기록 — Camera/배포:** webOS Camera2 API 사용 탐색, 웹 앱 build/배포 설정. 핵심 HW 통합 성과와 별개이며 최초 성공 여부 미확인.
 
-- Arduino를 I2C slave address `1`로 설정
-- Raspberry Pi에서 전달하는 mode에 따라 동작 분기
-- mode `0`: NeoPixel 밝기 제어
-- mode `1`: Water Pump ON/OFF
-- mode `2`: 센서값 갱신 후 Raspberry Pi가 읽을 수 있도록 준비
-- DHT11, 조도, 수위, 토양 수분 입력을 총 10바이트 packet으로 구성
+**추천:** 이 프로젝트에서 대표 경험은 GROUP-01+GROUP-02를 묶은 **하드웨어·서비스 데이터 계약의 양방향 통합**, 두 번째는 GROUP-03+GROUP-04의 **WebSocket 수신과 React 상태 갱신 문제 해결** 정도로 압축. Camera·배포는 희망 직무와 증거 수준에 따라 보조 항목으로만 포함한다. **이 문서를 작성했다고 `resume.md`가 자동 확정되지는 않는다.**
 
-### 10바이트 센서 데이터 프로토콜
+## 11. 근거 인덱스와 남은 확인
 
-Arduino가 Raspberry Pi로 전달하는 센서 데이터는 다음 순서로 구성됩니다.
-
-- byte 0~3: DHT11 온도·습도 raw data
-- byte 4~5: 조도 센서 ADC 값
-- byte 6~7: 물통 수위 센서 ADC 값
-- byte 8~9: 토양 수분 입력 ADC 값
-
-아날로그 값은 10-bit ADC 결과를 상위/하위 바이트로 나눠 전송하고, JS Service에서 다시 결합해 서비스용 값으로 변환합니다.
-
-## NeoPixel과 Water Pump 제어
-
-NeoPixel Ring은 24개 LED를 사용하며 Arduino pin 3에 연결했습니다.
-
-webOS에서 0~100 범위의 밝기 값을 전달하면 Arduino에서 이를 0~255 범위로 변환해 전체 NeoPixel에 적용합니다.
-
-Water Pump는 Arduino pin 4에 연결하고 `0/1` 명령으로 OFF/ON을 제어합니다. 하드웨어 문서에서는 다이오드와 트랜지스터를 이용한 전류 증폭 회로를 사용했다고 기록되어 있습니다.
-
-JS Service의 급수 함수는 펌프를 켠 뒤 약 3초 후 끄는 흐름으로 실제 급수 동작을 연결했습니다.
-
-## webOS JS Service와 I2C 연결
-
-2024년 6월 12일 `Feat: HW 제어 로직 추가 - i2c api 활용` 커밋에서 기존 dummy sensor 값을 실제 하드웨어 데이터로 교체했습니다.
-
-webOS Peripheral Manager의 Luna API를 사용해 다음 기능을 구현했습니다.
-
-- `luna://com.webos.service.peripheralmanager/i2c/open`
-- `i2c/write`
-- `i2c/read`
-- `i2c/close`
-
-서비스 시작 시 I2C 장치를 열고, 센서 조회 시 Arduino에 mode `2`를 전달한 뒤 10바이트 데이터를 읽습니다.
-
-읽어온 데이터는 JS Service에서 다음 정보로 변환됩니다.
-
-- temperature
-- humidity
-- light
-- water
-- watertank_level
-
-기존에 랜덤값을 반환하던 `getSensingDataJSON()`을 실제 `readSensor()` 결과를 사용하는 비동기 함수로 바꾸면서 dummy logic을 실제 장치 입력으로 전환했습니다.
-
-### `main`과 실제 HW branch 구분
-
-공개 README는 `main` branch가 HW 연결을 제외한 `webos/dev` 내용을 합친 상태이며, 이해와 재사용을 위해 일부 기능에 **dummy data**를 사용한다고 명시합니다.
-
-실제 HW 연결이 포함된 코드는 `webos/devHW` branch에서 확인하도록 안내되어 있습니다. 따라서 Git을 다시 볼 때 `main`만 보고 실제 센서 연동이 없다고 판단하면 안 되고, 반대로 `main`의 dummy data를 실제 HW 결과로 오해해서도 안 됩니다.
-
-## 자동 제어와 실제 장치 연결
-
-서비스 로직에는 식물별 적정 환경과 현재 센서 값을 비교해 만족도를 계산하고 자동 제어 여부를 판단하는 구조가 있었습니다.
-
-하드웨어 연동 과정에서 이 논리와 실제 actuator를 연결했습니다.
-
-- 광량 제어 시 `controlNeopixel()` 호출
-- 급수 시 `controlPump(1)` → delay → `controlPump(0)` 수행
-- 자동 제어 여부에 따라 actuator 동작
-
-즉 센서 데이터를 읽는 것에서 끝나지 않고, `센싱 → 판단 → 장치 제어`가 하나의 서비스 흐름으로 이어지도록 구현했습니다.
-
-## WebSocket 원격 제어 연결
-
-2024년 6월 8일 `Feat: ws 모듈 추가` 커밋에서 webOS JS Service에 Node.js `ws` 모듈을 추가하고 외부 서버 WebSocket endpoint와 실제 연결했습니다.
-
-프로젝트 README 기준 외부 서버는 Spring Boot/AWS EC2 환경이며, WebSocket은 센서 상태와 원격 제어 명령을 주고받는 통신 경로로 사용했습니다.
-
-이를 통해 Raspberry Pi가 로컬 하드웨어만 제어하는 데서 끝나지 않고 외부 웹/모바일 서비스와 제어 흐름을 연결할 수 있도록 구성했습니다.
-
-## React UI 연결
-
-React 기반 webOS WebApp이 JS Service와 Luna bus API로 통신합니다.
-
-직접 커밋에서도 MainPage의 식물 이미지 표시, 광량 제어 modal 동작 등 일부 UI 수정이 확인됩니다. 따라서 UI 전체 구현을 주 역할로 주장하기보다는, **하드웨어와 서비스 연동 과정에서 필요한 React 화면 및 제어 흐름을 함께 수정했다**고 정리하는 것이 정확합니다.
-
-## 시스템 통합 경험
-
-이 프로젝트의 핵심은 각 파트를 개별 구현하는 것보다 다음 흐름을 실제 장치까지 연결한 점입니다.
-
-`Sensor → Arduino → I2C → webOS JS Service → DB/UI/Server → Control Logic → I2C → Actuator`
-
-센서 데이터의 byte layout, 값의 단위와 범위, 장치 제어 command를 일치시켜야 전체 시스템이 정상 동작했습니다.
-
-특히 webOS 쪽 서비스 코드와 Arduino firmware를 함께 수정하면서 SW에서 전달한 명령이 실제 pump와 LED 동작으로 이어지고, 실제 센서값이 다시 서비스로 올라오는 양방향 인터페이스를 구현했습니다.
-
-## Git에서 확인되는 주요 흐름
-
-### 2024년 6월 2일: Arduino I2C 하드웨어 제어
-
-- I2C slave firmware 구현
-- DHT11 / 조도 / 수위 / 토양 수분 입력 읽기
-- 10바이트 센서 packet 구성
-- NeoPixel 제어
-- Water Pump 제어
-
-### 2024년 6월 8일: 외부 서버 WebSocket 연결
-
-- Node.js `ws` dependency 추가
-- webOS JS Service에서 외부 WebSocket server 연결
-
-### 2024년 6월 12일: webOS와 실제 HW 통합
-
-- dummy sensor data를 실제 I2C sensor data로 교체
-- Peripheral Manager I2C API 적용
-- sensing logic과 자동제어 logic 연결
-- NeoPixel 및 Water Pump 실제 제어 연결
-- 하드웨어 연동 오류 수정 후 `Fix: HW 완성` 커밋
-
-### 최종 하드웨어 정리
-
-- 개발 중반까지 Arduino Uno R3로 기능 개발·검증
-- 최종 하드웨어 구성에서 Arduino Nano로 교체
-- 기존 I2C/ADC/GPIO 핀 기능을 Nano에 동일하게 이식
-
-## 결과
-
-- Raspberry Pi 4 + webOS OSE 기반 실제 동작 시스템 구현
-- Arduino와 I2C를 통한 센서/액추에이터 양방향 제어
-- Uno 기반 개발 환경에서 최종 Nano 기반 하드웨어 형태로 전환
-- WebSocket 기반 원격 제어 구조 연결
-- 2024 제22회 임베디드 소프트웨어 경진대회 webOS 부문 입선
-
-## 이력서용 핵심 bullet
-
-- Raspberry Pi 4의 webOS OSE와 Arduino를 I2C로 연결하고 **센서 데이터 packet과 NeoPixel/Water Pump 제어 command를 정의해 양방향 HW 인터페이스 구현**
-- webOS Peripheral Manager I2C API를 적용해 **dummy sensor data를 실제 DHT11·조도·수위 센서 입력으로 교체**하고 서비스 자동제어 로직을 실제 actuator 동작까지 연결
-- 개발 단계의 Arduino Uno R3 환경에서 기능을 검증한 뒤 **최종 하드웨어를 Arduino Nano로 이식**해 동일 I2C/ADC/GPIO 인터페이스 유지
-- Node.js WebSocket을 webOS JS Service에 연결해 **로컬 HW 제어 흐름을 외부 서버의 원격 상태 조회·제어 구조와 통합**
-- Arduino firmware와 webOS service를 함께 수정하며 **HW/SW interface mismatch를 end-to-end로 디버깅**
-
-## 근거와 사용 시 주의
-
-Git과 추가 하드웨어 자료로 직접 확인되는 강한 근거는 다음입니다.
-
-- Arduino firmware
-- 10-byte I2C protocol
-- webOS JS Service의 Peripheral Manager I2C 연동
-- DHT11 / 조도 / 수위 실제 하드웨어 구성
-- NeoPixel / Water Pump actuator 연결
-- pump transistor/diode 회로
-- Uno 기반 개발 단계와 Nano 기반 최종 하드웨어 구성
-- WebSocket module 연결
-
-반면 다음 내용은 개인 구현으로 과장하지 않습니다.
-
-- 팀 전체 Spring Boot 서버 구현
-- DB 전체 설계
-- React UI 전체 구현
-- 초기 기획의 얼굴 인식 / 게이미피케이션을 최종 구현 기능으로 단정
-- 토양 수분 센서의 실제 end-to-end 검증 완료
-
-## 보여주는 역량
-
-- Embedded/IoT 시스템 통합
-- Arduino firmware 개발
-- I2C protocol 설계 및 디버깅
-- Raspberry Pi + webOS OSE 2.24.0
-- Luna Service / Peripheral Manager API 활용
-- 센서 데이터 parsing
-- actuator 제어와 transistor 기반 pump 구동
-- 개발용 보드에서 최종 하드웨어 보드로의 이식
-- WebSocket 통신
-- HW와 서비스 로직 사이 인터페이스 설계
-- 실제 장치까지 이어지는 end-to-end 디버깅
-
-## 자소서 활용 포인트
-
-- HW/SW 융합 역량
-- 임베디드 시스템 통합 경험
-- 통신 인터페이스를 직접 정의하고 연결한 경험
-- dummy data를 실제 센서/actuator로 전환한 경험
-- 개발 보드에서 최종 하드웨어 형태로 옮긴 경험
-- 서로 다른 팀 파트의 interface를 맞춘 협업 경험
-- SW 로직이 실제 물리 장치 동작으로 이어지는 시스템을 완성한 경험
+- **전체 SHA별 개인 기여·커밋별 diff·타인 구현 경계:** [`webos-smart-planter-commit-ledger.md`](webos-smart-planter-commit-ledger.md). 총 **고유 커밋 313개**, 개인 author **31개(일반 26개 + 병합 5개)**, 원장 일반 커밋 **누락 0개**.
+- **실제 HW 시기·부품·A2 대체 센서:** [당시 webOS 하드웨어 정리 문서](https://drive.google.com/file/d/1zytZEiC4wiBWrzqpI_Gq6s3I1vR2YBp3/view), [팀 README Hardware Setup](https://github.com/dudgns128/webos-gardening#hardware-setup).
+- **공식 기간·초기 목표:** [산학협력 수행계획서](https://drive.google.com/file/d/18LWxavmFAWhKTcsNzp8NcVUUII7MqT5t7-c5WA97lR4/view), [초기 제안 PPT](https://drive.google.com/file/d/15_vLdybpZ2_TmFOs9tNfTs9j0ke8cksP/view). *후자는 결과 보고서가 아니다.*
+- **본인 이후 참여/수상 회고:** [졸업포트폴리오](https://drive.google.com/file/d/1y3A65qJXOEoiqHoqyxLqhpcQe8qR6Yvk/view) — 사후 이력 기록이므로 당시 기능 검증을 대체하지 않음.
+- **남은 증거 1 — 실제 HW 시연:** 온습도·조도·수위 표시 및 LED·펌프 물리 동작이 각각 **어느 단계에서 직접 작동했는지** 사용자 기억/사진·영상으로 구분해 확인.
+- **남은 증거 2 — 설계 판단:** 10바이트 패킷/I2C 선택의 제약, 고정 지연 500ms의 실제 문제와 선택 이유를 기억으로 확인. 기억 불명확하면 가설로 남긴다.
+- **남은 증거 3 — 원격·Camera:** 웹페이지→외부 서버→webOS→실장 제어 흐름/Camera 실제 캡처 성공을 입증하는 로그·시연. 없으면 구현 경로만 인정.
