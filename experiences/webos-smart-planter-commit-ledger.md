@@ -1,6 +1,6 @@
 # webOS Smart Planter — 커밋 기반 개발작업 원장
 
-> 조사 시작: 2026-10-27 · 원본: [dudgns128/webos-gardening](https://github.com/dudgns128/webos-gardening) · 상태: **전체 커밋 인벤토리 1차 완료 / HW-01 기능 묶음 1차 복원**. 이 파일은 이력서 확정본이 아니다. `resume.md`와 기존 `experiences/webos-smart-planter.md`는 현재 변경하지 않는다.
+> 조사 시작: 2026-10-27 · 원본: [dudgns128/webos-gardening](https://github.com/dudgns128/webos-gardening) · 상태: **9개 브랜치 커밋 graph 역검증 완료 / 본인 일반 커밋 26개 diff 1차 검토 완료 / 결과·의사결정 검증은 일부 미완료**. 이 파일은 이력서 확정본이 아니다. `resume.md`와 기존 `experiences/webos-smart-planter.md`는 현재 변경하지 않는다.
 
 ## 1. 조사 범위와 분류 원칙
 
@@ -19,12 +19,12 @@
 | **WEB-01B React 수신 콜백·데이터 갱신** | `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857` | **4커밋 diff 검토**. 6/11 `ws` 외부 패키지 `node_modules` 반입(자체 개발 아님), 6/12 폴링→수신 콜백, 식물 목록 캐시 처리 및 자동제어 응답 처리 초안. 오류 가능성·후속 수정 함께 기록 |
 | **WEB-01C 모달 동기화 수정·표시·배포 후속** | `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059` | **4커밋 diff 검토**. 레이아웃/이미지 크기, 자동제어 토글 전송값·콜백 버그 수정, 10/31 웹 앱 배포 상대 경로 설정. 전체 화면 품질 검증과 분리 |
 | **SVC-01 webOS JS Service 통합** | `1275599ddfce`, `6783a5de18a7`, `d799833ca911`, `f2e890aab82d`, `6fc7336eae66`, `ea08aa6a93d6` | **I2C 통합 3커밋 조사 완료(6/12)**. 앞선 3커밋 중 WebSocket·메시지 파싱·파일 삭제는 다음 WEB/SVC 조사 대상. 완전한 실물 E2E 결과는 미확정 |
-| **CAM-01 Camera 관련 실험** | `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` | **미검토**. 브랜치·제목에서 실험 후보만 식별. 실제 사용·최종 채택 여부 미확정 |
-| **OPS-01 정리·운영·기타** | `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba` | **미검토**. gitignore / revert / gh-pages 작업 등을 따로 확인. 초기 개발기간 이후 작업을 원 프로젝트 구현 실적에 자동 포함하지 않음 |
+| **CAM-01 webOS Camera API 후속 실험** | `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` | **3커밋 diff 확인**. 9월 예제 성격의 카메라 테스트 웹앱, 10월 camera2/미디어 API 명령 실험 메모. 실제 촬영·서비스 채택 미확정 |
+| **OPS-01 운영·정리·rollback/빌드** | `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba` | **3커밋 diff 확인**. gitignore 추가, 타인 UI 변경 커밋 전체 revert, gh-pages 독립 root 커밋에 생성된 React 정적 빌드 아티팩트. 실제 서비스 배포 성공 미검증 |
 
 **개인 author 병합 커밋 5개(개발작업으로 중복 산정하지 않음):** `4d357d94eeb4`, `0319b2d366ad`, `aa319bd64295`, `7be82da2905a`, `d51bffe6ae27`.
 
-**전체 graph 조사 메모:** `Server/dev`는 조회한 커밋 내 `nanocode00` author 기록 없음. 그 사실만으로 사용자가 서버 전체에 관여하지 않았다고 단정하지 않음. 2024-09~10 커밋은 산학협력 수행계획서 기간(3~6월) 밖에서 발생하므로 본 개발/후속 활동을 구분.
+**전체 graph 역검증(2026-10-27):** 총 9개 브랜치의 모든 페이지 재조회(Camara 8, Hardware 7, Server/dev 43, WebPage/dev 117, Webos/dev 142, Webos/devHW 159, gh-pages 1, main 204, test 131커밋; 브랜치별 집계는 SHA 중복 있음). **저장소 고유 커밋 313개**, GitHub `nanocode00` author **31개(부모 수 0 또는 1의 일반 커밋 26개, 다중 부모 merge 5개)**로 확인. 앞선 1차 조사의 295개는 미완료 페이징에 따른 과소집계였으며 **313개로 정정**. 현재 원장의 일반 커밋 목록 26개에 대한 **누락 SHA 0개**. `Server/dev`에서는 조회된 커밋의 `nanocode00` author 기록 없음; 이를 사용자의 모든 서버 관련 활동 부재로 확대하지 않음. 본인 외 author의 커밋도 저자 귀속 없이 팀 기여·후속 변경으로 구분. 2024-09~10 후속 커밋은 산학협력 수행계획서의 3~6월 기간과 별개로 표시.
 
 ## 3. HW-01 — Arduino/I2C 센서·제어 펌웨어 + 독립 통신 테스트
 
@@ -213,9 +213,32 @@
 
 **그룹 가치:** 자동제어 토글/수신 상태의 **두 가지 구체적 결함 수정**은 S/W 문제 해결 증거 후보. 이미지 크기·배포 설정은 보조 유지보수이며 이력서 대표 에피소드로 따로 과장하지 않는다.
 
-## 8. 다음 작업 순서
+## 8. CAM-01 — 2024년 9~10월 카메라 API 별도 실험
 
-1. **CAM-01 Camera 후속·PoC:** `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` 세 커밋의 파일/설계/실제 채택 여부를 조사.
-2. **OPS-01 및 뒤늦은 유지보수:** `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba`의 목적과 성격 확인. 6월 본 프로젝트와 9~10월 후속 활동을 분리.
-3. Camera/기타 브랜치 및 개발기간 이후 정리 커밋까지 매핑. **전체 개인 non-merge 26개 모두 diff 기준으로 역검증**한 뒤 canonical 경험 문서 확정.
-4. 결과/개인 기여가 불명확한 부분만 사용자 기억을 물음. `resume.md` 및 기존 경험 문서는 근거 조사 종료 전 수정하지 않음.
+**대상(A: 본인 commit author):** [`2cbed98d4d47` (9/18)](https://github.com/dudgns128/webos-gardening/commit/2cbed98d4d47), [`0bc6ba58f073` (10/13)](https://github.com/dudgns128/webos-gardening/commit/0bc6ba58f073), [`991d8843aa7b` (10/13)](https://github.com/dudgns128/webos-gardening/commit/991d8843aa7b). 3~6월 수행계획서의 산학협력 기간 이후 **후속 기술 탐색**이다.
+
+- **상황(A):** `Camera` 브랜치에 webOS Camera2 Peripheral API 연동 가능성을 시험하려는 별도 파일이 있다. 이것이 최종 스마트 화분의 정식 필수 기능인지, 독립 실험인지 당시 의도는 확인되지 않았다.
+- **문제·판단:** 당시의 구체적인 카메라 장애, 다른 API와의 비교, 촬영 테스트 실패/선택 이유는 커밋 메시지나 남은 화면으로 판정할 수 없다. **카메라 기능의 미완성 또는 실패로 단정하지 않는다**.
+- **조치(A):** 9/18 `cameraTest/appinfo.json`, `index.html`, 테스트앱 `.ipk`, 아이콘 등을 추가. webOS 권한 `camera.operation`, `WebOSServiceBridge`에서 `camera2/open → camera2/capture → camera2/close`를 호출하고 성공 여부·handle/path를 표시하는 화면 코드. **HTML 상단에 LG Electronics 예제 저작권 및 Apache-2.0 표시가 존재**하므로 앱 코드를 전부 본인 창작이라고 주장하지 않는다.
+- **조치(A):** 10/13 `cameraApi.txt`에 `luna-send` 기반 `getCameraList`, `getInfo`, `open`, `getSolutions`, `startCapture`, `capture`, `setFormat`, `startPreview`, `webos.media/load`, `takeCameraSnapshot`, `unload`, `stopPreview`, `close` 호출 순서와 인자 예시를 기록·보완. 개인 기기 경로·주소·숫자 핸들 등 실행환경별 값은 이 문서에 복제하지 않음.
+- **결과(A):** 카메라 웹 테스트 앱/패키지와 API 호출 절차 메모를 **작성·저장소에 추가했다는 사실**을 확인. 실제 카메라에서 사진이 성공적으로 저장됐는지, 어떤 장비인지, 그 결과가 최종 프로젝트에 투입됐는지 검증 가능한 실행 로그는 이 세 커밋에 없다.
+- **후속 팀 코드 경계(A):** 2024-10-21 `932af3a7c6f3`(GitHub `nanocode00` author로 확인되지 않는 타인 커밋)의 MainPage/JS Service에는 카메라 화면 연결을 위한 추가 수정이 있다. **그 기능의 원저자나 최종 성공을 `Camera` 브랜치 3커밋 작성자 개인 성과로 합산하지 않는다.**
+
+**잠정 소유권:** 카메라 API 연동 실험 및 명령 정리/테스트앱 반입. 원본 예제 코드 저작·실제 완제품 사용은 확인 필요. 포트폴리오에서 메인 HW/SW 통합 사례와 별도 **보조 경험**으로 취급.
+
+## 9. OPS-01 — 저장소 정리·Revert·정적 배포 (2024년 9~10월)
+
+| 개인 커밋(A) | 실제 diff / 검증 범위 |
+|---|---|
+| [`ec8f0e20fb48`](https://github.com/dudgns128/webos-gardening/commit/ec8f0e20fb48), 9/18 | `gardening_react/.gitignore` 23줄 추가. `node_modules`, 빌드 산출물, 로컬 환경 파일 등을 제외하려는 설정. 표준 ignore 템플릿에 가까워 **직접 구현한 기능 성과가 아닌 환경 정리**. 이 커밋이 기존 tracked 파일을 모두 Git에서 제거했다는 근거는 아님 |
+| [`5fa0831b9bac`](https://github.com/dudgns128/webos-gardening/commit/5fa0831b9bac), 9/24 | `Revert "reative UI"` — 실제로는 [타인 author `f3e1976fb994`](https://github.com/dudgns128/webos-gardening/commit/f3e1976fb994cd7aad722aa0815cffbe0fe518c6)의 9파일/331줄 변경을 되돌림. UI·JS Service·서버 주소 등의 직전 변경 복구. **돌려놓은 코드의 원 저작을 본인에게 귀속하지 않음.** revert 수행 이유·이후 채택 정책 및 실제 정상 작동 결과는 미확정 |
+| [`cec22e9efdba`](https://github.com/dudgns128/webos-gardening/commit/cec22e9efdba), 10/31 | `gh-pages` 브랜치에서 **부모가 없는 root commit**으로 정적 React 빌드 파일 `index.html`, asset manifest, `static/js/css`, 폰트/이미지, 개발환경 설정 등 21파일 반입. **생성물·외부 라이브러리·폰트/자산을 직접 코딩한 기능 줄 수로 집계하지 않음.** commit 존재는 배포용 파일을 올린 증거이나 URL 공개·실제 배포 성공은 확인 전 |
+
+**결론:** 세 작업은 본 개발의 기능구현과 분리된 유지보수/변경 회수/배포 준비다. 특히 revert는 *타인의 변경을 원상복구한 운영 조치*이고, gh-pages root는 *개인 작성한 프런트엔드 150행*이 아니다. 이력서의 대표 개발 성과보다는 프로젝트 부수 활동으로 두는 편이 정확하다.
+
+## 10. 다음 작업 순서
+
+1. **문제 단위 작업 ID 재구성:** HW-01, SVC-01A/B, WEB-01A/B/C, CAM-01, OPS-01의 사실관계를 통합해 개별 기여/외부 코드/타인 선행·후속 구현을 정리.
+2. **결과 근거 보강:** 보고서·데모/실물 시험 증거와 사용자의 구체적 회고로 HW 센서·펌프·NeoPixel, 원격제어, 카메라 실험의 실제 검증 범위를 확인.
+3. **Canonical 경험 문서:** 전체 26개 개인 일반 커밋의 diff 1차 검토·누락 역검증은 종료. 비어 있는 의사결정/검증 근거를 분리한 뒤 `experiences/webos-smart-planter.md`를 canonical로 갱신하고, 그 전에는 원장만 변경.
+4. **포트폴리오 선별 및 이력서 반영:** canonical 완료 뒤 대표 4~6개 사례 중 가치가 큰 문제해결 경험만 선택. `resume.md`는 아직 수정하지 않음.
