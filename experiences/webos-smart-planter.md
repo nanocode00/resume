@@ -34,7 +34,7 @@
 - **상황:** Raspberry Pi의 webOS 서비스와 Arduino를 연결해 센서값을 읽고 실제 제어 명령을 내려보내야 하는 하드웨어 통합 단계였다.
 - **문제:** 센서 데이터 필드·바이트 순서와 명령 형식의 공통 인터페이스가 필요했다. 당시 테스트에선 **토양습도 센서가 없어 A2 핀을 GND에 연결**한 기록이 존재하므로 모든 센서의 실측값 검증으로 말할 수 없었다.
 - **판단:** Arduino를 **I2C slave address 1**로 구성하고 mode `0`(밝기), `1`(펌프), `2`(센서 갱신)로 구분했다. 데이터는 DHT11 습도·온도 원시 바이트 **4바이트 + 아날로그 CDS·수위·토양 수분 각 2바이트 = 총 10바이트**로 만들었다. 왜 다른 인터페이스보다 I2C를 택했는지는 명시적 회고/문서가 없어 미확정.
-- **조치:** `Wire.onReceive`/`onRequest` 콜백, `analogRead` 값의 상·하위 바이트 분해, 밝기 0~100→PWM용 색상 밝기 0~255 변환 및 NeoPixel 24개 설정, 펌프 GPIO ON/OFF 코드를 추가했다. **Adafruit DHT 원본 라이브러리에 `readRawBytes()` 함수를 직접 추가**해 데이터 변환 전 원시 바이트 4개를 I2C 패킷으로 전달할 수 있게 했다고 사용자 직접 확인(C). 해당 라이브러리 자체를 직접 만든 것은 아님.
+- **조치:** `Wire.onReceive`/`onRequest` 콜백, `analogRead` 값의 상·하위 바이트 분해, 밝기 0~100→NeoPixel RGB 채널값 0~255 변환 및 NeoPixel 24개 설정, 펌프 GPIO ON/OFF 코드를 추가했다. **Adafruit DHT 원본 라이브러리에 `readRawBytes()` 함수를 직접 추가**해 데이터 변환 전 원시 바이트 4개를 I2C 패킷으로 전달할 수 있게 했다고 사용자 직접 확인(C). 해당 라이브러리 자체를 직접 만든 것은 아님.
 - **결과(A):** Raspberry Pi의 `luna-send` 로그에는 `i2c/open`·`write([0,2])`·`read(size:10)`·`close` 성공 응답과 실제 10바이트 배열이 있다. **실제 I2C 버스에서 데이터가 왕복한 것은 확인**되나, DHT11 원시 데이터 해석의 정확도·모든 센서 정상 계측·LED/펌프의 실물 동작은 이 로그만으로 증명되지 않는다.
 - **후속 구현 소유권(A):** 2024-10-09 팀원 커밋 `a6aa3a5`의 센서 읽기 콜백→`loop()` 이동, `4b52723`의 `dht.begin()` 추가는 본인 성과와 분리.
 
@@ -73,6 +73,7 @@
 ## 7. 보조 경험 — Camera API PoC와 후속 유지보수
 
 - **CAM-01 (9~10월):** [2cbed98](https://github.com/dudgns128/webos-gardening/commit/2cbed98d4d47)에 webOS 카메라 열기·촬영·닫기 테스트 웹앱과 패키지, [0bc6ba5](https://github.com/dudgns128/webos-gardening/commit/0bc6ba58f073)·[991d884](https://github.com/dudgns128/webos-gardening/commit/991d8843aa7b)에 camera2 / webOS media 관련 `luna-send` 호출 메모를 추가했다. **테스트앱 HTML에 LG전자 예제 저작권 표시가 있음**. 실제 사진 저장 성공·정식 서비스 채택·코드 전체 신규 저작은 미확정.
+- **CLEAN-01 (6/12):** [d799833](https://github.com/dudgns128/webos-gardening/commit/d799833ca911)에서 JS Service의 기존 `db8/plantInfo.js` 단일 파일을 삭제. 중복 제거를 의도했다는 커밋 제목은 있으나 **DB 전체 설계 변경·참조 회귀 없음까지 검증된 것은 아님**. 메인 기술 성과보다 유지보수 작업에 포함한다.
 - **OPS-01 (9~10월):** [.gitignore 추가](https://github.com/dudgns128/webos-gardening/commit/ec8f0e20fb48), [타인 UI 변경 revert](https://github.com/dudgns128/webos-gardening/commit/5fa0831b9bac), [gh-pages 정적 React 빌드 산출물 반입](https://github.com/dudgns128/webos-gardening/commit/cec22e9efdba) 및 10/31 상대 `homepage` 경로 설정. **원래 UI 저작·빌드 번들 원작·배포 정상 운영**으로 확대하지 않는다.
 - 카메라 관련 **2024-10-21 팀원 커밋**에 서비스·UI 연동 코드가 별도로 있으므로 모든 Camera 관련 최종 변경을 개인 성과로 표시하지 않는다.
 
