@@ -1,6 +1,6 @@
 # Verilog Single-cycle CPU — 커밋 기반 개발작업 원장
 
-> 조사 시작 2026-10-27. 원본: [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU) (**[yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) fork**). **상태: Fork 이후 개인 일반 커밋 5개 및 전체 기능별 diff·최종 코드·당시 보고서의 1차 검토 완료.** 특히 CP0/ERET의 정적 불일치를 발견해 성공 주장 보류. 남은 일은 관련 시뮬레이션 증거와 판단 이유를 보완하고 canonical 문서 갱신. 본 조사 결과를 [canonical `verilog-cpu.md`](verilog-cpu.md) v1에 통합했으며, **`resume.md`만 미수정**. 이 원장은 세부 커밋 근거를 보존한다.
+> 조사 시작 2026-10-27. 원본: [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU) (**[yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) fork**). **상태: Fork 이후 개인 일반 커밋 5개 및 전체 기능별 diff·최종 코드·당시 보고서의 1차 검토 완료.** 특히 CP0/ERET의 정적 불일치(A)와 **예외 진입 당시 EPC 복귀 주소 저장이 되지 않아 시간 부족으로 미해결 종료했다는 사용자 회고(C, 2026-10-27)**를 함께 기록. 남은 일은 당시 시험 입력 등 증거 및 판단 이유 보강. 본 조사 결과를 [canonical `verilog-cpu.md`](verilog-cpu.md) v1에 통합했으며, **`resume.md`만 미수정**. 이 원장은 세부 커밋 근거를 보존한다.
 
 ## 1. 범위, 소스, 기여 경계
 
@@ -16,7 +16,7 @@
 | [`2f059fde7be0`](https://github.com/nanocode00/MIPS-CPU/commit/2f059fde7be0) | 2025-05-09 | `Opcode_Decoder.v`, `ALU_Decoder.v`, `Funct_Decoder.v`, `RegisterRead_Decoder.v`, `Control.v` 최초 추가. ModelSim 환경·hello/wave 시험 파일·Logisim Windows 실행파일 반입 | **CPU-01 Decoder/Control** 최초 구현 1차 diff 확인. 초판 환경 파일·실행파일은 코드 개발 성과와 별도 |
 | [`74a5eee30fa5`](https://github.com/nanocode00/MIPS-CPU/commit/74a5eee30fa5) | 2025-05-24 | `ALU.v` 183줄, `Adder.v`, `Subtractor.v` 초판 추가 | **CPU-02 ALU/Arithmetic** 최초 구현 1차 diff 확인 |
 | [`538b4339f383`](https://github.com/nanocode00/MIPS-CPU/commit/538b4339f383) | 2025-05-24 | `RegisterFile.v` 34줄 최초 추가 | **CPU-03 Register File** 최초 구현 1차 diff 확인 |
-| [`4e8a72fdcaed`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed) | 2025-05-28 | `SingleCycleCPU.v`, CP0, IM/DM, Syscall, Statistics, 테스트벤치·파형 스크립트 추가. Decoder·ALU·Register File 수정. `verilog/` 별도 복제·ModelSim 산출물도 추가 | **CPU-01~03 후속 수정 일부 확인**, **CPU-04 Top/PC, CPU-05 CP0/ERET, CPU-06 Syscall/Statistics, CPU-07 검증** 상세 diff 추가 조사 예정. 커밋 규모만으로 독립 검증/작성량 추정 금지 |
+| [`4e8a72fdcaed`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed) | 2025-05-28 | `SingleCycleCPU.v`, CP0, IM/DM, Syscall, Statistics, 테스트벤치·파형 스크립트 추가. Decoder·ALU·Register File 수정. `verilog/` 별도 복제·ModelSim 산출물도 추가 | **CPU-01~07 기능별 검토 완료**. CP0/ERET은 EPC 저장 미완성(C)과 정적 조건 불일치(A) 보존. 커밋 규모만으로 독립 검증/작성량 추정 금지 |
 | [`750d76842c21`](https://github.com/nanocode00/MIPS-CPU/commit/750d76842c21) | 2025-05-28 | 앞서 별도로 생성한 `verilog/` 소스·설정·HEX·TB 전체 삭제, `modelsim/SingleCycleCPU.mpf` 수정 | **CPU-08 결과물 정리/중복 제거**. **본인 RTL 전체 삭제가 아님**. 최종 `modelsim/`에는 RTL/TB가 남음 |
 
 **계수 주의:** 위 표의 커밋은 모두 하나의 `main` 선형 히스토리 위에 있고, 원본의 upstream 커밋과 구별. 실제 **문제 해결 작업 ID 수 ≠ 커밋 수**.
@@ -103,9 +103,11 @@
 4. **최상위 TB의 예외 없음:** `tb_SingleCycleCPU.v`에서는 `ExpSrc=000`으로 고정. **top-level exception→service→ERET 종단 시험 데이터 없음**.
 5. **검증 형식:** TB들은 `$display` 중심이고 출력값 assertion·golden comparison 없음. `wave_CP0.tcl`의 `run 100ns`는 파형 구성·실행 지시를 의미할 뿐 기대값 통과 판정을 의미하지 않는다.
 
-**문서 대비:** 당시 보고서는 예외 처리와 `HasExp`/`PCout` 검증을 포괄적으로 설명하지만, **보관된 최종 RTL과 TB의 이 불일치를 고려하면 '예외 서비스 진입/복귀 정상 검증 완료'로 확정할 수 없다.** 이는 정적 검토 결과이며 당시 다른 임시 시뮬레이션/파형이나 수정되지 않은 파일이 있었을 가능성은 별개. 해당 자료 발견 전에는 **구현 의도/모듈 작성**과 **실행 검증 성공**을 분리한다.
+**사용자 당시 기억(C, 2026-10-27):** 마지막에 **예외 경로 진입 시 복귀 지점(EPC)이 저장되지 않는 문제를 관찰**했고, **남은 시간이 부족해 해결하지 못한 상태로 작업을 마쳤다**. 이는 코드에서 확인되는 EPC 자동 저장 조건 모순(A)과 **부합**하지만, 당시 테스트의 구체적인 입력·파형이나 원인의 유일성은 확정하지 않는다.
 
-**남은 확인:** 원 당시 시뮬레이션에서 예외가 실행됐다고 기억하는 경우, testbench 외의 추가 자극·waveform/해당 버전을 확보해야 한다. 기억만으로 현재 소스의 코드 상충이 해소되는 것은 아님.
+**상황 → 문제 → 판단 → 조치 → 결과:** CP0에 외부 예외 진입/복귀 구조를 구현하려 했다(상황). 최종 시험에서 EPC 복귀 주소가 저장되지 않았다(C)(문제). 어떤 해결안을 검토했는지 자료 부족으로 판단은 미확정. CP0·Top PC·TB/파형 코드를 작성했다(A)(조치). **문제를 고치지 못하고 시간 부족으로 미완성 종료했다(C)**(결과). 당시 보고서의 포괄적 예외 검증 기술(B)보다 명시적인 실패 회고(C)와 남은 코드(A)의 제약을 우선한다.
+
+**남은 확인:** 예외 진입 과정에서 EPC 저장 실패를 관찰했다는 회고(C)는 확보. 보존된 `tb_CP0`가 해당 상황을 재현하지 않으므로 당시 추가 시험 입력·파형·다른 revision은 아직 미확인. **성공적으로 ERET 복귀했다고 재해석하지 않는다.**
 
 ## 8. CPU-06 — Syscall, Statistics, Memory 및 예외 프로그램
 
@@ -129,11 +131,11 @@
 - [`750d76842c21`](https://github.com/nanocode00/MIPS-CPU/commit/750d76842c21)은 `verilog/` 중복 디렉터리(약 25개 RTL/HEX/환경·TB 파일)를 제거했으며 `modelsim/`은 그대로 남았다. 심지어 초판 `verilog/SingleCycleCPU.v`에는 출력 선언·`isJAL` 표기·세미콜론 등 문제 가능한 초기 코드가 있으므로 **이 삭제는 완성 RTL 전체 제거가 아니라 중복·초판 자료 정리**라는 맥락. 삭제의 직접 의도/정리 기준은 commit 제목만으로 완전히 확인 불가.
 - `modelSim` 프로젝트 파일과 실행 바이너리·임시 시뮬레이션 파일을 **직접 개발한 CPU 모듈 코드량/성능 결과로 합산하지 않음**.
 
-**다음 평가:** 전체 5커밋의 `modelsim/` 소스·환경·생성물·삭제 경계를 조사했다. 원장에 미매핑 personal SHA 없음. 상위 경험 선정 시 핵심 후보는 **CPU-01/02의 Decoder↔ALU 제어 비트 정합성 및 arithmetic 수정**, **CPU-03/04의 datapath 통합**, **CPU-05 CP0 구현 시도·검증 한계**. 마지막을 '성공적으로 완성'이라고 쓰면 현재 정적 코드와 상충하므로 주의.
+**다음 평가:** 전체 5커밋의 `modelsim/` 소스·환경·생성물·삭제 경계를 조사했다. 원장에 미매핑 개인 SHA 없음. 대표 후보는 **CPU-01/02 Decoder↔ALU 제어 비트 정합성·산술 수정**과 **CPU-03/04 datapath 통합**. **CPU-05 CP0는 최종 EPC 저장 실패를 해결 못한 실험·미완성 경험(C)**으로 분리하며 성공 사례로 기재하지 않는다.
 
 ## 10. Canonical v1 이후 잔여 검증
 
-1. **우선 확인할 오류/범위:** 현재 `modelsim/CP0.v`의 ERET opcode mismatch, EPC 자동 저장 조건 상충, TB의 Block/ExpSrc 초기화 문제를 **당시 ModelSim 로그 또는 수정된 최종 보관본**과 비교. 해당 파일이 없다면 정적 불일치와 기능 미검증 상태를 유지.
+1. **CP0 사용자 회고 확보(C):** 예외 경로 진입 당시 EPC 복귀 지점 저장 실패, 시간 부족으로 미완성 종료 확인. 보존 RTL의 ERET 비교값·EPC 저장 조건(A)과 연결하되 **단일 원인을 단정하지 않음**. 추가 파형·테스트 입력이 있다면 실패 조건을 좁히는 용도로 비교.
 2. **판단 근거:** Decoder 개별 bit 판별→동등 비교, ripple-style `fadd/fsub`→32비트 arithmetic 및 overflow 계산 교체의 이유를 사용자 기억/보고서로 구분. 실제 관찰한 현상이 없으면 추정으로 표시.
 3. **Canonical 갱신 완료:** [`verilog-cpu.md`](verilog-cpu.md) v1에서 Decoder/ALU·datapath 통합과 CP0 미해결 로직을 분리해 기록. 향후 추가 테스트 근거 확보 시 수정. `resume.md` 미수정.
-4. **PR:** 본 Draft에는 작업 원장 + canonical 2문서 변경. 보존 RTL의 CP0 불일치를 해결하는 다른 revision이 없는 한 **성공한 exception E2E로 표현하지 않음**. 최종 검토·병합은 별도 판단.
+4. **PR:** Draft에 원장 + canonical 2문서 변경. **예외 진입 이후 EPC 저장 실패 및 미완성 종료(C)**를 포함. 정상 exception/ERET E2E라고 쓰지 않음. 최종 검토·병합은 별도 판단.
