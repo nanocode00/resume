@@ -8,7 +8,7 @@
 - GitHub 계정 `nanocode00`을 author로 갖는 **고유 커밋 31개**, 그중 **일반 커밋 26개(부모 0개인 gh-pages 시작 커밋 포함)** 및 **병합 커밋 5개**. 브랜치별 동일 커밋을 중복 계산하지 않음.
 - **작업 ID는 커밋 ID가 아니라 문제 해결 단위**. 아래 모든 26개 일반 커밋은 잠정 그룹에 매핑했고, 향후 각 diff를 읽으며 그룹을 분리·통합할 예정. 현재 임시 그룹명을 최종 경험 또는 개인 저작 결론으로 삼지 않음.
 - 기술적 근거 우선순위: **diff → 이후 최종 코드와 테스트·로그 → 당시 문서 → 사용자 직접 기억**. 커밋 메시지만으로 완성/테스트 성공 판정 금지.
-- 사용한 주요 자료: [하드웨어 브랜치](https://github.com/dudgns128/webos-gardening/tree/Hardware), [HW 통합 브랜치](https://github.com/dudgns128/webos-gardening/tree/Webos/devHW), 저장소 README, 2024년 당시 Google Drive `webOS 하드웨어 정리.docx`, 산학협력 수행계획서(2024-03-01~06-30, LG전자 협력, 학부 5인), 최종 발표 슬라이드.
+- 사용한 주요 자료: [하드웨어 브랜치](https://github.com/dudgns128/webos-gardening/tree/Hardware), [HW 통합 브랜치](https://github.com/dudgns128/webos-gardening/tree/Webos/devHW), 저장소 README, 2024년 당시 Google Drive `webOS 하드웨어 정리.docx`, 산학협력 수행계획서(2024-03-01~06-30, LG전자 협력, 학부 5인), **초기 제안 발표 슬라이드**. 해당 슬라이드는 목표·계획을 적은 자료로 최종 구현/시연 결과를 증명하지 않는다. 팀 README의 영상 링크는 확인했으나 영상을 직접 검수하지 못했다.
 
 ## 2. 본인 일반 커밋 26개 — 누락 방지 인벤토리
 
