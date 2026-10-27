@@ -1,6 +1,6 @@
 # Verilog Single-cycle CPU — 커밋 기반 개발작업 원장
 
-> 조사 시작 2026-10-27. 원본: [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU) (**[yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) fork**). **상태: 전체 브랜치/개인 커밋 분리 완료, Decoder→ALU→Register File의 최초 구현·후속 diff 1차 조사.** `4e8a72f`의 전체 CPU 통합·CP0·테스트와 최종 정리 `750d768`의 나머지 파일별 분석은 진행 예정. 사실 기준 문서 [`verilog-cpu.md`](verilog-cpu.md)와 `resume.md`는 아직 수정하지 않음.
+> 조사 시작 2026-10-27. 원본: [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU) (**[yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) fork**). **상태: Fork 이후 개인 일반 커밋 5개 및 전체 기능별 diff·최종 코드·당시 보고서의 1차 검토 완료.** 특히 CP0/ERET의 정적 불일치를 발견해 성공 주장 보류. 남은 일은 관련 시뮬레이션 증거와 판단 이유를 보완하고 canonical 문서 갱신. 사실 기준 문서 [`verilog-cpu.md`](verilog-cpu.md)와 `resume.md`는 아직 수정하지 않음.
 
 ## 1. 범위, 소스, 기여 경계
 
@@ -107,10 +107,33 @@
 
 **남은 확인:** 원 당시 시뮬레이션에서 예외가 실행됐다고 기억하는 경우, testbench 외의 추가 자극·waveform/해당 버전을 확보해야 한다. 기억만으로 현재 소스의 코드 상충이 해소되는 것은 아님.
 
-## 8. 작업 미완료 범위와 다음 조사 순서
+## 8. CPU-06 — Syscall, Statistics, Memory 및 예외 프로그램
 
-1. **CPU-04/05 재검증:** Top의 signal 연결 및 CP0 정적 검토 완료. 이후 변경/보고서 추가 기록에서 ERET 인코딩, EPC 저장 경로, `ExpSrc/Block` 테스트 자극을 추적하고 **정상 동작으로 단정했던 과거 문구를 조정**한다.
-2. **CPU-06 syscall·Statistics·memory:** `SyscallDecoder.v`, `Statistics.v`, `ImmediateExtender.v`, `DataMemory.v`, `InstructionMemory.v`의 실제 기능과 benchmark/exception HEX 출처를 대조. 포트 폭·출력범위도 확인.
-3. **CPU-07 테스트 근거:** `tb_*.v`의 실제 자극·초기값·신호 확인 범위를 점검하고 보고서의 '기능적 검증' 표현을 필요한 만큼 한정.
-4. **CPU-07 검증 / CPU-08 정리:** ModelSim TB·TCL 실제 coverage/주장 차이, `verilog/` 임시 복제 반입 후 제거(`750d768`) 정리. 의사결정 근거는 당시 보고서로 1차 보완한 뒤 사용자에게 좁혀 물음.
-5. 전체 5커밋의 파일 변경과 본인 기여/원본·생성 파일 구분을 역검증하고 **canonical `experiences/verilog-cpu.md`를 갱신**. 그 전에는 기존 경험 문서·`resume.md` 그대로 유지.
+**개인 author:** [`4e8a72fdcaed`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed)에서 해당 RTL·테스트벤치가 추가됨. 참고 Logisim 회로·기존 assembly 원본 전체를 본인 창작으로 귀속하지 않음.
+
+- **InstructionMemory(A):** `rom0[0:511]` / `rom1[0:511]` 각 512×32 bit를 `$readmemh("benchmark.hex",rom0)` / `$readmemh("exception_service.hex",rom1)`로 읽고 `sel`로 선택. Top은 `PC[10:2]`의 9비트 index, `PC[11]`의 ROM 선택을 사용하므로 `0x800`부터 예외 ROM으로 들어가도록 **주소 구조가 작성됨**. `tb_InstructionMemory`는 각 ROM의 index 0/4를 `$display`한다.
+- **DataMemory(A):** `ram[0:1023]` 1024×32 bit 초기 0, `posedge clk`에 `Store`이면 쓰기, `Load`면 조합 읽기 아니면 0 반환. `tb_DataMemory`는 주소 10·20 쓰기/읽기, `Load=0` 시험.
+- **ImmediateExtender(A):** 16비트 `ImmIn`을 `ZeroExtend`면 앞에 16비트 0, 아니면 sign bit 복제로 32비트 확장. 테스트벤치는 0x1234/FFFF/8000 등의 조건을 출력.
+- **SyscallDecoder(A):** syscall enable에서 `v0 == 32'd10`이면 `Halt`, `Hex`는 clock edge에 `a0`를 갱신하는 코드. Top의 syscall 명령인 경우 RegisterFile 읽기 번호를 `$v0`(2), `$a0`(4)로 전환. **Halt는 Top 출력 포트가 아니라 `clk = Halt ? 1'b1 : Clock`에 사용되는 내부 wire**임. 당시 보고서가 Halt를 Top output처럼 쓴 부분과 실제 코드 구분. `tb_SyscallDecoder`는 v0=1/10 및 disable 케이스를 `$display`.
+- **Statistics(A):** `Statistics.v`는 op를 R/I/J로 분류하는 `i,r,j` 1비트 출력을 생성, Top에서 `posedge clk`마다 J/R/I 및 TotalCycles 누적. `tb_Statistics`는 각각 명령 종류와 unknown을 출력. **모든 가능한 opcode를 정량적으로 검증한 값은 없음**.
+- **자료 출처:** `modelsim/benchmark.hex` 및 `exception_service.hex`는 개인 커밋으로 **시뮬레이션 메모리 이미지 파일이 추가**됐지만, 기존 `programs/benchmark.asm`·`programs/exception_service.asm` 등 원본 설계의 프로그램들을 참고하는 맥락. **개인이 새로운 프로그램 자체를 최초 작성했다고 주장하지 않는다.**
+
+**결과:** 위 각 모듈의 인터페이스·기능 로직과 시뮬레이션 자극은 확인(A). 각 명령어가 통합된 CPU에서 end-to-end 올바른 출력을 얻었다는 일반적 보고서 주장(B)은 TB와 실행 결과를 구별하며 한정. 특히 CP0의 정적 조건 불일치는 별도 CPU-05에 명시.
+
+## 9. CPU-07/08 — ModelSim 검증 범위 및 마무리 정리
+
+**검증 자산(A):** [`4e8a72f`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed)에 `modelsim/tb_ALU.v`, `tb_Control.v`, `tb_RegisterFile.v`, `tb_ImmediateExtender.v`, `tb_InstructionMemory.v`, `tb_DataMemory.v`, `tb_CP0.v`, `tb_SyscallDecoder.v`, `tb_Statistics.v`, `tb_SingleCycleCPU.v` **10개 TB**와 `wave_*.tcl` **11개**(Top syscall 특화 wave 포함)를 추가했다. `modelsim/SingleCycleCPU.mpf`의 프로젝트 설정/환경 파일과 `modelsim/work/*`, `vsim.wlf` 등 컴파일·파형 아티팩트도 Git에 올라온다.
+
+- 당시 [제출 보고서](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view)는 Control의 ALUop/RegDst/설정 누락과 파형 디버깅, 각 모듈 및 top 시뮬레이션을 기술한다. **보고서(B)와 특정 Git diff(A)는 일치하는 큰 방향**이지만 각 오류의 재현 단계·확인 값까지 완전 복원된 것은 아님.
+- 확인한 TB들은 주로 **입력 지정→`#10` 지연→`$display`로 실제값 출력**하며, 상태별 `assert`나 pass/fail 비교가 보이지 않는다. wave 파일의 `vsim`, `add wave`, `run 100ns`도 실행 절차이지 pass 판정이 아님. '검증 코드를 작성하고 시뮬레이션으로 관찰'은 근거가 있으나 '자동회귀 100% 통과'는 없음.
+- [`750d76842c21`](https://github.com/nanocode00/MIPS-CPU/commit/750d76842c21)은 `verilog/` 중복 디렉터리(약 25개 RTL/HEX/환경·TB 파일)를 제거했으며 `modelsim/`은 그대로 남았다. 심지어 초판 `verilog/SingleCycleCPU.v`에는 출력 선언·`isJAL` 표기·세미콜론 등 문제 가능한 초기 코드가 있으므로 **이 삭제는 완성 RTL 전체 제거가 아니라 중복·초판 자료 정리**라는 맥락. 삭제의 직접 의도/정리 기준은 commit 제목만으로 완전히 확인 불가.
+- `modelSim` 프로젝트 파일과 실행 바이너리·임시 시뮬레이션 파일을 **직접 개발한 CPU 모듈 코드량/성능 결과로 합산하지 않음**.
+
+**다음 평가:** 전체 5커밋의 `modelsim/` 소스·환경·생성물·삭제 경계를 조사했다. 원장에 미매핑 personal SHA 없음. 상위 경험 선정 시 핵심 후보는 **CPU-01/02의 Decoder↔ALU 제어 비트 정합성 및 arithmetic 수정**, **CPU-03/04의 datapath 통합**, **CPU-05 CP0 구현 시도·검증 한계**. 마지막을 '성공적으로 완성'이라고 쓰면 현재 정적 코드와 상충하므로 주의.
+
+## 10. 잔여 검증과 Canonical 반영 순서
+
+1. **우선 확인할 오류/범위:** 현재 `modelsim/CP0.v`의 ERET opcode mismatch, EPC 자동 저장 조건 상충, TB의 Block/ExpSrc 초기화 문제를 **당시 ModelSim 로그 또는 수정된 최종 보관본**과 비교. 해당 파일이 없다면 정적 불일치와 기능 미검증 상태를 유지.
+2. **판단 근거:** Decoder 개별 bit 판별→동등 비교, ripple-style `fadd/fsub`→32비트 arithmetic 및 overflow 계산 교체의 이유를 사용자 기억/보고서로 구분. 실제 관찰한 현상이 없으면 추정으로 표시.
+3. **Canonical `verilog-cpu.md` 갱신:** 원장이 역검증한 사실만 통합해 작업군별 개인 RTL 기여와 **CP0 구현 코드의 미해결 모순**을 분리. `resume.md`는 별도 선정까지 미수정.
+4. **PR:** 본 Draft는 상세 사실 복원 문서만 추가. 전체 검토를 마친 뒤 canonical과 이력서 후보를 함께 검수하고 병합 여부 판단.
