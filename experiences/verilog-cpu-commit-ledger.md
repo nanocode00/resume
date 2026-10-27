@@ -69,10 +69,48 @@
 
 **남은 판단:** 초기 관측 포트 `$s0`·`$ra` 등의 제거는 단순 인터페이스 간소화인지, top-level 통합 연결 수정인지 당시 결정 이유 미확정.
 
-## 6. 작업 미완료 범위와 다음 조사 순서
+## 6. CPU-04 — 최상위 SingleCycleCPU 데이터 경로와 PC 갱신 (2025-05-28)
 
-1. **CPU-04 통합 top module:** 5/28 `SingleCycleCPU.v`의 PC→ROM→Control→RegisterFile→ALU→DM/Writeback 순서와 branch/jump/JAL/JR의 구체적 신호 연결 확인. `RegDst`와 `ALU` operand ordering 관련 실수의 소스 대조.
-2. **CPU-05 CP0·exception/ERET:** `CP0.v`, `tb_CP0.v`, `SingleCycleCPU.v`, `wave_CP0.tcl` 간 신호를 구분. **top-level TB `ExpSrc=000` 고정** 주장은 코드와 재확인; exception 회귀 성공 여부는 별도.
-3. **CPU-06 syscall·Statistics·memory:** `SyscallDecoder.v`, `Statistics.v`, `ImmediateExtender.v`, `DataMemory.v`, `InstructionMemory.v` 소스, benchmark/exception hex 출처 대조.
+**개인 구현(A):** [`4e8a72fdcaed`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed)에서 [`modelsim/SingleCycleCPU.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/SingleCycleCPU.v) 121줄이 최초 추가됐다. 원본 Logisim 회로를 Verilog datapath로 옮긴 본인 커밋이다.
+
+**상황:** Decoder/ALU/RegFile 단위 모듈을 하나의 명령어 실행 흐름으로 조합하는 통합 단계.
+
+**조치(A):**
+- `PC`, `PC_plus_4 = PC+4`, `InstructionMemory(PC[10:2], PC[11], Inst)`, `Control`, `RegisterFile`, `ImmediateExtender`, `ALU`, `DataMemory`를 순차 연결.
+- PC 분기: `IsJR`면 `R1`, branch 명령과 `Equal ^ BneOrBeq` 조건이 일치하면 `PC_plus_4 + (ImmExt<<2)`, Jump/JAL이면 `{PC_plus_4[31:28],Inst[25:0],2'b00}`, 일반은 `PC+4`. 예외 `HasExp`에서는 주소 `0x00000800`; `IsEret && IsCOP0`에서는 CP0의 `PCout` 선택 **코드 경로**가 존재.
+- `RW = IsJAL ? 31 : (RegDst ? rd : rt)`, `Din = IsCOP0 ? Dout : (IsJAL ? PC+4 : (MemtoReg ? Data : ALU_Result))`, `WE = IsCOP0 ? ExRegWrite : RegWrite`로 목적 레지스터/Write-back 경로 구성.
+- `X = IsShamt ? R2 : R1`, `Y = IsShamt ? {27'b0, Inst[10:6]} : (ALUSrc ? ImmExt : R2)`의 ALU 입력 다중화, Data Memory에 `ALU_Result[11:2]` 주소를 사용.
+- PC 업데이트용 `clk_PC`는 `((IsEret && IsCOP0) || HasExp) ? ~clk : clk`으로 반전되도록 설계돼 있다. 이는 **일반 클럭과 예외/복귀 클럭 에지 변경 코드가 존재한다는 사실**이지, 타이밍이 검증됐다는 의미는 아니다.
+
+**검증(A/B):** [`tb_SingleCycleCPU.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/tb_SingleCycleCPU.v)는 클럭을 생성하고 `ExpSrc=3'b000` 고정으로 J/R/I, TotalCycles, Hex를 `$display` 출력한다. [`wave_SingleCycleCPU_syscall.tcl`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/wave_SingleCycleCPU_syscall.tcl)은 Inst, R1/R2, ALUop, ALU X/Y, RegDst, WE, Hex/Halt를 함께 관찰하도록 설정. 제출 보고서가 waveform 확인을 설명하나, **이 TB는 exception 입력을 변화시키지 않으며 자동 pass/fail 검증기가 아니다**.
+
+**결과:** RTL에 일반 PC·branch/jump·writeback·syscall/메모리 연결 경로가 존재한다(A). 다만 복잡한 CP0 exception/ERET 경로의 실제 기능·timing은 다음 CPU-05에서 별도로 평가; 전체 CPU가 모든 명령을 올바르게 수행했다고 무제한 주장하지 않음.
+
+## 7. CPU-05 — CP0/ERET 설계와 보존된 RTL·테스트의 불일치 (중요 검증 경계)
+
+**본인 커밋:** [`4e8a72fdcaed`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed)에서 [`modelsim/CP0.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/CP0.v), [`tb_CP0.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/tb_CP0.v), [`wave_CP0.tcl`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/wave_CP0.tcl) 추가. `750d768` 이후에도 `modelsim/` 판본이 남는다.
+
+**상황/의도(A):** 원본 Logisim CPU의 외부 exception 처리 구조를 Verilog CP0 레지스터 집합 `EPC/Status/Block/Cause`, `mfc0`/`mtc0`, exception vector `0x800`, `eret` 복귀 경로로 옮기려 했다.
+
+**조치(A):**
+- `CP0`에 EPC/Status/Block/Cause 32비트 reg, `ExpSrc[2:0]`, `Sel=Inst[12:11]`, `BlockSrc=Block[2:0]`, `ExpClick = (|(BlockSrc&ExpSrc)) && !ExpBlock`, `HasExp = clk && counter0` 추가.
+- `PCout = EPC`, `Dout`는 `Sel`별 CP0 레지스터값을 선택. `SingleCycleCPU`에서 `HasExp`이면 PC `0x800`, `IsEret && IsCOP0`면 EPC 복귀가 **의도된 신호 경로**.
+
+**정적 코드 분석에서 발견된 미해결 불일치(A: 직접 소스 비교, 동적 시뮬레이션 수행 전):**
+1. **ERET 디코딩:** `CP0.v`는 `assign IsEret = Inst[5:0] == 6'b000110` (값 6)이나 `tb_CP0.v`의 ERET 명령은 `32'h42000018`이고 그 하위 6비트는 `6'b011000` (값 24). **보존된 ERET 테스트 자극은 현재 RTL에서 `IsEret`로 디코딩되지 않는다.** 같은 조건문이 5월 28일 생성 후 삭제된 `verilog/CP0.v` 대체 판본에도 남아 있다.
+2. **EPC exception 자동저장 조건:** `HasExp = clk && counter0`인 반면, EPC 갱신 절은 `if (!clk) begin if (HasExp) EPC <= PCin;` 형태다. 일반 0/1 정상 논리에서 `!clk`와 `HasExp`는 동시에 참일 수 없어 **예외로 인한 EPC 자동저장 경로에 논리 모순**이 있다. CP0가 `mtc0`에 의해 EPC를 수정하는 별도 경로까지 부정하는 것은 아님.
+3. **단위 TB의 예외 자극 불충분:** `tb_CP0`는 `ExpSrc=001`을 주지만, `Block`은 0으로 초기화되고 TB에서 `mtc0` 명령으로 Block을 활성화하지 않는다. 따라서 `BlockSrc & ExpSrc == 000` 상태에서 `ExpClick`가 발생하지 않는다. 이 TB만으로 실제 EPC exception store, ERET 정상 복귀를 통과했다고 말할 수 없다.
+4. **최상위 TB의 예외 없음:** `tb_SingleCycleCPU.v`에서는 `ExpSrc=000`으로 고정. **top-level exception→service→ERET 종단 시험 데이터 없음**.
+5. **검증 형식:** TB들은 `$display` 중심이고 출력값 assertion·golden comparison 없음. `wave_CP0.tcl`의 `run 100ns`는 파형 구성·실행 지시를 의미할 뿐 기대값 통과 판정을 의미하지 않는다.
+
+**문서 대비:** 당시 보고서는 예외 처리와 `HasExp`/`PCout` 검증을 포괄적으로 설명하지만, **보관된 최종 RTL과 TB의 이 불일치를 고려하면 '예외 서비스 진입/복귀 정상 검증 완료'로 확정할 수 없다.** 이는 정적 검토 결과이며 당시 다른 임시 시뮬레이션/파형이나 수정되지 않은 파일이 있었을 가능성은 별개. 해당 자료 발견 전에는 **구현 의도/모듈 작성**과 **실행 검증 성공**을 분리한다.
+
+**남은 확인:** 원 당시 시뮬레이션에서 예외가 실행됐다고 기억하는 경우, testbench 외의 추가 자극·waveform/해당 버전을 확보해야 한다. 기억만으로 현재 소스의 코드 상충이 해소되는 것은 아님.
+
+## 8. 작업 미완료 범위와 다음 조사 순서
+
+1. **CPU-04/05 재검증:** Top의 signal 연결 및 CP0 정적 검토 완료. 이후 변경/보고서 추가 기록에서 ERET 인코딩, EPC 저장 경로, `ExpSrc/Block` 테스트 자극을 추적하고 **정상 동작으로 단정했던 과거 문구를 조정**한다.
+2. **CPU-06 syscall·Statistics·memory:** `SyscallDecoder.v`, `Statistics.v`, `ImmediateExtender.v`, `DataMemory.v`, `InstructionMemory.v`의 실제 기능과 benchmark/exception HEX 출처를 대조. 포트 폭·출력범위도 확인.
+3. **CPU-07 테스트 근거:** `tb_*.v`의 실제 자극·초기값·신호 확인 범위를 점검하고 보고서의 '기능적 검증' 표현을 필요한 만큼 한정.
 4. **CPU-07 검증 / CPU-08 정리:** ModelSim TB·TCL 실제 coverage/주장 차이, `verilog/` 임시 복제 반입 후 제거(`750d768`) 정리. 의사결정 근거는 당시 보고서로 1차 보완한 뒤 사용자에게 좁혀 물음.
 5. 전체 5커밋의 파일 변경과 본인 기여/원본·생성 파일 구분을 역검증하고 **canonical `experiences/verilog-cpu.md`를 갱신**. 그 전에는 기존 경험 문서·`resume.md` 그대로 유지.
