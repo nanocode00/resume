@@ -16,7 +16,7 @@
 |---|---|---|
 | **HW-01 Arduino/I2C 센서·제어** | `a94a8fc01c9f`, `00e4febe4ae0` | **첫 묶음 1차 검토 완료**. 펌웨어 및 webOS I2C 독립 테스트 앱. 결과 확인의 한계는 아래 |
 | **WEB-01 React·WebSocket 인터페이스** | `126397712f02`, `08960758c838`, `8725eedb1078`, `ec3d2ce378b0`, `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857`, `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059` | **미검토**. 커밋 제목 기준 임시 분류이며 UI·웹소켓·배포 수정 단위로 분해 예정 |
-| **SVC-01 webOS JS Service 통합** | `1275599ddfce`, `6783a5de18a7`, `d799833ca911`, `f2e890aab82d`, `6fc7336eae66`, `ea08aa6a93d6` | **부분 검토**. WebSocket 수신/메시지 파싱, 센서 실데이터 교체, I2C API, 자동 제어 연결, `await` 및 LS2 응답 형식 후속 수정. 세부 기여·결과 확정 전 |
+| **SVC-01 webOS JS Service 통합** | `1275599ddfce`, `6783a5de18a7`, `d799833ca911`, `f2e890aab82d`, `6fc7336eae66`, `ea08aa6a93d6` | **I2C 통합 3커밋 조사 완료(6/12)**. 앞선 3커밋 중 WebSocket·메시지 파싱·파일 삭제는 다음 WEB/SVC 조사 대상. 완전한 실물 E2E 결과는 미확정 |
 | **CAM-01 Camera 관련 실험** | `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` | **미검토**. 브랜치·제목에서 실험 후보만 식별. 실제 사용·최종 채택 여부 미확정 |
 | **OPS-01 정리·운영·기타** | `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba` | **미검토**. gitignore / revert / gh-pages 작업 등을 따로 확인. 초기 개발기간 이후 작업을 원 프로젝트 구현 실적에 자동 포함하지 않음 |
 
@@ -72,9 +72,53 @@
 
 **묶음 상태:** 상황·코드 변경·버스 테스트 일부 복원. **최초 판단 근거·기기 실동작 범위는 미확정**으로 남기고, 다음은 webOS JS Service의 I2C 통합 커밋 전후를 확인.
 
+## 4. SVC-01A — webOS JS Service의 dummy 센서 → I2C 실데이터 통합
+
+**커밋 묶음(모두 `nanocode00` author, 2024-06-12):** [`f2e890aab82d`](https://github.com/dudgns128/webos-gardening/commit/f2e890aab82d) → [`6fc7336eae66`](https://github.com/dudgns128/webos-gardening/commit/6fc7336eae66) → [`ea08aa6a93d6`](https://github.com/dudgns128/webos-gardening/commit/ea08aa6a93d6). 각 커밋의 실제 파일별 patch 및 부모 커밋을 확인했다. **기존 JS Service·DB·만족도 계산 로직의 최초 저작은 별도 팀원 선행 작업**이며 이 묶음은 그 위에 Hardware API를 붙인 기여를 중심으로 한다.
+
+### 상황
+
+기존 `Webos/dev` JS Service는 `getSensingDataJSON()`이 랜덤값을 반환하고 `controlLight`/`controlWater`는 출력 메시지 또는 TODO로 남아 있었다. 별도로 **HW-01에서 Arduino I2C 센서 패킷과 장치 명령 처리**가 구현돼 있었다. 이 둘을 연결하여 webOS의 주기적 센싱·만족도/자동제어 로직이 실제 하드웨어를 호출하게 하는 통합 단계.
+
+### 문제
+
+- 기존 센서값이 **dummy**이고, JS Service의 제어 함수에서 LED·펌프의 실제 명령 호출이 없었다(A: `f2e890` 이전 diff).
+- **서로 다른 webOS API 호출 방식이 혼재**했다. 첫 통합 시 `openI2C`와 NeoPixel은 `service.call`을 사용했지만 펌프는 일부 `bridge.call`을 사용했고, LS2 응답을 문자열 `JSON.parse(msg)` 처리했다. JS Service용 `service.call`과 응답 객체 구조로 맞추는 후속 diff가 존재한다. **실제 관찰한 오류 메시지/재현 조건은 미확인**.
+- `getSensingDataJSON()`을 `async`로 변경했는데, 기존 5초 센싱 경로에서 초기에 `await`가 없어서 결과가 Promise일 수 있었다(A: `ea08aa` 수정 diff).
+
+### 판단
+
+- webOS Peripheral Manager `luna://com.webos.service.peripheralmanager/i2c/{open,write,read,close}`를 JS Service에서 호출하고, Arduino 쪽 HW-01 프로토콜의 slave address **1**, mode **2**, **10바이트** 데이터 구조를 동일하게 파싱했다.
+- `getSensingDataJSON()`에서 `readSensor()`를 `await`하고 제어 함수를 기존 만족도/급수 흐름에 연결. **이 선택의 대안·실제 디버깅 기준은 코드에 명시되지 않아 확인 필요**.
+- 센서 조회를 두 단계(`write([0,2])` 후 `read(size:10)`)로 구성하고 **23ms setTimeout 뒤 read**, 함수는 추가 지연 후 반환하도록 설계. 지연은 초기 50ms → 중간 1000ms → 6/12 최종 **500ms**로 변경됐다. **하드웨어 완료/성공 callback을 await하는 구조는 아니어서 통신 완료 시점 보장으로 표현하지 않는다**.
+
+### 조치(변경 추적)
+
+| 커밋 | 실제 코드 변경 | 한계/비고 |
+|---|---|---|
+| `f2e890` 최초 통합 | `start()`에서 `openI2C()` 호출. `getSensingDataJSON()`을 `async`로 바꾸고 랜덤값을 `readSensor()` 데이터로 교체. `controlNeopixel`, `controlPump`, `readSensor`, `delay` 추가. 급수 시 `controlPump(1) → delay(3000) → controlPump(0)` 구성. deploy 스크립트 web app 권한에 `peripheralmanager.i2c.operation` 추가 | `service.call`과 `bridge.call` 혼재, 문자열 파라미터/응답 파싱 사용. 주기적 호출의 `await` 누락 |
+| `6fc733` 중간 수정 | 광량/펌프 호출을 일시 주석 처리, `closeI2C`도 주석 처리, `readSensor` 고정 대기 **50 → 1000ms**. React 일부 레이아웃 및 `appinfo.json` 관련 정리 | 최초 구현을 그대로 완성판으로 간주하면 중간 주석 처리/되돌림을 놓친다. 무엇을 테스트하려고 호출을 멈췄는지 기억/로그 미확인 |
+| `ea08aa` 후속 안정화 | 주기적 `const data = await getSensingDataJSON()`으로 수정. I2C 호출 파라미터를 JS 객체 형태로, 응답은 `res.payload.returnValue` 및 `arg = res.payload`로 수정. 펌프의 `bridge.call`을 `service.call`로 통일. NeoPixel/펌프 실행과 `isAutoControl` 조건 활성화. 센서 고정 대기 **1000 → 500ms**, 광량 모달과 MainPage UI도 일부 수정 | 커밋 제목은 `Fix: HW 완성`이지만 **실물 E2E 시험 기록이나 장기 재현성은 이 메시지 하나로 증명 불가** |
+
+### 결과 및 이후 변경 여부
+
+- **A: 코드 단계**에서 Arduino 10바이트 형식과 webOS `readSensor` 파싱이 연결되고, 서비스 센싱/제어 함수가 실제 I2C write/read 경로를 호출하도록 수정된 사실은 확인됨. 최초 dummy 데이터 경로에 비해 실데이터/구동 경로가 만들어졌다는 것이 직접 성과.
+- **시험 범위**: HW-01의 `i2clog.txt`는 Raspberry Pi에서 **CLI로 I2C 센서 패킷을 읽은 기록**이다. 동일 날짜 JS Service에서 전체 자동센싱·DB 갱신·실제 펌프와 NeoPixel 동작까지 한번에 통과한 로그는 이번 묶음에서 **아직 확인하지 못함**.
+- **비동기 제약**: `readSensor()`는 I2C 읽기 callback에서 지역변수를 채운 뒤 **고정된 500ms 지연 후 반환**한다. callback 실행 지연 또는 오류 시 필드가 `undefined`일 수 있고, 실제 I2C 응답 완료와 성공을 직접 await/reject하지 않는다. 따라서 '완전히 안정적인 동기화'나 '동작 100% 검증'은 주장하지 않는다.
+- **분기·후속 타인 기여**: GitHub README는 `main`의 dummy data 사용을 별도 명시하고 실제 HW branch `Webos/devHW` 확인을 안내. `Webos/devHW`의 최종 JS 서비스에는 **2024-10-11~30 후속 타인 author 변경**(예: `605550e01289` 지연 조정, `18e6e1677669` 물탱크 레벨, `0d8d6baf1985` 자동 조명/간격 조정)이 더 있다. 최종 파일의 모든 처리 규칙을 6/12 본인 커밋으로 역귀속하지 않는다.
+- **결과 범위**: 실물 데모가 있었는지는 팀 README에서 데모 링크가 존재하는 점까지 확인. **해당 데모에서 어떤 센서·actuator가 정상 작동했는지는 직접 확인 전이므로 이 원장에서는 단정하지 않는다**.
+
+### 남은 좁힌 확인
+
+- 첫 통합 후 일부 `controlNeopixel`/`controlPump` 호출을 잠시 주석 처리했다가 되살린 이유가 **실제 통신 API 호출 오류였는지, 테스트용 분리였는지, 다른 사유였는지**?
+- 당시 `service.call`/응답 `payload` 정리와 500ms 대기는 **어떤 관찰된 증상을 해결하는 과정**이었는지? 원인과 의사결정을 기억으로 보완해야 `문제 → 판단`을 확정 가능.
+- 당시 최종 시연에서 **물리 센서 표시·조명·펌프** 중 각각 무엇을 직접 확인했는지는 실물 시험/데모 근거와 분리해 추후 확인.
+
+**묶음 상태:** JS Service 통합 구현과 수정 순서는 A 확인. **API 오류의 실제 증상, 고정 대기 선정 이유 및 종단 실물 결과는 미확정**. 이력서용 문장은 아직 작성하지 않는다.
+
 ## 4. 다음 작업 순서
 
-1. **SVC-01의 6월 12일 변경군:** `f2e890aab82d` → `6fc7336eae66` → `ea08aa6a93d6`를 우선 비교. `getSensingDataJSON()`의 dummy → 실데이터, `bridge.call` → `service.call`, 비동기 `await`, 자동제어 조건, 최종 버그 여부를 코드 단위로 검토.
-2. **WEB-01 WebSocket·화면 제어:** React/webOS 서비스 양쪽 변경을 별도 문제로 재분류.
+1. **SVC-01 나머지 변경군:** `1275599ddfce` / `6783a5de18a7` / `d799833ca911`의 WebSocket·수신 메시지 처리·파일 삭제를 차례로 분류하고 앞선 팀원 코드와 본인 코드 경계를 확인.
+2. **WEB-01 React·웹소켓:** 본인 WebPage 브랜치 변경을 3~5커밋 단위로 조사. **2024-10월 최종 파일 변경에 대한 타인 기여**도 분리.
 3. Camera/기타 브랜치 및 개발기간 이후 정리 커밋까지 매핑. **전체 개인 non-merge 26개 모두 diff 기준으로 역검증**한 뒤 canonical 경험 문서 확정.
 4. 결과/개인 기여가 불명확한 부분만 사용자 기억을 물음. `resume.md` 및 기존 경험 문서는 근거 조사 종료 전 수정하지 않음.
