@@ -15,7 +15,8 @@
 | 잠정 작업군 | 해당 author 커밋(앞 12자리 SHA) | 단계 / 조사 범위 |
 |---|---|---|
 | **HW-01 Arduino/I2C 센서·제어** | `a94a8fc01c9f`, `00e4febe4ae0` | **첫 묶음 1차 검토 완료**. 펌웨어 및 webOS I2C 독립 테스트 앱. 결과 확인의 한계는 아래 |
-| **WEB-01 React·WebSocket 인터페이스** | `126397712f02`, `08960758c838`, `8725eedb1078`, `ec3d2ce378b0`, `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857`, `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059` | **미검토**. 커밋 제목 기준 임시 분류이며 UI·웹소켓·배포 수정 단위로 분해 예정 |
+| **WEB-01A React 화면의 WebSocket 통합 초안** | `126397712f02`, `08960758c838`, `8725eedb1078`, `ec3d2ce378b0` | **4커밋 diff·후속 코드 조사 완료**. 브리지 임시 비활성화 → WebSocketUtil 적용 → 제어명령 보정 → URL·응답 스키마 수정. 당시 완성/무결점 주장 금지 |
+| **WEB-01B React 실시간 데이터 동기화·후속 안정화** | `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857`, `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059` | **세 커밋은 WEB-01A의 후속 흔적으로 부분 확인**. 아직 8개 전체 diff 미검토. 콜백 기반 갱신·모달 제어·배포 후속 수정 여부 확인 필요 |
 | **SVC-01 webOS JS Service 통합** | `1275599ddfce`, `6783a5de18a7`, `d799833ca911`, `f2e890aab82d`, `6fc7336eae66`, `ea08aa6a93d6` | **I2C 통합 3커밋 조사 완료(6/12)**. 앞선 3커밋 중 WebSocket·메시지 파싱·파일 삭제는 다음 WEB/SVC 조사 대상. 완전한 실물 E2E 결과는 미확정 |
 | **CAM-01 Camera 관련 실험** | `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` | **미검토**. 브랜치·제목에서 실험 후보만 식별. 실제 사용·최종 채택 여부 미확정 |
 | **OPS-01 정리·운영·기타** | `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba` | **미검토**. gitignore / revert / gh-pages 작업 등을 따로 확인. 초기 개발기간 이후 작업을 원 프로젝트 구현 실적에 자동 포함하지 않음 |
@@ -131,9 +132,45 @@
 
 **잠정 구분:** 첫 두 커밋은 WebSocket 수신 통합 작업, 세 번째는 독립된 정리 커밋으로 분리. 이력서에는 커밋 수를 성과로 나열하지 않는다.
 
-## 5. 다음 작업 순서
+## 5. WEB-01A — React 화면의 WebSocket 원격 제어 연결 초안 (2024-06-06~08)
 
-1. **WEB-01 브랜치 6월 초 변경:** `126397712f02`, `08960758c838`, `8725eedb1078`, `ec3d2ce378b0`의 React/WebSocket 연결 변경을 실제 diff로 검토.
-2. **WEB-01 React·웹소켓:** 본인 WebPage 브랜치 변경을 3~5커밋 단위로 조사. **2024-10월 최종 파일 변경에 대한 타인 기여**도 분리.
+**범위:** `WebPage/dev`에서 사용자 `nanocode00`가 author인 비병합 커밋 4개. 이 4개가 연결된 순서로 Git 부모 SHA·패치를 대조했다. **기존 React 컴포넌트 전부를 직접 최초 작성했다고 주장하지 않는다.** 검토 링크: [`126397712f02`](https://github.com/dudgns128/webos-gardening/commit/126397712f02), [`08960758c838`](https://github.com/dudgns128/webos-gardening/commit/08960758c838), [`8725eedb1078`](https://github.com/dudgns128/webos-gardening/commit/8725eedb1078), [`ec3d2ce378b0`](https://github.com/dudgns128/webos-gardening/commit/ec3d2ce378b0).
+
+### 상황 → 문제 → 판단 → 조치 → 결과 (임시 복원)
+
+- **상황(A):** 팀의 React 앱은 기존 webOS `WebOSServiceBridge`를 통한 JS Service 직접 호출 및 화면별 API 코드가 섞여 있었다. 외부 서버에서 원격 식물 조회·급수·광량·자동제어를 처리하는 WebSocket 연동 방식으로 접속 경로를 추가하던 시기.
+- **문제(A):** React 화면별 브리지 호출/서버 연동이 아직 통일되지 않았다. 6/8 첫 WebSocket 구현에는 실제 엔드포인트와 응답 JSON 형태의 불일치, 화면 선택·센싱 데이터 갱신 시 잘못된 state 갱신 코드가 보인다. **왜 브리지 호출을 중단했는지와 각 장애의 실제 재현 로그는 아직 없음**.
+- **판단(A 또는 D):** 여러 컴포넌트가 하나의 `WebSocketUtil`을 통해 식물 데이터와 명령을 주고받도록 설계했다(A: 코드). 반면 이를 webOS 브리지 방식보다 선택한 조직·환경적 이유는 문서로 확인되지 않아 **추정(D)으로도 확정하지 않음**.
+- **조치(A):** 아래 4개 커밋에 따라 브리지 호출 제거/비활성화 → WebSocket 연결 및 메시지 코드 작성 → 제어 메시지 세부 값 수정 → 연결 URL 및 수신 객체 접근 변경.
+- **결과(A):** React 여러 화면에서 같은 WebSocket 관리 객체를 참조하고 서버의 명령 메시지를 처리하려는 코드가 실제로 추가됐다. **연결 성공·실물 펌프 및 조명 원격 구동·모든 React 화면 정상 작동은 이 4커밋과 메시지만으로 검증되지 않았다**. 후속 커밋에 추가 수정이 이어짐.
+
+### 커밋별 실제 변경
+
+| 커밋 | 검증된 diff | 귀속·주의 |
+|---|---|---|
+| **6/6 `1263977`** | Calendar·PlantAutocontrol·PlantCondition·ControlLight에서 `WebOSServiceBridge` 생성 및 Luna 서비스 호출을 **주석 처리**. `UserPlantRegister.js` 파일 삭제(334라인)와 라우트에서 `PlantSelection` 사용, `useHistory` → `useNavigate` 시도 | 결과는 **기존 기능을 잠시 비활성화·구성 변경한 것**이지 정상 대체 완료가 아님. 이 시점 `navigate.push()`가 남아 있어 Hook API 사용 일관성이 없음. 기존 등록 화면의 334라인을 본인이 구현했다고 주장하지 않음 |
+| **6/8 `0896075`** | `WebSocketUtil.js` 신설: WebSocket 생성, `onopen`에서 식별 메시지 `method:30`/`JSnum:false` 전송, `onmessage`의 `method:11` 식물 목록·`method:13` 센싱/페이지 데이터 처리. UserLogin(`10`), PlantSelection(`12`), ControlWater(`14`), ControlLight(`15`), MainPage·PlantConditionModal에 공통 객체 참조와 데이터/제어 메시지 추가 | **기초 WebSocket 연동 구현의 주요 개인 커밋**. 그러나 초기 주소는 `wss://…/webpage`, 수신 경로는 `arg.data.plants`/`arg.data`; 이후 바뀜. 초기 PlantSelection의 `const [plants, setPlants]` 상태 변수에 재대입하려는 코드도 남아 있으며 완성 동작 아님 |
+| **6/8 `8725eed`** | PlantAutocontrolModal에 `method:16` 자동제어 토글 메시지 추가. ControlLight의 문자열 템플릿값을 숫자/입력값 전달로 조정. 식물 선택·로그인의 `userPlant` 식별자를 `null` → `0`으로 변경 | 서버 프로토콜 대응을 위한 값 보정은 확인. `setCurrentState(!currentState)` 뒤 이전 `currentState`를 전송하는 코드가 있어 당시 UI 상태와 보낸 값의 정합성은 의문; **정상 토글 성공으로 확대하지 않음** |
+| **6/8 `ec3d2ce`** | WebSocket URL을 `wss://…/webpage` → `ws://…/ws`로 변경. 수신 JSON 객체를 `arg.data.plants` → `arg.plants`, `arg.data` → `arg`로 수정. PlantSelection에서 `navigate.push()` → `navigate()`, 식물 ID `plant.plantId` → `plant.id`로 수정하고, 데이터 로딩을 1.5초 `setTimeout` 기반으로 시도. MainPage에 `useLocation` import | **URL과 실제 기대 응답 스키마를 맞춘 코드 수정**은 확인. 1.5초 지연은 수신 완료를 보장하지 않으며 `useEffect(...,[plants])`에 후속 문제가 남을 수 있다. 제목의 '서버 연결 및 오류 수정'만으로 E2E 성공 주장 금지 |
+
+### 후속 유지·교체 확인
+
+- **2024-06-12 본인 `cd97e39ace46`:** 단순 WebSocketUtil 전역 데이터 폴링을 화면별 `onReceivePlantsCallback`, `onReceivePlantPageDataCallback`, `onReceivePlantConditionDataCallback`으로 전달하는 방식으로 변경. PlantSelection도 1.5초 지연 폴링 대신 식물목록 수신 콜백 + React state 갱신으로 수정. **6/8의 지연 기반 초안은 그대로 최종 적용된 방식이 아니다**. 이 후속 커밋은 별도 WEB-01B 묶음으로 추가 검토 예정.
+- **2024-06-12 본인 `1377108fb518` / `0ec37f08e857`:** WebSocket callback 존재 검사, 수신목록 반영, 자동제어 메시지 콜백 등 수정이 이어짐. 구현 결과·충돌 여부는 후속 묶음 전체 diff 확인 필요.
+- **최종 `WebPage/dev` 코드:** WebSocketUtil과 식물 선택·자동제어 화면은 남아 있지만, 수신 콜백 기반 데이터 전달 및 더 많은 구조 변경이 반영됨. **6/8 상태를 최종 UI 품질이나 성공 판본으로 귀속하지 않는다.**
+- **역할 경계:** WebSocketUtil·공통 메시지 구성 및 해당 React 컴포넌트의 연결 변경은 개인 커밋으로 확인. 기존 전체 React UI·외부 WebSocket 서버·API 원안은 팀원/공동 구현 가능성이 있으므로 본인 단독 저작이라고 쓰지 않음.
+
+### 남은 확인
+
+- 6/6에 기존 `WebOSServiceBridge`를 비활성화한 구체적인 실행 환경/문제는 당일 로그 없이 추정 불가.
+- 실제 6/8~12 React 화면에서 **로그인→식물 선택→실시간 센서 표시→조명/펌프 제어** 중 어느 범위까지 시연 성공했는지 원본 녹화·당시 회고로 확인 필요.
+- 원격 제어 명령의 `method:10/12/14/15/16` 규약은 Git에 코드로 남지만 서버 측 계약의 최초 설계·모든 API 정상 응답 여부는 추적 필요.
+
+**묶음 상태:** 네 커밋 **diff 확인 완료**. 통합 방향과 주요 본인 코드 수정은 직접 근거(A), 실제 동작·선정 이유는 미확정. **성급한 이력서 서술 없이 후속 WEB-01B를 이어 조사**한다.
+
+## 6. 다음 작업 순서
+
+1. **WEB-01B React 실시간 데이터·콜백 전환:** `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857`를 묶어 수신 데이터 반영 방식과 오류 대응을 확인.
+2. **WEB-01B 나머지 React 수정:** `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059`의 UI/코드 정리 및 배포 수정 여부를 검토. 최종 파일의 타인 후속 수정과 구분.
 3. Camera/기타 브랜치 및 개발기간 이후 정리 커밋까지 매핑. **전체 개인 non-merge 26개 모두 diff 기준으로 역검증**한 뒤 canonical 경험 문서 확정.
 4. 결과/개인 기여가 불명확한 부분만 사용자 기억을 물음. `resume.md` 및 기존 경험 문서는 근거 조사 종료 전 수정하지 않음.
