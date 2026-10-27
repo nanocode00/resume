@@ -86,9 +86,21 @@
 
 **잠정 성과:** 정수·양자화 reference 생성(CW-02) → 1,000 입력 RTL ModelSim **96%** 및 컴파일 오류 해결(CW-05) → synthesis-oriented weight/bias wiring(CW-04) → Netlist 비교 시도/실패. OpenROAD physical/STA의 최종 값은 발표자료와 별도 확인 후 상위 경험에 반영.
 
-## 7. 다음 묶음 / 검증 계획
+## 7. 툴 Fork과 ORFS 서브모듈의 실제 구조 — 사후 관리 분석
+
+**2025년 6월 7일 생성된 도구 Fork(2026-10-27 조회):**
+- [`nanocode00/OpenROAD`](https://github.com/nanocode00/OpenROAD) (부모 `The-OpenROAD-Project/OpenROAD`)
+- [`nanocode00/yosys`](https://github.com/nanocode00/yosys) (부모 `The-OpenROAD-Project/yosys`)
+- [`nanocode00/OpenSTA`](https://github.com/nanocode00/OpenSTA) (부모 `The-OpenROAD-Project/OpenSTA`)
+- [`nanocode00/abc`](https://github.com/nanocode00/abc) (부모 `The-OpenROAD-Project/abc`)
+
+위 **4개 도구 Fork의 `nanocode00` author commit은 각 0개로 조회**됨. 도구 소스를 따로 수정한 개인 개발 성과는 현재 증거 없음. 단, 이는 작성자 필터 조사이며 타인 계정 작성 커밋/동기화 방식까지 별도 조사한 것은 아니다. 원본 ORFS `.gitmodules`의 상대 경로 `../OpenROAD.git`는 **조직 fork가 아니라 사용자 fork에서 clone하면 `nanocode00/OpenROAD`를 참조하도록 상대적으로 해석**될 수 있다. 실제 [사용자 ORFS `.gitmodules`](https://github.com/nanocode00/OpenROAD-flow-scripts/blob/master/.gitmodules)에서도 이 상대 경로가 유지돼 있다. `tools/yosys`는 `../../The-OpenROAD-Project/yosys.git`의 상위 저장소를 가리킴.
+
+**2026년 '다시 한다면'의 제안(D, 과거 개인 성과 아님):** 사용자 설계 RTL·PyTorch bit-accurate 정수 reference·테스트·ORFS 설정·작은 실행 기록을 **하나의 본인 소스 repo**에 두고, 공식 ORFS는 **버전 고정 외부 clone 또는 읽기전용 submodule 1개**로 관리. tool source 수정을 하지 않는 한 OpenROAD·Yosys·OpenSTA·ABC Fork는 만들지 않는다. Docker/container image digest, ORFS Git SHA, simulator/version, 정확한 SDC·clock 값을 manifest에 남기고 generated netlist·표준셀·ModelSim work 파일은 원칙적으로 Git에서 제외. 공식 ORFS는 자체 [Adding New Designs](https://openroad-flow-scripts.readthedocs.io/en/latest/user/AddingNewDesign.html)와 `make DESIGN_CONFIG=...` 방식을 제공한다. 외부 저장소 소스 코드의 재사용·배포 전에는 **해당 라이선스/저작자 표시 확인이 필요**하다.
+
+## 8. 다음 묶음 / 검증 계획
 
 1. **기본 브랜치 RTL 커밋 12개 1차 조사 완료:** 6/7~27 baseline/중간 저장소 정리, ModelSim TB·로그, synth-generated 대용량 netlist, 합성 지향 RTL 패치, Gate-level 비교 실패까지 구분. 추가로 테스트 반복성·출력 자체의 의미가 더 필요한 경우 원본 로그 상세 점검.
-2. OpenROAD fork의 `secure-clock-repair-test`, `update-openroad` 분기 전체 페이지를 확인해 본인 개인 추가 커밋 누락 여부 검사. upstream 이력은 본인 구현에서 제외.
+2. **OpenROAD fork의 추가 2개 브랜치 `secure-clock-repair-test`, `update-openroad`에 `author=nanocode00` 필터로 조회된 커밋은 각 0개.** 상위 프로젝트 upstream/타인 작업은 제외. 필요시 branch 전체 pagination으로 최종 역검증.
 3. **96%/1,000장 RTL 수치는 원본 `modelsim/result.log`에서 직접 확인**. 여전히 OpenROAD physical final, slack `-2040.66`, Netlist 비교 시도/실패의 발표자료·실험 조건을 역검증하고 시점/환경을 구분.
 4. 3개 저장소 submodule 참조 SHA를 트레이스해 회귀 관계 확인 후 canonical `experiences/cnn-accelerator.md` 보완. `resume.md`는 최종 사례 선정 전 수정하지 않음.
