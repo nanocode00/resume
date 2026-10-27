@@ -97,7 +97,7 @@
 | 커밋 | 실제 코드 변경 | 한계/비고 |
 |---|---|---|
 | `f2e890` 최초 통합 | `start()`에서 `openI2C()` 호출. `getSensingDataJSON()`을 `async`로 바꾸고 랜덤값을 `readSensor()` 데이터로 교체. `controlNeopixel`, `controlPump`, `readSensor`, `delay` 추가. 급수 시 `controlPump(1) → delay(3000) → controlPump(0)` 구성. deploy 스크립트 web app 권한에 `peripheralmanager.i2c.operation` 추가 | `service.call`과 `bridge.call` 혼재, 문자열 파라미터/응답 파싱 사용. 주기적 호출의 `await` 누락 |
-| `6fc733` 중간 수정 | 광량/펌프 호출을 일시 주석 처리, `closeI2C`도 주석 처리, `readSensor` 고정 대기 **50 → 1000ms**. React 일부 레이아웃 및 `appinfo.json` 관련 정리 | 최초 구현을 그대로 완성판으로 간주하면 중간 주석 처리/되돌림을 놓친다. 무엇을 테스트하려고 호출을 멈췄는지 기억/로그 미확인 |
+| `6fc733` 중간 수정 | 광량/펌프 호출을 일시 주석 처리, `closeI2C`도 주석 처리, `readSensor` 고정 대기 **50 → 1000ms**. React 일부 레이아웃 및 `appinfo.json` 관련 정리 | 최초 구현을 그대로 완성판으로 간주하면 중간 주석 처리/되돌림을 놓친다. 사용자 회고(C, 2026-10-27): 어떤 동작이 잘되지 않아 센서 기능부터 분리해서 확인하려던 것으로 기억함. 실패한 구체적 기능과 오류 원인은 미확정 |
 | `ea08aa` 후속 안정화 | 주기적 `const data = await getSensingDataJSON()`으로 수정. I2C 호출 파라미터를 JS 객체 형태로, 응답은 `res.payload.returnValue` 및 `arg = res.payload`로 수정. 펌프의 `bridge.call`을 `service.call`로 통일. NeoPixel/펌프 실행과 `isAutoControl` 조건 활성화. 센서 고정 대기 **1000 → 500ms**, 광량 모달과 MainPage UI도 일부 수정 | 커밋 제목은 `Fix: HW 완성`이지만 **실물 E2E 시험 기록이나 장기 재현성은 이 메시지 하나로 증명 불가** |
 
 ### 결과 및 이후 변경 여부
@@ -110,7 +110,7 @@
 
 ### 남은 좁힌 확인
 
-- 첫 통합 후 일부 `controlNeopixel`/`controlPump` 호출을 잠시 주석 처리했다가 되살린 이유가 **실제 통신 API 호출 오류였는지, 테스트용 분리였는지, 다른 사유였는지**?
+- **기억 보완 완료(C, 2026-10-27):** 동작하지 않는 부분이 있어 센서 경로만 분리하여 점검하려 했던 것으로 회고. 정확한 장애 원인은 아직 확인되지 않음.
 - 당시 `service.call`/응답 `payload` 정리와 500ms 대기는 **어떤 관찰된 증상을 해결하는 과정**이었는지? 원인과 의사결정을 기억으로 보완해야 `문제 → 판단`을 확정 가능.
 - 당시 최종 시연에서 **물리 센서 표시·조명·펌프** 중 각각 무엇을 직접 확인했는지는 실물 시험/데모 근거와 분리해 추후 확인.
 
