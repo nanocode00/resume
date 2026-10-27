@@ -48,7 +48,7 @@
 
 1. **`a94a8fc01c9f`**: `arduino/i2cSlaveFinal/i2cSlaveFinal.ino`·센서 및 I2C 테스트 스케치 추가. 밝기 0~100을 0~255로 변환해 NeoPixel 24개에 적용하는 `controlNeopixel`, 펌프 핀을 HIGH/LOW로 제어하는 `controlPump`, `readSensors`·`processAnalogData` 및 10바이트 `onRequest` 전송 구현.
 2. 동일 커밋: `i2cTestMaster`/`i2cTestSlave`로 10바이트 왕복 테스트, `i2cSensorTestSlave`·`timeTest` 별도 스케치, `i2cTest/index.html` webOS I2C 독립 테스트 UI, `dataIO.txt` 포맷·`i2clog.txt` 명령 결과 자료 추가.
-3. 동일 커밋: `arduino/DHT.cpp`, `DHT.h` 포함. 헤더에 **Adafruit Industries 원작 및 MIT 라이선스**가 명시되어 있으므로 라이브러리 전체를 직접 작성했다고 주장하지 않음. 현재 코드의 `readRawBytes(uint8_t[])`는 DHT 원시 바이트 4개를 노출하는 프로젝트용 인터페이스지만 **정확히 누가 어느 원본과 비교해 수정했는지는 별도 확인**.
+3. 동일 커밋: `arduino/DHT.cpp`, `DHT.h` 포함. 헤더에 **Adafruit Industries 원작 및 MIT 라이선스**가 명시되어 있으므로 라이브러리 전체를 직접 작성했다고 주장하지 않음. **2026-10-27 사용자 직접 확인(C):** DHT 센서에서 변환된 값이 아니라 **원시 바이트값 자체가 필요했기 때문에 Adafruit DHT 라이브러리에 `readRawBytes(uint8_t[])`를 직접 추가**했다. 함수는 DHT 센서 읽기 성공 시 내부 `data[0..3]`을 외부 버퍼로 복사하고 실패 시 0을 기록한다(A: 해당 함수 본문 확인). **기존 Adafruit 라이브러리 전체의 저작자는 아니며, 원시 바이트 노출을 위한 확장 부분이 개인 기여**다. 원본 라이브러리와의 줄 단위 전체 diff는 아직 비교하지 않았다.
 4. **`00e4febe4ae0`**: Arduino 펌웨어를 새로 수정한 커밋이 **아니며**, 주로 `i2cTest/index.html`의 지연 호출·callback 방식과 데이터 표시 문자열을 수정. 테스트 IPK와 참고 링크도 갱신. 두 커밋을 모두 '펌웨어 구현'이라고 합치지 않음.
 
 ### 결과와 이후 유지 여부
@@ -67,7 +67,7 @@
 ### 남은 확인(좁힌 질문만 추후 확인)
 
 - 당시 실제 배선/시연에서 **펌프·NeoPixel 물리 동작까지 어떤 범위를 검증**했는가? `i2clog.txt`는 버스 센서 응답만 뒷받침.
-- DHT 라이브러리의 `readRawBytes` 노출은 직접 수정한 부분인가? Adafruit 원본 코드를 통째로 개인 작성이라 주장하지 않음.
+- **해결됨 (2026-10-27 C):** `readRawBytes()`는 원시 바이트값을 I2C 패킷으로 전달하기 위해 직접 추가한 함수. 라이브러리 전체 저작으로 확대하지 않음.
 - 10바이트 패킷과 명령 모드 0/1/2의 **선택 이유**(센서별 길이 고정/구현 단순성 등)는 당시 어떤 제약 때문인가? 추정 금지.
 
 **묶음 상태:** 상황·코드 변경·버스 테스트 일부 복원. **최초 판단 근거·기기 실동작 범위는 미확정**으로 남기고, 다음은 webOS JS Service의 I2C 통합 커밋 전후를 확인.
