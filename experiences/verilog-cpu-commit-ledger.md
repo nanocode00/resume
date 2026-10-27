@@ -1,6 +1,6 @@
 # Verilog Single-cycle CPU — 커밋 기반 개발작업 원장
 
-> 조사 시작 2026-10-27. 원본: [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU) (**[yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) fork**). **상태: Fork 이후 개인 일반 커밋 5개 및 전체 기능별 diff·최종 코드·당시 보고서의 1차 검토 완료.** 특히 CP0/ERET의 정적 불일치를 발견해 성공 주장 보류. 남은 일은 관련 시뮬레이션 증거와 판단 이유를 보완하고 canonical 문서 갱신. 사실 기준 문서 [`verilog-cpu.md`](verilog-cpu.md)와 `resume.md`는 아직 수정하지 않음.
+> 조사 시작 2026-10-27. 원본: [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU) (**[yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) fork**). **상태: Fork 이후 개인 일반 커밋 5개 및 전체 기능별 diff·최종 코드·당시 보고서의 1차 검토 완료.** 특히 CP0/ERET의 정적 불일치를 발견해 성공 주장 보류. 남은 일은 관련 시뮬레이션 증거와 판단 이유를 보완하고 canonical 문서 갱신. 본 조사 결과를 [canonical `verilog-cpu.md`](verilog-cpu.md) v1에 통합했으며, **`resume.md`만 미수정**. 이 원장은 세부 커밋 근거를 보존한다.
 
 ## 1. 범위, 소스, 기여 경계
 
@@ -131,9 +131,9 @@
 
 **다음 평가:** 전체 5커밋의 `modelsim/` 소스·환경·생성물·삭제 경계를 조사했다. 원장에 미매핑 personal SHA 없음. 상위 경험 선정 시 핵심 후보는 **CPU-01/02의 Decoder↔ALU 제어 비트 정합성 및 arithmetic 수정**, **CPU-03/04의 datapath 통합**, **CPU-05 CP0 구현 시도·검증 한계**. 마지막을 '성공적으로 완성'이라고 쓰면 현재 정적 코드와 상충하므로 주의.
 
-## 10. 잔여 검증과 Canonical 반영 순서
+## 10. Canonical v1 이후 잔여 검증
 
 1. **우선 확인할 오류/범위:** 현재 `modelsim/CP0.v`의 ERET opcode mismatch, EPC 자동 저장 조건 상충, TB의 Block/ExpSrc 초기화 문제를 **당시 ModelSim 로그 또는 수정된 최종 보관본**과 비교. 해당 파일이 없다면 정적 불일치와 기능 미검증 상태를 유지.
 2. **판단 근거:** Decoder 개별 bit 판별→동등 비교, ripple-style `fadd/fsub`→32비트 arithmetic 및 overflow 계산 교체의 이유를 사용자 기억/보고서로 구분. 실제 관찰한 현상이 없으면 추정으로 표시.
-3. **Canonical `verilog-cpu.md` 갱신:** 원장이 역검증한 사실만 통합해 작업군별 개인 RTL 기여와 **CP0 구현 코드의 미해결 모순**을 분리. `resume.md`는 별도 선정까지 미수정.
-4. **PR:** 본 Draft는 상세 사실 복원 문서만 추가. 전체 검토를 마친 뒤 canonical과 이력서 후보를 함께 검수하고 병합 여부 판단.
+3. **Canonical 갱신 완료:** [`verilog-cpu.md`](verilog-cpu.md) v1에서 Decoder/ALU·datapath 통합과 CP0 미해결 로직을 분리해 기록. 향후 추가 테스트 근거 확보 시 수정. `resume.md` 미수정.
+4. **PR:** 본 Draft에는 작업 원장 + canonical 2문서 변경. 보존 RTL의 CP0 불일치를 해결하는 다른 revision이 없는 한 **성공한 exception E2E로 표현하지 않음**. 최종 검토·병합은 별도 판단.
