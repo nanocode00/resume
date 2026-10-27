@@ -16,7 +16,8 @@
 |---|---|---|
 | **HW-01 Arduino/I2C 센서·제어** | `a94a8fc01c9f`, `00e4febe4ae0` | **첫 묶음 1차 검토 완료**. 펌웨어 및 webOS I2C 독립 테스트 앱. 결과 확인의 한계는 아래 |
 | **WEB-01A React 화면의 WebSocket 통합 초안** | `126397712f02`, `08960758c838`, `8725eedb1078`, `ec3d2ce378b0` | **4커밋 diff·후속 코드 조사 완료**. 브리지 임시 비활성화 → WebSocketUtil 적용 → 제어명령 보정 → URL·응답 스키마 수정. 당시 완성/무결점 주장 금지 |
-| **WEB-01B React 실시간 데이터 동기화·후속 안정화** | `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857`, `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059` | **세 커밋은 WEB-01A의 후속 흔적으로 부분 확인**. 아직 8개 전체 diff 미검토. 콜백 기반 갱신·모달 제어·배포 후속 수정 여부 확인 필요 |
+| **WEB-01B React 수신 콜백·데이터 갱신** | `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857` | **4커밋 diff 검토**. 6/11 `ws` 외부 패키지 `node_modules` 반입(자체 개발 아님), 6/12 폴링→수신 콜백, 식물 목록 캐시 처리 및 자동제어 응답 처리 초안. 오류 가능성·후속 수정 함께 기록 |
+| **WEB-01C 모달 동기화 수정·표시·배포 후속** | `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059` | **4커밋 diff 검토**. 레이아웃/이미지 크기, 자동제어 토글 전송값·콜백 버그 수정, 10/31 웹 앱 배포 상대 경로 설정. 전체 화면 품질 검증과 분리 |
 | **SVC-01 webOS JS Service 통합** | `1275599ddfce`, `6783a5de18a7`, `d799833ca911`, `f2e890aab82d`, `6fc7336eae66`, `ea08aa6a93d6` | **I2C 통합 3커밋 조사 완료(6/12)**. 앞선 3커밋 중 WebSocket·메시지 파싱·파일 삭제는 다음 WEB/SVC 조사 대상. 완전한 실물 E2E 결과는 미확정 |
 | **CAM-01 Camera 관련 실험** | `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` | **미검토**. 브랜치·제목에서 실험 후보만 식별. 실제 사용·최종 채택 여부 미확정 |
 | **OPS-01 정리·운영·기타** | `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba` | **미검토**. gitignore / revert / gh-pages 작업 등을 따로 확인. 초기 개발기간 이후 작업을 원 프로젝트 구현 실적에 자동 포함하지 않음 |
@@ -168,9 +169,53 @@
 
 **묶음 상태:** 네 커밋 **diff 확인 완료**. 통합 방향과 주요 본인 코드 수정은 직접 근거(A), 실제 동작·선정 이유는 미확정. **성급한 이력서 서술 없이 후속 WEB-01B를 이어 조사**한다.
 
-## 6. 다음 작업 순서
+## 6. WEB-01B — React 수신 콜백 전환과 데이터 흐름 수정 (2024-06-11~12)
 
-1. **WEB-01B React 실시간 데이터·콜백 전환:** `3bd71c54270e`, `cd97e39ace46`, `1377108fb518`, `0ec37f08e857`를 묶어 수신 데이터 반영 방식과 오류 대응을 확인.
-2. **WEB-01B 나머지 React 수정:** `6c4283ff31f7`, `b257d57062dd`, `5946539cf3fa`, `a543715ba059`의 UI/코드 정리 및 배포 수정 여부를 검토. 최종 파일의 타인 후속 수정과 구분.
+**조사 커밋:** [`3bd71c54270e`](https://github.com/dudgns128/webos-gardening/commit/3bd71c54270e) (6/11), [`cd97e39ace46`](https://github.com/dudgns128/webos-gardening/commit/cd97e39ace46), [`1377108fb518`](https://github.com/dudgns128/webos-gardening/commit/1377108fb518), [`0ec37f08e857`](https://github.com/dudgns128/webos-gardening/commit/0ec37f08e857) (6/12). 본인 author의 **일반 커밋 4개**이며, 전후 파일·개별 patch·`WebPage/dev` 후속 판본 확인.
+
+### 상황
+
+6/8 WEB-01A에서 `WebSocketUtil`이라는 공통 객체가 추가돼 React 화면의 식물 목록·센싱 수치를 읽거나 원격제어 명령을 전송할 수 있도록 통합 중이었다. 초기 MainPage/PlantConditionModal은 `setInterval(..., 3000)`으로 공유 데이터 필드를 폴링했고, PlantSelection은 `setTimeout(..., 1500)`으로 목록이 채워지길 기다렸다.
+
+### 문제와 판단
+
+- **A(코드):** 일정 시간 후 공유 객체의 데이터가 도착한다고 가정해 읽는 접근은 실제 수신 이벤트와 동기화되지 않는다. 메시지가 늦거나 `WebSocketUtil.plants`가 초기화되지 않았을 때 정상 UI 갱신을 보장하지 못하는 구조였다. 이것이 *당시 실제로 관찰된 버그였는지*는 로그 부족으로 미확정.
+- **A(변경된 방향):** 각 화면이 `WebSocketUtil.onReceive…Callback` 핸들러를 등록하고, WebSocket `onmessage`가 `method`별로 해당 콜백을 호출하도록 연결. 즉 **고정 지연·주기적 조회 초안에서 이벤트 수신 시 React state를 갱신하는 방식으로 전환**. 왜 이 방식을 선택했는지에 대한 별도 회고는 아직 없음.
+
+### 구체적 조치
+
+| 커밋 | 실제 diff로 확인한 변경 | 검증 주의 |
+|---|---|---|
+| `3bd71c5` | `JsService/node_modules/.package-lock.json`와 `node_modules/ws/**` **20개 외부 패키지 파일**, 총 **5,308행 추가**. 6/11 JS Service에서 `ws` 모듈을 시험적으로 포함 | 추가 행 대부분이 **제3자 패키지 자체**. 개인 작성한 5,308라인 기능이 아니다. 동작 성공/배포/설치 규칙 검증의 근거도 아님 |
+| `cd97e39` | `WebSocketUtil.onmessage`에서 식물 목록 `onReceivePlantsCallback` 및 센싱 `onReceivePlantPageDataCallback`, `onReceivePlantConditionDataCallback` 호출 추가. MainPage·PlantConditionModal은 3초 폴링 대신 콜백으로 React 상태 갱신, unmount 시 핸들러 해제. PlantSelection은 1.5초 타이머 제거, 수신 시 `setPlants`·로딩 종료. ControlLightModal(`method:15`)과 ControlWaterModal(`method:14`)도 기존 브리지 코드 대신 WebSocket 제어 메시지 전송 | **기능 연결의 개인 diff는 확인**했지만 서버 송수신 E2E 성공이나 모든 모달 정상 동작 증거는 별도 필요. 기존 모달 UI 전체를 직접 신규 개발한 것으로 주장하지 않음 |
+| `1377108` | 식물 목록 캐시 `WebSocketUtil.plants` 설정(현재는 수신 콜백이 있을 때만 저장), PlantSelection 초기 `loading` 여부를 캐시 존재에 따라 계산하고 기존 캐시의 목록을 `setPlants`로 복원. 콜백 존재 여부 `!= undefined` → `!== undefined`로 수정 | **메시지가 화면 등록 전에 도착해 콜백이 없다면 여전히 캐시에 저장되지 않을 수 있다**는 조건부 제약이 있음. 실제 발생 여부 미확인 |
+| `0ec37f0` | `method:3` 자동제어 응답을 `onReceiveAutoControlCallback`에 전달하는 경로 추가. PlantAutocontrolModal에서 이전 상태를 사용하려는 코드와 콜백을 연결. MainPage의 배경·경험치 진행 막대 표시 추가 | **자동제어 모달 콜백에서 정의되지 않은 `setPlants`/`setLoading` 호출을 도입**한 중간판. 오류 없음·정상 동작이라고 해석하면 안 되며 후속 `5946539`에서 `setCurrentState`로 수정 |
+
+### 결과 / 후속 유지 여부
+
+- **A:** 화면별 수신 이벤트 핸들러와 자동제어 데이터 갱신 경로가 Git diff에 구현돼 있으며, 2024-10월 `WebPage/dev` 최종 코드에도 PlantSelection/MainPage/PlantConditionModal/PlantAutocontrolModal의 이벤트 기반 패턴은 남아 있다.
+- **A:** 최초 브리지 직접 호출·타이머에 기반한 대기 경로는 대부분 대체됐다. 다만 **직접 WebSocket onmessage → callback을 등록하는 방식이라 완전한 수신 보장이나 모든 화면 상태의 정합성이 입증된 것은 아님**.
+- **A:** `0ec37f0` 시점 자동제어 수신 함수는 타 화면의 `setPlants`/`setLoading`을 잘못 사용했고, 후속 `5946539`에서 바로잡음. 이 버그는 **일시적으로 도입됐다가 고친 사례**이며 처음부터 정상 구현이라고 쓰지 않는다.
+- **C:** 이 4커밋에 관한 장애 재현 현상과 원인·테스트 결과는 사용자 기억으로 추가 확인 가능하나, 회고 없이 완료/성공을 단정하지 않는다.
+
+**묶음 상태:** 초안→이벤트 기반 수정 흐름, 외부 패키지와 개인 기여 분리, 실제 남았던 결함 및 후속 수정 검증은 **A 확인**. 실기기·서버 E2E의 성공 범위는 미확정.
+
+## 7. WEB-01C — UI 표시·자동제어 토글·배포 설정 후속 (2024-06-12~10-31)
+
+| 커밋 | 실제 diff와 결과 경계 |
+|---|---|
+| [`6c4283ff31f7`](https://github.com/dudgns128/webos-gardening/commit/6c4283ff31f7) (6/12) | MainPage의 여백 제거 및 식물 이미지 높이·레이아웃 수정 5줄. 실제 화면 개선 정도는 별도 스크린샷/실행 검증 전 |
+| [`b257d57062dd`](https://github.com/dudgns128/webos-gardening/commit/b257d57062dd) (6/12) | 자동제어 토글에서 `setCurrentState(!currentState)` 뒤 **이전 `currentState`를 보낸 코드**를, payload가 `!currentState`를 전달하도록 수정. 사용자 제어 의도와 전송값이 어긋날 수 있는 버그 수정(A) |
+| [`5946539cf3fa`](https://github.com/dudgns128/webos-gardening/commit/5946539cf3fa) (6/12) | 자동제어 응답 콜백에서 **존재하지 않는 `setPlants`/`setLoading` 호출을 제거**하고 `setCurrentState(isAutoControl)`로 수정. 잘못된 상태 갱신 함수의 적용 범위를 고침(A). 같은 커밋에서 effect 의존성에 `currentState` 추가. 그 선택의 효과/오류 여부는 확정하지 않음 |
+| [`a543715ba059`](https://github.com/dudgns128/webos-gardening/commit/a543715ba059) (10/31) | `gardening_react/package.json`에 `"homepage": "."` 1줄 추가. **프로젝트 본 개발기간 밖에서 이루어진 상대경로 배포 설정**. 실제 배포 정상 완료 여부는 별도 확인 필요 |
+
+**후속 비교:** `WebPage/dev` 최종 PlantAutocontrolModal은 수신된 자동제어 상태를 `setCurrentState`에 적용하고, 토글 전송 `newState = !currentState`를 사용한다. 같은 코드를 독립적으로 더 수정한 팀원 후속 변경도 있으므로 최종 파일 전체의 소유권을 위 2건에만 귀속하지 않는다.
+
+**그룹 가치:** 자동제어 토글/수신 상태의 **두 가지 구체적 결함 수정**은 S/W 문제 해결 증거 후보. 이미지 크기·배포 설정은 보조 유지보수이며 이력서 대표 에피소드로 따로 과장하지 않는다.
+
+## 8. 다음 작업 순서
+
+1. **CAM-01 Camera 후속·PoC:** `2cbed98d4d47`, `0bc6ba58f073`, `991d8843aa7b` 세 커밋의 파일/설계/실제 채택 여부를 조사.
+2. **OPS-01 및 뒤늦은 유지보수:** `ec8f0e20fb48`, `5fa0831b9bac`, `cec22e9efdba`의 목적과 성격 확인. 6월 본 프로젝트와 9~10월 후속 활동을 분리.
 3. Camera/기타 브랜치 및 개발기간 이후 정리 커밋까지 매핑. **전체 개인 non-merge 26개 모두 diff 기준으로 역검증**한 뒤 canonical 경험 문서 확정.
 4. 결과/개인 기여가 불명확한 부분만 사용자 기억을 물음. `resume.md` 및 기존 경험 문서는 근거 조사 종료 전 수정하지 않음.
