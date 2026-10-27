@@ -1,6 +1,6 @@
 # Verilog Single-cycle CPU — Canonical 경험 기록
 
-> **상태 (2026-10-27):** 기존 Logisim 기반 MIPS CPU를 참고한 Verilog RTL 재구현 경험의 **사실 기준 문서 v1**. Fork 이후 본인 author **5커밋 전체**, 당시 RTL/ModelSim TB·파형 스크립트·[제출 보고서](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view)를 교차 검토했다. 특히 **CP0/ERET 구현의 정적 불일치**가 발견되어 예외 서비스 정상 실행을 '검증 완료'로 단정하지 않는다. SHA별 상세 변경은 [작업 원장](verilog-cpu-commit-ledger.md) 참조. 이 문서의 모든 내용을 즉시 이력서로 전재하지 않는다.
+> **상태 (2026-10-27):** 기존 Logisim 기반 MIPS CPU를 참고한 Verilog RTL 재구현 경험의 **사실 기준 문서 v1**. Fork 이후 본인 author **5커밋 전체**, 당시 RTL/ModelSim TB·파형 스크립트·[제출 보고서](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view)를 교차 검토했다. 특히 **최종 예외 진입 때 EPC 복귀 주소가 저장되지 않았고 시간 부족으로 수정하지 못해 종료했다는 사용자 회고(C, 2026-10-27)**를 반영했다. 보존 RTL의 EPC 저장 조건·ERET 디코딩 불일치(A)도 확인되어 정상 복귀를 '검증 완료'로 단정하지 않는다. SHA별 상세 변경은 [작업 원장](verilog-cpu-commit-ledger.md) 참조. 이 문서의 모든 내용을 즉시 이력서로 전재하지 않는다.
 
 ## 1. 프로젝트 개요와 소스 기준
 
@@ -25,7 +25,7 @@ PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 �
 | Register File | 32×32비트 레지스터, 두 조합 읽기·양의 에지 쓰기, 0번 register 쓰기 차단, 최종 초기화 | 5/28에 관찰용 `s0/s1/s2/ra` 출력 제거 후 `a0/v0`만 유지 |
 | Memory/Immediate | sign/zero extension, `benchmark.hex`·`exception_service.hex` 이중 ROM, 1024×32 Data Memory | 프로그램의 **원본 어셈블리 최초 작성은 아님** |
 | Syscall/Statistics | `v0==10` Halt, 그 외 `a0` 데이터 표시 경로, J/R/I·cycle count | Halt는 **Top 내부 wire** (외부 Top port 아님) |
-| CP0/exception | EPC/Status/Block/Cause 저장소·`ExpSrc` 입력·vector/return 선택 코드 | **현재 남은 RTL과 TB에서 기능 불일치 확인**, 아래 별도 명시 |
+| CP0/exception | EPC/Status/Block/Cause 저장소·`ExpSrc` 입력·vector/return 선택 코드 | **예외 진입 과정에서 EPC 저장 실패를 겪고, 시간 부족으로 미완성 종료(C)**. 현재 RTL·TB 불일치도 확인(A) |
 
 ## 3. GROUP-01 — Decoder/Control과 ALU 연산 부호 통합
 
@@ -53,6 +53,8 @@ PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 �
 
 **당시 의도/작업(A):** `ExpSrc[2:0]`와 Block register를 바탕으로 예외 요청을 검출하고 EPC에 PC를 저장, PC를 `0x800` service로 이동, `mfc0/mtc0`와 `eret`을 통해 상태를 조회하고 복귀시키는 경로를 구현하려 했다.
 
+**당시 관찰 결과(C, 2026-10-27):** 사용자는 최종 단계에서 **예외 경로 진입 시 복귀 지점이 EPC에 저장되지 않았으며, 더 수정할 시간이 없어 그 상태로 프로젝트를 끝냈다**고 회고했다. 예외 벡터 도달의 파형·스크립트는 현재 보존된 TB에서 독립 확인되지 않으므로 **사용자 관찰(C)**과 **코드/테스트 근거(A)**는 구분한다.
+
 **보존된 코드에 실제로 있는 네 가지 검증 장애:**
 
 1. **ERET 값 불일치(A):** `CP0.v`는 `Inst[5:0] == 6'b000110`(6)으로 `IsEret`을 판별하지만, 같은 저장소의 `tb_CP0.v`가 넣는 `eret=32'h42000018`의 하위 6비트는 `011000`(24). **이 테스트 명령은 보존된 코드에서 ERET로 검출되지 않는다.**
@@ -60,7 +62,7 @@ PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 �
 3. **CP0 단위 TB의 활성화 부족(A):** `tb_CP0`는 `ExpSrc=001`을 자극하지만 `Block`은 0으로 초기화되고 TB에서 Block register를 변경하지 않는다. 이에 따라 `BlockSrc & ExpSrc`가 0이므로 **예외 트리거 `ExpClick`는 해당 자극만으로 올라가지 않는다**.
 4. **Top 예외 시나리오 없음(A):** `tb_SingleCycleCPU`의 `ExpSrc=000` 고정. 정상적인 예외 서비스 진입부터 EPC 복귀까지의 실제 end-to-end stimulus가 이 TB에 없다.
 
-**결과 해석:** CP0와 PC exception/return **코드를 작성했다**는 것은 개인 기여(A)다. 그러나 제출 보고서의 일반적인 '예외 처리 기능 정상 검증' 표현을 현재 보존된 파일 기준 **성공 입증 결과로 받아들일 수 없다**. 여기서는 동작 성공이 아닌 **구현 시도 및 남아 있는 정적 불일치**로 기록한다. 다른 최종 소스/파형이 발견되면 별도로 재평가하며, 기억으로 코드의 논리 모순을 덮지 않는다.
+**상황 → 문제 → 판단 → 조치 → 결과:** 예외 발생 후 복귀할 수 있는 CP0 경로가 필요했다(상황). 최종 시험에서 예외 경로 진입 뒤 **EPC 복귀 주소가 저장되지 않았다(C)**(문제). 당시 대안·우선순위 판단은 미확정. EPC/Status/Block/Cause와 벡터·ERET 제어, 테스트 및 파형 스크립트를 작성했다(A)(조치). **복귀 주소 저장 실패를 해결하지 못했고 남은 시간이 부족해 미완성 종료했다(C)**(결과). 보존된 RTL의 EPC 조건 충돌 및 ERET 인코딩 오류(A)는 당시 현상과 부합하지만, 실제 오류 원인이 오직 이 코드였다고 단정하지 않는다. 보고서의 포괄적 '정상 검증'보다 구체적 실패 경험을 우선해 기록한다.
 
 **별개인 syscall:** 일반 syscall은 `SyscallDecoder`의 `$v0/$a0`로 처리되며 `ExpSrc` exception과 연결된 자동 트리거로 작성되지 않았다. `tb_CP0`에 `Inst=0x0000000C`('syscall')을 넣고 `ExpSrc=001`도 함께 준 것을 근거로 **syscall 자체가 CP0 예외를 발생시킨다고 쓰지 않는다**.
 
@@ -91,7 +93,7 @@ PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 �
 | ALU/Decoder 통합 과정의 오류 수정 | **A: 수정 전후 코드** + **B: 당시 보고서의 파형 디버깅 회고**. 정확한 오류 재현 자극/조건은 일부 미확정 |
 | RegisterFile/Memory/PC datapath 구현 | **A: 직접 코드·TB 추가**. 모든 명령어 성공 자동 시험 없음 |
 | Syscall/Statistics 검증 | **A: 코드/시뮬레이션 자산** + B: 보고서. Halt Top 출력 주장 금지 |
-| CP0 exception/EPC/ERET 종단 정상동작 | **보류/반대 근거 A:** RTL의 조건 불일치와 TB 미자극. **정상 검증 완료로 기재하지 않음** |
+| CP0 exception/EPC/ERET 종단 정상동작 | **미완성(C):** 예외 진입 시 복귀 주소 저장 실패를 겪고 시간 부족으로 해결 못함. 보존 RTL 조건 불일치·TB 미자극(A). 정상 복귀 검증 완료가 아님 |
 | 전체 MIPS CPU 기능·pipeline·성능 | **단일 사이클 RTL 구조**만 확인, pipeline이나 캐시/forwarding 구현·전 명령 대응·성능 최적화 주장 금지 |
 
 ## 9. 이력서/포트폴리오 압축 후보
@@ -101,13 +103,13 @@ PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 �
 1. **RTL 구조 재구현:** 기존 Logisim CPU 회로를 참조해 32-bit single-cycle 구조를 Verilog RTL로 구성, Control/ALU/RegisterFile/Memory와 Top datapath 연결.
 2. **제어·연산 블록 통합 디버깅:** Opcode/Funct 비교식, `ALUop` 비트 배치, ALU output 선언·모듈 연결·overflow 연산과 RegisterFile 초기화/인터페이스를 수정하고 ModelSim testbench·waveform으로 내부 제어 신호를 추적한 경험.
 
-**CP0를 '예외 처리 성공 경험'으로 대표 포트폴리오에 올리지 않는다.** 별도 실제 테스트/수정된 파일이 발견된다면 근거를 다시 확인하고 갱신한다.
+**CP0는 '예외 처리 성공 경험'이 아니다.** 대신 *예외 경로를 구성했으나 복귀 주소 저장 문제를 해결하지 못하고 마감한 실패/미완성 구현 경험*으로 보존한다. 추가 자료가 발견되면 경계를 재평가한다.
 
 ## 10. 근거 인덱스·남은 질문
 
 - [원본 Logisim CPU](https://github.com/yuxincs/MIPS-CPU), [포크 및 본인 RTL](https://github.com/nanocode00/MIPS-CPU/tree/main/modelsim), [커밋별 작업 원장](verilog-cpu-commit-ledger.md).
 - [당시 보고서 PDF](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view); 최종 TB/RTL과 충돌할 때는 **문구보다 실제 코드와 시험 자극**을 우선.
-- **추가 증빙 1:** 당시 `CP0` 혹은 `SingleCycleCPU`에서 예외·ERET 성공 파형을 본 기억이 있다면, 정확한 스크립트/개별 waveform/그때의 RTL revision. 현재 버전의 모순을 해소할 수 있는 실제 증거를 우선.
+- **추가 증빙 1 — 회고 확인(C, 2026-10-27):** 예외 경로 진입 뒤 EPC 복귀 주소 저장 실패, 시간 부족으로 미해결 종료한 경험을 직접 확인. 추가 자료가 있으면 당시 입력·파형·EPC 값을 대조하되, 정상 ERET 성공을 전제하지 않는다.
 - **추가 증빙 2:** Decoder 코드의 동등 비교 변경, ripple adder/subtractor 대신 산술 연산자를 사용한 의사결정 이유. 당시 상황이 불명확하면 D 추정으로만 남김.
 - **추가 증빙 3:** `tb_ALU` 등 출력값 캡처나 보고서 스크린샷에서 확인 가능한 구체적인 성공/실패 범위. 현재 TB 파일만으로 assertion 통과 기록은 없음.
 
