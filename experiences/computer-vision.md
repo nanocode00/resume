@@ -9,7 +9,7 @@
 ## 원본과 개인 기여의 경계
 
 - **과제 1:** 개인 보고서 **Computer Vision Assignment 1.pdf**와 **Computer Vision Assignment 1.zip**. 네 개 Python 파일 및 출력 PNG 확인. 사용한 OpenCV·PyTorch 함수 자체를 직접 재구현했다고 주장하지 않는다.
-- **과제 2:** 제공 원본 **CV-2025-fall-Assignment02.zip**과 학번이 붙은 **CV-2025-fall-Assignment02-2019111450.zip**에서 네 Notebook을 비교했다. 학생이 직접 추가한 코드는 기존 utility·예제 데이터·시각화 코드와 구분해 확인했다.
+- **과제 2:** 제공 원본 **CV-2025-fall-Assignment02.zip**과 학번이 붙은 **CV-2025-fall-Assignment02-[개인 식별번호].zip**에서 네 Notebook을 비교했다. 학생이 직접 추가한 코드는 기존 utility·예제 데이터·시각화 코드와 구분해 확인했다.
 - **코드·실험의 검증 범위:** 보존된 소스, 과제 보고서, Notebook 실행 결과·출력 이미지를 근거로 한다. 자동채점 점수·독립 재현 테스트·처리 시간 향상·일반화 정확도는 확인되지 않았다.
 
 ## 경험 1 — 임계값 기반 분할의 경계와 실패 분석
