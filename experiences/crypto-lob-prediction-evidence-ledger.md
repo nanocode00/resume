@@ -59,9 +59,11 @@
 
 ## 5. 작업 단위 CR-04 — Binance Testnet 실험
 
-- [`binance_trades/live_trader.py`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)와 [`live_trader_all.py`](https://drive.google.com/file/d/1ugCaObbbO6-3uC7vonWG6rXXaS3Cr-2Q/view)가 존재. `LiveTraderTrades`의 model checkpoint·train meta 로드, stream buffer, threshold, position state, 거래 수수료/로그 구조를 확인. **API 키나 비밀값을 원장/PR에 복제하지 않음**.
+**2026-10-28 사용자 직접 회고(C):** 최종 Testnet에서는 **`live_trader_all.py`의 3-class argmax 기반 전량 매수·매도 방식(B안)을 사용**했다. 원래는 **`live_trader.py`의 상승 확률 임계값 방식(A안)**을 사용하려 했지만, **시연에서 거래 동작을 보여줄 시간이 부족해 B안으로 변경**했다. 선택의 동기·A→B 순서는 회고(C), 두 소스의 서로 다른 주문 로직은 원본 코드(A)로 확인. **정확한 실행 당시 파일 hash/revision 및 계좌 체결 내역은 아직 입증되지 않았다.**
+
+- **계획했던 A안 [`live_trader.py`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)(A):** `p_up` threshold(기본 0.78) 이상일 때 미보유면 LONG 진입, 열린 포지션은 5초 경과 후 청산. **최종 시연에서 사용한 것으로 회고한 B안 [`live_trader_all.py`](https://drive.google.com/file/d/1ugCaObbbO6-3uC7vonWG6rXXaS3Cr-2Q/view)(A+C):** `argmax`가 Up면 미보유 시 **가용 quote 잔고의 99% 사용한 시장가 BUY**, Down이면 보유 base 잔고를 시장가 SELL, No-Trade면 유지; 5초 경과 강제 청산도 수행한다. 99%는 소스상 주문 기준이지 실제 계좌의 실현 수량/체결률이 확인됐다는 뜻은 아니다. **원본의 API 키·비밀값은 원장/PR에 복제하지 않음**.
 - [`logs/live_trades_stats_5s_th0.78.csv`](https://drive.google.com/file/d/1H-edFprZ5WujpBUXGEAbFjcPQqyEqSlf/view)는 실행 기록 파일로 존재. 완전한 체결 장부·실제 계정 결과와 일치하는지는 별도 대조 필요.
-- 최종 [팀 기술보고서](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit)는 **2025-12-06~08 약 2.5일, 1 BTC + 10,000 USDT 시작**, MAMBA **-98.3%** 및 다른 전략 계정과 공동 React dashboard의 비교를 기술한다. **팀 보고서가 언급한 결과**와 개인 live script의 귀속·실제 체결 전량을 독립 확인했다는 주장은 구분한다.
+- 최종 [팀 기술보고서](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit)는 **2025-12-06~08 약 2.5일, 1 BTC + 10,000 USDT 시작**, MAMBA **-98.3%** 및 다른 전략 계정과 공동 React dashboard의 비교를 기술한다(B). **최종 B안 선택은 회고(C)로 확인됐지만, -98.3%와 정확한 파일 수정본·실제 주문별 체결 내역의 연결은 여전히 원본 장부로 대조하지 못했다**. 사이트 구현은 다른 팀원(C).
 
 ## 6. 상황 → 문제 → 판단 → 조치 → 결과 : 증거 원장과 판정
 
@@ -97,11 +99,11 @@
 ### CR-04 / 경험 4 — Testnet 주문과 오프라인 평가의 분리
 
 - **상황:** 팀은 MAMBA 포함 여러 모델을 Binance Testnet/공동 대시보드와 연결(B).
-- **문제:** 모델 확률을 실제 상태·주문 처리와 연결해야 하고, offline 단순 백테스트와 중복 포지션 규칙이 달랐음(A). 당시 특정 주문 실패 사고 미확인.
-- **판단:** MAMBA 전략의 학습·추론·백테스트·실시간 연결을 직접 담당했다는 회고(C), `paper/testnet/live`·포지션 재진입 금지 등 코드상 선택(A). 특정 주문 정책을 선택한 동기는 미확정.
-- **조치:** `live_trader.py`의 checkpoint·실시간 trade stream·`p_up` threshold·5초 포지션 관리와 별도 `live_trader_all.py` all-in 변형 구현(A+C). **각 전략에서 프록시로 보낸 결과를 취합·시각화한 최종 사이트는 다른 팀원 개발(C)**. 프록시 자체의 구체적 소유권은 보류.
-- **결과:** 팀 보고서상 MAMBA Testnet **-98.3%**(B). 정확한 실행 스크립트 revision과 개별 체결 장부 미확인. API secret 콘솔 출력·매도 실패 뒤 포지션 초기화 위험은 2026년 **정적 코드 검토(D)**이며 실제 사고/수정 완료로 과장 금지.
-- **판정:** 보존 코드=A, Testnet 관측치=B, MAMBA 전략 전체 직접 담당/최종 웹사이트 타인 구현=C. 파일별 commit 저작자 및 최종 실행 revision은 미확정.
+- **문제:** **시연에서 거래하는 모습을 보여줄 시간이 부족했기 때문에 원래 계획한 확률 임계값 방식(A안)을 그대로 쓰기 어려웠음(C)**. 모델·주문·계좌 상태 연결은 기술 요구사항(A).
+- **판단:** **제한된 시연 시간을 고려해 3-class 분류 기반 전량 거래 방식 B안(`live_trader_all.py`)으로 바꿔 최종 Testnet에서 사용**(C). 초기에 A안을 계획했다는 순서 역시 C.
+- **조치:** B안은 Up→미보유 시 시장가 매수(quote balance 99% 사용), Down→보유 시 시장가 매도, No-Trade→유지, 5초 경과 시 강제 청산(A). 별도의 A안은 `p_up` threshold 기반. MAMBA 전략 코드와 Testnet 연결은 본인 담당(A+C), **각 전략에서 프록시로 보낸 결과를 모아 보여준 사이트는 다른 팀원 구현(C)**.
+- **결과:** 팀 보고서상 MAMBA Testnet **-98.3%**(B), 최종 B안 사용 사실(C). **정확한 B안 revision·실제 체결 장부와 보고서 수치의 개별적 대응은 미확인**. API secret 콘솔 출력·매도 실패 뒤 내부 상태 초기화 위험은 **2026년 정적 감사(D)**이며 실제 사고·수정 완료 주장 금지.
+- **판정:** **A: 보존된 B안 실행 로직**, **B: 팀 보고서 Testnet 결과**, **C: A안 계획→시연 시간 문제→B안 변경 및 개인 담당 범위**, **D: 사후 정적 코드 위험 감사**. 파일별 Git 저자·실행 당시 정확한 revision·계좌 원본 장부는 미확정.
 
 **5단계 적용 완료 기준:** 위 네 건은 모두 다섯 항목이 명시되며, **빈 판단을 그럴듯한 가상 결정으로 채우지 않음**. 원본 자료로 확인 가능한 선택과 사후 개선(D)을 분리해 [canonical 서술](crypto-lob-prediction.md#핵심-경험-4개--상황--문제--판단--조치--결과)에도 동일 반영했다.
 
@@ -138,7 +140,7 @@
 4. [`backtest.py`](https://drive.google.com/file/d/1VTL4mIjBsFTY-n8xmKN04EbqyywUlM6i/view)는 `mask=(p_up>=th)`인 **모든 시점**마다 `capital *= 1+ret-2*fee`하며 기존 포지션 오픈 여부 확인, 시간별 중복 5초 horizon 제거, 주문 수량·slippage·market impact·현실적인 손실 상한을 모델링하지 않는다. **실행 가능한 4,319회 체결/실현손익을 의미하지 않는다.**
 5. 반대로 [`live_trader.py`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)는 `PositionState.is_open`이면 새 진입을 막고 `entry_ts+5초` 후 청산한다. 따라서 **offline backtest의 무조건 중복 신호 처리와 live 주문 전략은 서로 다른 포지션 로직**. 백테스트 결과를 Testnet 주문 PnL 예측값으로 취급하지 않는다.
 
-**실제 위험한 구현 세부사항(A, 로그에 자격정보를 옮기지 않음):** `live_trader.py:create_binance_client()`는 `get_binance_credentials()` 결과의 **API key와 secret을 그대로 `print`**하는 코드가 남아 있다. 로그 유출 위험이 있으므로 **즉시 제거할 안전 결함**으로 분류. `close_position`은 sell 주문 예외 이후에도 `PositionState()`로 재설정하므로, 실패한 청산 주문에 대한 계정 포지션 상태와 내부 기록이 불일치할 가능성도 있음. 당시 실제 보안 사고나 청산 실패가 발생했다고 주장하지 않는다.
+**실제 위험한 구현 세부사항(A, 로그에 자격정보를 옮기지 않음):** 계획한 A안 `live_trader.py`와 최종 시연에 사용한 것으로 회고한 B안 `live_trader_all.py` **둘 다** `create_binance_client()`에서 `get_binance_credentials()` 결과의 **API key와 secret을 그대로 `print`**하는 코드가 남아 있다. 로그 유출 위험이 있으므로 **즉시 제거할 안전 결함**으로 분류. 두 버전 모두 `close_position`은 sell 주문 예외 이후에도 `PositionState()`로 재설정할 수 있어 계정 포지션과 내부 기록이 불일치할 가능성도 있다. 당시 실제 보안 사고나 청산 실패가 발생했다고 주장하지 않는다.
 
 **사후 재현 개선안(D, 과거 구현/성공 아님):** 전체 기간을 날짜/거래소 상황별 고르게 표집하거나 rolling walk-forward 분할; label quantile을 오직 당시 train context로 고정; horizon+lookback 기준 purge/embargo; threshold는 별도 validation으로만 선택하고 test 전체 구간에 한 번 고정 적용; offline/live 동일한 `single-position` execution engine과 체결·수수료·slippage·최소 주문 단위·실패시 재동기화 포함; per-run 데이터 시간범위/코드 SHA/수수료/라벨 임계값 기록; 실시간 API secret은 무조건 마스킹하고 주문 후 실제 잔고와 재조정.
 
@@ -147,4 +149,4 @@
 1. GitHub 프로젝트 저장소는 현재 연결된 개인/협업/조직 저장소에서 **찾지 못함**. Drive 원본 폴더·보고서를 우선 출처로 채택. 팀원 계정에 별도 비공개 Git이 있었는지는 미확인.
 2. **LOB→Trades로 바꾼 판단 이유는 직접 회고(C)로 확보:** 과거 데이터 접근성 문제. 두 코드베이스의 실제 source diff/모델 구조(A)는 대조 완료. 초기 Upbit `DummyMamba` 원본 및 구체적 계보·전환 날짜는 여전히 추가 자료가 있어야 확정.
 3. **수수료 발견 경위(C) 보강 완료:** 무수수료 수익 → 수수료 적용 손실 확인 → 비교 실험 수행. 실제 train 약 66분·val 약 19분, test 약 2시간 33분과 겹치는 5초 예측·split별 label·threshold 선정 편향도 기록. 사후 감사는 당시 해결 실적으로 소급하지 않음.
-4. **Canonical v1 5단계 정리 완료:** [canonical](crypto-lob-prediction.md)에 네 경험군의 **상황·문제·판단·조치·결과**를 명시하고 사후 사실과 당시 미확정 동기 구분. `resume.md`는 최종 선정 전 미변경.
+4. **Canonical v1 5단계 정리 완료:** [canonical](crypto-lob-prediction.md)에 네 경험군의 **상황·문제·판단·조치·결과**와 **Testnet A안 계획→시연 시간 부족→B안 전환(C)**을 명시. 정확한 체결·수익률 산출 장부는 여전히 확보 필요. `resume.md` 미변경.
