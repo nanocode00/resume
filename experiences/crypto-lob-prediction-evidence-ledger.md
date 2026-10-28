@@ -36,6 +36,8 @@
 - `N=200,000`, **accuracy 0.457895 = 45.7895%**. True class count: Down **47,747**, No-Trade **111,276**, Up **40,977**. 예측 count: Down **39,417**, No-Trade **116,173**, Up **44,410**.
 - No-Trade만 예측하는 **단순 최빈 클래스 기준 정확도 55.638%**이므로 단순 accuracy에서 최종 Mamba의 **45.79%는 그보다 낮다**. 그러나 이 모델은 클래스 가중치를 쓰고 거래 signal을 겨냥하므로 accuracy 하나를 전체 모델 가치 판단으로 쓰지 않고 precision/recall, calibration, 거래 손익과 함께 본다.
 
+**추가 test confusion/신호 통계(A: 직접 배열 계산, D: 평가 해석; 2026-10-28):** [test `y_true.npy`](https://drive.google.com/file/d/1zDm3kvvlKArKwFaEmMG17N_lJXZMOESy/view), [`y_pred.npy`](https://drive.google.com/file/d/18aVjW92Go84l5Gg-p-YptgwbT7NcYqRh/view), [`y_prob.npy`](https://drive.google.com/file/d/1Av7JnaIBf1-gGh3lumkjKRr-YeK6klbW/view)를 `allow_pickle=False`로 읽고 재계산한 결과 **macro F1=0.3877879**, accuracy **0.457895**. Confusion matrix(행 true 0/1/2, 열 pred 0/1/2) = `[[13011,26234,8502],[20582,66677,24017],[5824,23262,11891]]`. Down P/R/F1=`0.330086/0.272499/0.298541`, No-Trade=`0.573946/0.599204/0.586303`, Up=`0.267755/0.290187/0.278520`. Test `p_up >= 0.78`일 때 **27,003개** 선택, 선택군 Up precision **28.3413%**, 실제 Up recall **18.6763%**. Test 전체 Up 비율 **20.4885%**. `p_up` cutoff 분석은 **고정 threshold의 분류 결과일 뿐 수익성 분석이 아님**; 수수료·중복 horizon·계좌/체결은 별도 검증되지 않았음.
+
 ## 4. 작업 단위 CR-03 — 수수료 민감도와 백테스트 제약
 
 **당시 발견·판단의 순서(C, 2026-10-28 본인 회고):** **무수수료 거래 시뮬레이션에서 수익 확인 → 같은 종류의 시뮬레이션에 수수료를 반영하자 손실 확인 → 원인을 구체적으로 살펴보기 위한 수수료 비교 실험 수행**. 처음부터 비용 문제를 알고 threshold/fee 비교를 설계했다는 회고가 **아님**. 이 시간적 동기·판단은 **C**이고, 후속 `backtest.py` 코드와 정책별 수치(A)가 실험이 수행된 사실을 뒷받침한다. **최초 관측과 후속 sweep의 각각의 별도 실행 코드 SHA/시간은 Git 이력이 없어 미확정**.
@@ -64,6 +66,8 @@
 - **계획했던 A안 [`live_trader.py`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)(A):** `p_up` threshold(기본 0.78) 이상일 때 미보유면 LONG 진입, 열린 포지션은 5초 경과 후 청산. **최종 시연에서 사용한 것으로 회고한 B안 [`live_trader_all.py`](https://drive.google.com/file/d/1ugCaObbbO6-3uC7vonWG6rXXaS3Cr-2Q/view)(A+C):** `argmax`가 Up면 미보유 시 **가용 quote 잔고의 99% 사용한 시장가 BUY**, Down이면 보유 base 잔고를 시장가 SELL, No-Trade면 유지; 5초 경과 강제 청산도 수행한다. 99%는 소스상 주문 기준이지 실제 계좌의 실현 수량/체결률이 확인됐다는 뜻은 아니다. **원본의 API 키·비밀값은 원장/PR에 복제하지 않음**.
 - [`logs/live_trades_stats_5s_th0.78.csv`](https://drive.google.com/file/d/1H-edFprZ5WujpBUXGEAbFjcPQqyEqSlf/view)는 실행 기록 파일로 존재. 완전한 체결 장부·실제 계정 결과와 일치하는지는 별도 대조 필요.
 - 최종 [팀 기술보고서](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit)는 **2025-12-06~08 약 2.5일, 1 BTC + 10,000 USDT 시작**, MAMBA **-98.3%** 및 다른 전략 계정과 공동 React dashboard의 비교를 기술한다(B). **최종 B안 선택은 회고(C)로 확인됐지만, -98.3%와 정확한 파일 수정본·실제 주문별 체결 내역의 연결은 여전히 원본 장부로 대조하지 못했다**. 사이트 구현은 다른 팀원(C).
+
+**추가 거래 통계 원본 확인(A, 2026-10-28):** [`binance_trades/logs/live_trades_stats_5s_th0.78.csv`](https://drive.google.com/file/d/1H-edFprZ5WujpBUXGEAbFjcPQqyEqSlf/view)에는 **135행**(2025-12-08 **15:04:40~18:01:16**, CSV 기록상의 시각)이 있다. `trades` 값이 **16:24(73→1), 16:44(19→1), 16:59(9→1), 17:11(10→4), 17:37(34→4)**에 감소하므로 하나의 누적 카운터를 처음부터 끝까지 연속된 전체 거래 수로 취급할 수 없다. 초기화 이유(재시작/다중 실행 등)는 로그만으로 미확정. 마지막 행 `trades=78, gross_ret=-0.74010195, fee=0.156, net=-0.89610195, win_rate=0.141026`. 원본 `live_trader.py`와 `live_trader_all.py` 모두 `gross_ret += (exit-entry)/entry`, `fee_total += round_trip_fee`, `net=gross_ret-fee_total`를 기록하고, 같은 threshold tag로 파일명을 구성한다. 그러므로 `net`은 **비복리 단순 합산 거래 지표**, 실현 계좌 손익률이 아니다. `th0.78` 파일명은 최종 시연 A/B 실행 여부의 증거도 아니다. 실제 Testnet 주문별 체결 장부/잔고 시계열을 확보하지 못해 팀 보고서 `-98.3%`와의 수치 재현 불가. **탐색 종료 시점의 미확정으로 유지**.
 
 ## 6. 상황 → 문제 → 판단 → 조치 → 결과 : 증거 원장과 판정
 
