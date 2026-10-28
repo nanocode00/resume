@@ -1,6 +1,6 @@
 # CNN Accelerator — 커밋 기반 개발작업 원장
 
-> 조사 시작 **2026-10-27**. 기존 [canonical 경험 문서](cnn-accelerator.md) 및 [커밋 기반 복원 가이드](../guides/commit-based-experience-reconstruction.md)를 따른다. **상태: 3개 저장소 기본 브랜치의 개인 일반 커밋 19개(4+12+3), 자식 RTL merge 1개를 기능별 1차 diff 조사 완료**. 6/27 ModelSim 1,000입력 정확도 **96% 직접 로그 확인**. 추가 OpenROAD 브랜치·최종 STA 원본 자료 대조는 잔여. 기존 canonical은 최종 발표자료 근거로 **v1 갱신 완료**했고, `resume.md`는 미수정.
+> 조사 시작 **2026-10-27**. 기존 [canonical 경험 문서](cnn-accelerator.md) 및 [커밋 기반 복원 가이드](../guides/commit-based-experience-reconstruction.md)를 따른다. **상태: 3개 저장소 전체 5브랜치 개인 author 커밋 19개(일반) + 1개(merge) 역검증 완료; 누락 0개.** 6/27 ModelSim 1,000입력 정확도 **96%**, 최종 발표 STA `-2040.66`(VIOLATED) 시각 확인. **ORFS 마지막 Gitlink는 6/18 RTL을 참조하므로 6/27 최종 RTL과 동일 SHA 검증을 주장하지 않음.** 기존 canonical은 최종 발표자료 근거로 **v1 갱신 완료**했고, `resume.md`는 미수정.
 
 ## 1. 프로젝트 범위 / 출처
 
@@ -115,9 +115,40 @@
 
 **근거 레벨:** Git의 파일/로그와 정확한 RTL 수정은 **A**, 당시 팀 발표의 최종 STA·물리 설계 스크린샷은 **B(동시대 발표자료 직접 시각 확인)**. 사용자 당시 회고(C)가 필요한 설계 판단이나 수치 해석은 근거를 만들지 않는다.
 
-## 9. Canonical v1 반영 및 남은 확인
+## 9. 개인 커밋 누락 및 submodule pin 역검증 (2026-10-28)
+
+**모든 브랜치 조사(A):** 세 저장소의 GitHub branch 목록을 직접 조회한 결과 `CNN-Implementation-in-Verilog`는 `master` 1개, `cnn_verilog`는 `master` 1개, `OpenROAD-flow-scripts`는 `master`·`secure-clock-repair-test`·`update-openroad` 3개다. 각 브랜치에서 GitHub API `author=nanocode00&per_page=100`로 개인 작성자 커밋을 전부 조회(모두 100개 미만):
+
+| 저장소 / 브랜치 | 개인 일반 커밋 | 개인 병합 커밋 | 특이사항 |
+|---|---:|---:|---|
+| CNN-Implementation-in-Verilog / master | 4 | 0 | `f21aeba`, `0815e86`, `2faf627`, `c32db292` |
+| cnn_verilog / master | 12 | 1 | `925f9e` 병합 1개. `1bf0660`/`a07be30`은 동일 tree·부모이지만 서로 다른 개인 SHA |
+| OpenROAD-flow-scripts / master | 3 | 0 | `19d9d49`, `e430e15`, `c445907` |
+| OpenROAD-flow-scripts / secure-clock-repair-test | 0 | 0 | 개인 author 필터 일치 없음 |
+| OpenROAD-flow-scripts / update-openroad | 0 | 0 | 개인 author 필터 일치 없음 |
+| **합계(중복 없는 개인 SHA)** | **19** | **1** | **이전에 작성한 인벤토리와 일치; 개인 author 기준 추가 SHA 0개** |
+
+**주의:** 이 검증은 **GitHub 계정 `nanocode00`로 연결된 author 커밋** 범위다. 다른 작성자명·공동 기여·로컬 미커밋 작업은 이 필터로 증명하거나 배제할 수 없다.
+
+**submodule Gitlink/경로 역검증(A):** 각 상위 저장소의 해당 commit에서 GitHub Contents API의 `type=submodule`·`sha`를 직접 조회. 다음은 저장소 설정이 가리키는 **정확한 SHA**다.
+
+| 상위 저장소 시점 | Gitlink `cnn_verilog` | 참조된 자식 RTL 경로 |
+|---|---|---|
+| CNN parent `f21aeba` 및 최종 `master` | `4326abb6509e` (6/7) | `verilog/chip.v`, `verilog/conv1.v` 등 |
+| ORFS `19d9d49` (6/7) | `4326abb6509e` | `verilog/*.v` |
+| ORFS `e430e15` (6/18) | `c909e315352c` | `verilog/*.v` |
+| ORFS `c445907` 및 최종 `master` (6/18) | `5f34734c749d` | `verilog/*.v`; 1,000장 TB 파일까지 존재 |
+| RTL 자체 최종 `master` (6/27) | `e6af4816d302` | **`verilog/` 경로가 없어짐**, `conv1_layer.v`·`conv2_layer.v`·`fully_connected.v` 등이 root에 존재 |
+
+[ORFS CNN `config.mk`](https://github.com/nanocode00/OpenROAD-flow-scripts/blob/master/flow/designs/asap7/cnn_verilog/config.mk)는 `VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/verilog/*.v))`를 사용한다. 따라서 **Git에 보존된 ORFS 설정은 6/18에 고정된 자식 RTL 폴더와 일치**하고, **6/27 최종 RTL 수정본을 지정하지 않으며 그 수정본의 root 경로도 그대로는 찾지 못한다.** 두 parent가 각각 `4326abb`와 `5f34734`를 고정했다는 사실 때문에 원본 PyTorch/RTL 통합 repo의 현재 child 내용과 ORFS child 내용 역시 동일하지 않다.
+
+**결과 해석(B + A):** 팀 최종 발표 13쪽에서 `6_final` STA 스크린샷이 확인되지만 **실제 당시 OpenROAD 프로세스가 checkout한 Gitlink SHA 또는 로컬 미커밋 파일 목록은 제공되지 않았다**. Git에 커밋된 마지막 ORFS pin이 `5f34734`인 사실은 확실하나, 스크린샷의 *실행 RTL SHA 자체를* `5f34734`라고 확정하지는 않는다. 무엇보다 **6/27 최종 RTL 96% ↔ 최종 STA의 동일 RTL revision·동일 검증흐름**은 증명되지 않는다. 전력 수치나 timing 값 또한 동일 revision의 하나의 최종 PPA로 묶지 않는다.
+
+**사후 적용 가능한 검증 정책(D):** 다시 실행한다면 각 run마다 부모 SHA, child SHA, `VERILOG_FILES` 실제 입력 목록·내용 hash, SDC SHA, tool 버전, 테스트 데이터와 결과 로그를 기록해 *RTL accuracy ↔ synth ↔ physical STA*를 동일 소스로 연결해야 한다. 이는 2025년에 수행했다고 주장하는 작업이 아니다.
+
+## 10. 조사 완료 범위와 보류된 근거
 
 1. **기본 브랜치 RTL 커밋 12개 1차 조사 완료:** 6/7~27 baseline/중간 저장소 정리, ModelSim TB·로그, synth-generated 대용량 netlist, 합성 지향 RTL 패치, Gate-level 비교 실패까지 구분. 추가로 테스트 반복성·출력 자체의 의미가 더 필요한 경우 원본 로그 상세 점검.
-2. **OpenROAD fork의 추가 2개 브랜치 `secure-clock-repair-test`, `update-openroad`에 `author=nanocode00` 필터로 조회된 커밋은 각 0개.** 상위 프로젝트 upstream/타인 작업은 제외. 필요시 branch 전체 pagination으로 최종 역검증.
+2. **전체 3개 저장소/총 5개 브랜치의 `author=nanocode00` 역조회 완료:** 개인 일반 19개·merge 1개로 기존 인벤토리와 일치, 누락 0개. 별도 계정의 공동 기여는 이 집계에 포함하지 않음.
 3. **최종 발표 6·11·12·13쪽 직접 시각 조사 완료:** RTL 96%/1,000장, Netlist 파형 미확보·Starter Edition 규모 경고, post-synthesis 0.0672W/positive slack, **OpenROAD 6_final의 -2040.66 slack VIOLATED** 구분. 다른 실험 데이터 없이 최종 PPA·정확도 통과로 해석하지 않음.
-4. **Canonical `experiences/cnn-accelerator.md` v1 근거 보강 완료.** 이후 남은 일은 세 저장소 branch/page의 최종 SHA 누락 검증, RTL/Netlist 비교 실패 원인 추가 로그가 있을 경우 재평가, 면접/이력서용 개인 경험 압축. `resume.md` 미수정.
+4. **Canonical `experiences/cnn-accelerator.md` v1 최종 근거 반영 완료:** 6/18 ORFS pinned RTL과 6/27 최종 RTL이 다르므로 ModelSim 96%/physical STA를 같은 SHA로 설명하지 않음. Netlist 비교 실패의 근본 원인은 미확정 유지, `resume.md` 미수정. Draft PR 검토 뒤 병합 여부 별도 결정.
