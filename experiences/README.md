@@ -23,7 +23,7 @@
 | [CNN Accelerator](cnn-accelerator.md) | PyTorch, Verilog, 검증, OpenROAD | 기술 역량, 디버깅, HW/SW 융합 |
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
 | [webOS Smart Planter](webos-smart-planter.md) | Raspberry Pi, Arduino, React, 시스템 통합 | 협업, 임베디드, 시스템 설계 |
-| [Beamworks](beamworks.md) | 요구사항, Jira, ERD, DB, DTO | 실무 경험, 협업, 설계 |
+| [Beamworks](beamworks.md) | 2026.01 기억 기반: Figma 입력/조회/저장 구분, Jira Epic/Story/Task, ERD/SQL/DTO | 실무 요구사항 분석, 데이터 설계, 협업 온보딩 |
 | [Paperware](paperware.md) | micro:bit, PCB, 메이커, 사용성 | 창의성, 개선, HW 제작 |
 | [Crypto LOB Prediction](crypto-lob-prediction.md) | CNN, Mamba, 시계열, 백테스트 | AI, 데이터, 실패/검증 경험 |
 | [HCI Stock Service](hci-stock-service.md) | 5-table SQLite/SQLAlchemy, CSV 적재·조회, 18명 사용자 비교 평가(팀 성과) | 데이터 모델링, Backend, 사용자 중심 검증 |
@@ -42,3 +42,5 @@
 - HCI 주식정보 서비스는 [개인 DB/쿼리 Git 커밋·팀 설문 A/B 검증 원장](hci-stock-service-evidence-ledger.md)을 근거로 작성했습니다. 18명 팀 사용자 평가와 개인 구현을 분리하며, 목표가 과거 적중률·Gemini 전체 재현·현재 서비스 운영은 검증 완료로 간주하지 않습니다. 원본 CSV 12/6과 발표 13/5의 일부 설문 집계 차이도 원장에 명시했습니다.
 
 - 컴퓨터비전은 [개인 과제 1·2 제출 자료와 과제 2 배포 Notebook 비교 원장](computer-vision-evidence-ledger.md)을 기준으로 정리했습니다. OpenCV/scikit-learn을 사용한 부분과 배포된 Notebook 빈 부분에 직접 구현한 알고리즘을 분리하고, 수업 입력의 시각적 결과를 범용 정확도 성과로 확대하지 않습니다.
+
+- Beamworks(빔웍스)는 [기억 근거·불확실성 원장](beamworks-memory-ledger.md)을 별도로 두고, 회사/내부 프로젝트/실습 업무를 기존 기록과 회고로만 복원했습니다. 원본 Figma/Jira/DB/코드/검수 자료는 없어 현재 문서는 **기억 기반 초안**이며 수치·배포·의료영상 AI 개발 성과를 임의로 추가하지 않습니다.
