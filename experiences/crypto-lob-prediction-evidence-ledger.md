@@ -1,6 +1,6 @@
 # Crypto Microstructure Prediction (MAMBA Trading) — 원본 자료 복원 원장
 
-> **조사일: 2026-10-28.** 본 원장은 기존 [경험 문서](crypto-lob-prediction.md)의 주장을 **보관된 Google Drive 코드·테스트 아티팩트·팀 발표/보고서**와 비교하는 근거 레이어다. 다른 프로젝트처럼 Git commit 중심으로 조사하려 했지만, 현재 GitHub 연결에서 **이 프로젝트 저장소를 확인하지 못했다**. 따라서 파일의 기록과 저자 귀속을 Git commit 수준으로 검증했다고 주장하지 않는다. `resume.md` 및 canonical 경험 문서는 현재 변경하지 않는다.
+> **조사일: 2026-10-28.** 보존된 Google Drive 코드·테스트 아티팩트·팀 발표/보고서와 **2026-10-28 사용자 직접 회고(C)**를 증거 수준별로 대조한다. 현재 GitHub 연결에서 프로젝트 저장소를 확인하지 못했으므로 파일별 commit 저자 귀속은 검증되지 않았다. 하지만 본인이 **MAMBA 전략 관련 전체 작업을 직접 담당했다는 회고(C)**와 팀 보고서의 전략 담당 표시(B)는 확보했다. 본 원장과 [canonical](crypto-lob-prediction.md)은 Draft PR #8에만 반영하며 `resume.md`는 변경하지 않는다.
 
 ## 1. 저장소 발견 상태와 원본 소스
 
@@ -8,7 +8,8 @@
 - **원본 코드 복원 1:** [Google Drive `binance_lob`](https://drive.google.com/drive/folders/1Rm8U-zoJH-k-fnxFvopvroPxEaUHRzHR). `model.py`, `train.py`, `preprocess.py`, `features.py`, `collector.py`, `eval.py`, `backtest.py`, `live_trader.py` 등이 존재. 파일 metadata의 원본 수정 시점은 주로 **2025-11-29**; Drive 반입 시점은 2026년 1월.
 - **원본 코드 복원 2:** [Google Drive `binance_trades`](https://drive.google.com/drive/folders/1yPWmW-uCDGbcb0PJanmxCnc1WotFvIKd). `model.py`, `train.py`, `preprocess.py`, `backtest.py`, `collector.py`, `eval.py`, `live_trader.py`, `live_trader_all.py`, `run_pipeline.py`, `config.py` 및 `checkpoints/`, `preprocessed/`, `val/`, `logs/` 확인. 파일 원본 수정 시점은 2025-11-29~12-08.
 - **당시 팀 증거:** [`AI_TEAM3.pdf`](https://drive.google.com/file/d/1MtXa-DS2V001RNnYsnh81lfpwgeg8VVN/view), [`AI Technical Report Team3.docx`](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit). MAMBA 담당을 개인 이름으로 표시하며, 4개 모델과 공통 Testnet/대시보드 구조를 팀 차원에서 비교한다.
-- **귀속 경계:** Drive의 소스·모델은 해당 팀 프로젝트 자료임을 확인할 수 있지만 **파일별 commit author, 특정 변경의 원작성자, 정확한 버전 관리 이력은 미확정**이다. 팀 대시보드/Proxy를 개인 단독 구현으로 표기하지 않는다.
+- **직접 회고(C, 2026-10-28):** **해당 MAMBA 전략의 데이터 수집·전처리, 모델·학습·평가, 백테스트, 실시간 거래 연동은 모두 본인이 구현**했다. 여러 전략에서 프록시로 전달한 결과를 **모아 보여주는 최종 웹사이트는 다른 팀원이 개발**했다. 팀 공통 프록시 서버 자체의 구현 범위는 이번 회고로 확정되지 않는다.
+- **귀속 경계:** 이 직접 회고(C)는 당시 팀 자료의 담당 표기(B) 및 전략 소스(A)와 부합하지만 **파일별 commit author·원작성자·버전 계보에 대한 기계적 검증은 여전히 불가**하다. 개인 단독 전략 구현과 타인이 만든 최종 웹사이트를 분리한다.
 
 ## 2. 작업 단위 CR-01 — LOB 기반 실험 → Binance trade 기반 최종 모델
 
@@ -19,7 +20,7 @@
 - [`binance_trades/model.py`](https://drive.google.com/file/d/1bBes1NU8BoK6aP_7mvf9TXfhEeArEAh_/view)에는 `MambaBlock`, `TradesEncoder`, `TradesMambaTernary`의 **3-class 방향 헤드 + 미래 수익률 magnitude 회귀 헤드**. 실제 `mamba_ssm.Mamba`를 사용.
 - 2025년 최종 팀 보고서도 **5초 미래 방향**, tick trade 기반 `price/volume/side/inter-trade-time`과 확률 임계값 기반 거래, 수수료 tier별 평가를 설명.
 
-**결과:** LOB 이미지형 CNN encoder + binary Mamba 변형과 trade 4-feature + ternary multi-task Mamba 최종 변형 **두 소스가 서로 다르게 존재**한다는 사실을 확인. `Upbit LOB→Binance LOB→Binance aggTrade`의 정확한 수정 시점·실험별 선택 근거는 Git 이력이 없어 복원 보류.
+**결과(A+C):** LOB CNN encoder+binary Mamba와 Trades 4-feature+ternary multi-task Mamba가 서로 다른 코드로 존재(A). **당시 프로젝트의 LOB 수집 방식으로는 실시간 자료만 이용할 수 있어 과거 학습 데이터를 확보하기 어려웠고, 과거 데이터도 사용할 수 있는 Trades로 전환했다는 본인 회고(C)**를 확보했다. 이는 모든 거래소에서 역사적 LOB 자료가 원천적으로 없었다는 뜻이 아니다. 'LOB 성능이 낮아 모델을 바꿨다'고 해석하지 않는다. 구현 계보·구체적 변경일은 여전히 Git 이력이 없어 완전히 확인되지 않는다.
 
 ## 3. 작업 단위 CR-02 — 대용량 trade 전처리·학습·평가
 
@@ -66,21 +67,21 @@
 
 ### CR-01 / 경험 1 — LOB에서 Trades 모델로 변화
 
-- **상황:** 짧은 BTCUSDT 수익률 방향 예측을 위한 order book 기반 모델 개발.
-- **문제:** 호가창 2-class 모델이 가진 입력/출력 구조와 최종 4-feature 체결·3-class+회귀 모델의 문제 정의가 다름. **LOB 성능 저하 또는 수집 실패를 실제 장애로 단정할 근거 없음**.
-- **판단:** CNN+Mamba로 LOB를 표현한 소스, `Linear(4→128) + Mamba×4`로 Trades를 표현한 소스가 존재(A). **왜 전환했는지 선택 동기 미확정**.
-- **조치:** `binance_lob/model.py` 및 `binance_trades/model.py`의 서로 다른 소스 구조 확인, feature/parser·loss·head 비교(A).
-- **결과:** 최종 Trades 모델 및 test 아티팩트 확인(A). **동일 조건으로 비교한 LOB vs Trades 개선 수치는 없음**.
-- **판정:** 작업·구현=A, 프로젝트 목표=B, 동기와 인과관계=미확정. 후보 문장에 “LOB에서 문제가 발생해 모델을 개선했다” 금지.
+- **상황:** 짧은 BTCUSDT 가격 방향을 예측하는 LOB 기반 모델 개발(A/B).
+- **문제:** 당시 **본인이 접근한 LOB 데이터는 실시간 수집에 국한되어 과거 훈련 자료를 충분히 확보할 수 없었음(C)**. LOB 모델이 부정확해서 폐기했다는 근거는 없음.
+- **판단:** **과거 체결 데이터를 구할 수 있는 Trades로 바꿔** 학습용 과거 자료를 활용하기로 결정(C). CNN+Mamba LOB와 Linear+Mamba Trades의 서로 다른 구조는 보존 코드(A)로 확인.
+- **조치:** 기존 LOB 입력 대신 50개 체결의 price return·log-volume·aggressor·log-Δt, 3-class+magnitude Mamba 파이프라인 구현(A+C).
+- **결과:** 최종 Trades 모델과 test 아티팩트 존재(A), 데이터 소스 전환 당시 이유 확보(C). **동일 조건의 LOB vs Trades 성능 개선 수치는 없음**.
+- **판정:** 데이터 접근성·전환 동기=C, 구현된 최종 구조=A, 개인 전략 구현 범위=C. 변경 세부 날짜/LOB 정확도 비교는 미확정.
 
 ### CR-02 / 경험 2 — 메모리 제약이 큰 체결 데이터를 입력 시퀀스로 가공
 
 - **상황:** train 원본 약 38M, test 원본 약 10M tick-trade를 50개 시퀀스·5초 미래 수익률로 변환.
-- **문제:** 중첩 시퀀스를 RAM에 전량 적재하기 부담스러운 데이터 규모, label 불균형. **메모리 부족 예외 발생은 미확인**.
-- **판단:** 코드상 two-pass + `memmap`, train-only mean/std 재사용, q20/q80 label 및 weighted loss 선택 확인(A). 다른 안을 검토했는지는 미확정.
+- **문제:** 중첩 시퀀스가 매우 커 실제 **메모리 문제를 겪어 개수 제한이 필요했다는 회고(C)**. 발생한 오류 로그나 최대 RAM 사용량은 확보되지 않음.
+- **판단:** **메모리 문제로 10만 train-origin·20만 test 시퀀스로 제한했다는 당시 선택 이유(C)**와 상수·two-pass·`memmap` 구현(A)이 일치. 정확히 그 숫자를 정한 근거나 다른 대안 비교는 미확정.
 - **조치:** raw JSONL scan, `searchsorted` 수익률·분위수 label, memmap X/y/ret/time, temporal train/val 및 test 저장(A).
 - **결과:** 100k train-origin 중 **80k train(약 66분)/20k val(약 19분)**, 별도 200k test(약 2시간 33분); test 3-class accuracy **45.7895%**, 최빈 예측 baseline **55.638%**(A). 훈련 한 달/평가 일주일 전체를 사용하지 않았다는 제한은 **2026년 재검토(D)**이며 당시 이 문제를 해결했다고 기록 금지.
-- **판정:** 파이프라인 구현=A, 당시 선택의 세부 동기=미확정, 검증 범위의 사후 오류 확인=D.
+- **판정:** 메모리 제약으로 제한한 이유=C, 파이프라인·제한값=A, 실제 관측 데이터의 짧은 시간 범위와 평가 한계는 사후 확인(D). 특정 OOM 예외·정확한 메모리 규모는 미확정.
 
 ### CR-03 / 경험 3 — 수수료 때문에 기대 손익이 뒤집히는 문제
 
@@ -95,10 +96,10 @@
 
 - **상황:** 팀은 MAMBA 포함 여러 모델을 Binance Testnet/공동 대시보드와 연결(B).
 - **문제:** 모델 확률을 실제 상태·주문 처리와 연결해야 하고, offline 단순 백테스트와 중복 포지션 규칙이 달랐음(A). 당시 특정 주문 실패 사고 미확인.
-- **판단:** `paper/testnet/live`, 열린 포지션 재진입 금지, 시장가 주문/청산 코드를 선택(A). 팀 안에서 어떤 설계를 누가 지시·작성했는지 미확정.
-- **조치:** `live_trader.py`의 checkpoint·실시간 trade stream·`p_up` threshold·5초 포지션 관리, 별도 `live_trader_all.py`의 3-class argmax all-in 운용 방식 확인(A); 공동 대시보드는 팀 작업(B).
+- **판단:** MAMBA 전략의 학습·추론·백테스트·실시간 연결을 직접 담당했다는 회고(C), `paper/testnet/live`·포지션 재진입 금지 등 코드상 선택(A). 특정 주문 정책을 선택한 동기는 미확정.
+- **조치:** `live_trader.py`의 checkpoint·실시간 trade stream·`p_up` threshold·5초 포지션 관리와 별도 `live_trader_all.py` all-in 변형 구현(A+C). **각 전략에서 프록시로 보낸 결과를 취합·시각화한 최종 사이트는 다른 팀원 개발(C)**. 프록시 자체의 구체적 소유권은 보류.
 - **결과:** 팀 보고서상 MAMBA Testnet **-98.3%**(B). 정확한 실행 스크립트 revision과 개별 체결 장부 미확인. API secret 콘솔 출력·매도 실패 뒤 포지션 초기화 위험은 2026년 **정적 코드 검토(D)**이며 실제 사고/수정 완료로 과장 금지.
-- **판정:** 코드 구현=A, Testnet 수치=B, 파일별 단독 저작권·최종 실행 revision=미확정.
+- **판정:** 보존 코드=A, Testnet 관측치=B, MAMBA 전략 전체 직접 담당/최종 웹사이트 타인 구현=C. 파일별 commit 저작자 및 최종 실행 revision은 미확정.
 
 **5단계 적용 완료 기준:** 위 네 건은 모두 다섯 항목이 명시되며, **빈 판단을 그럴듯한 가상 결정으로 채우지 않음**. 원본 자료로 확인 가능한 선택과 사후 개선(D)을 분리해 [canonical 서술](crypto-lob-prediction.md#핵심-경험-4개--상황--문제--판단--조치--결과)에도 동일 반영했다.
 
@@ -116,7 +117,7 @@
 | 공통 부분 | `mamba_ssm.Mamba` residual/LayerNorm, 여러 시점 memory | 동일 Mamba 계열 구현 |
 | 결과 경계 | 그 시점의 유효 정확도 수치 미검증 | `5s` checkpt/val/test/거래 산출물 있음 |
 
-**과도한 원인 추론 금지:** 두 코드베이스의 파일 수정일과 구조 변경은 확인되지만 'LOB가 예측력이 없어서 포기했다' 또는 'Binance LOB와 Upbit prototype이 동일' 등 **개발 판단은 문서/커밋 증거 없음**. 기존 Upbit `DummyMamba` 코드는 또 다른 구버전이며, 이번에 직접 대조한 Binance LOB 코드는 **실제 Mamba**다.
+**전환 이유의 증거 수준 구분:** 보존된 코드와 수정일만으로는 전환 동기를 알 수 없지만, **당시 LOB 접근 방식은 실시간 수집에 한정되어 과거 학습 데이터 확보가 어려웠고 과거 Trades로 전환했다는 회고(C)가 추가 확보**됐다. 이는 해당 과제의 데이터 확보 조건이지 보편적인 LOB 데이터 제공 불가능성이 아니다. 기존 Upbit `DummyMamba`는 별도 구버전, Binance LOB 코드의 Mamba는 실제 구현(A)이다. **성능 문제 때문에 바꿨다는 주장 금지**.
 
 ## 8. CR-06 — 실제 학습/검증에 사용된 timestamp 구간과 평가 편향
 
@@ -142,6 +143,6 @@
 ## 9. 남은 조사·검증 및 canonical 반영 상태
 
 1. GitHub 프로젝트 저장소는 현재 연결된 개인/협업/조직 저장소에서 **찾지 못함**. Drive 원본 폴더·보고서를 우선 출처로 채택. 팀원 계정에 별도 비공개 Git이 있었는지는 미확인.
-2. `binance_lob`와 `binance_trades` 두 코드베이스의 파일별 수정 차이/학습 목적·전환 판단을 추가 비교하고, 가장 이른 Upbit `DummyMamba` 별도 코드가 있다면 시점 구분.
+2. **LOB→Trades로 바꾼 판단 이유는 직접 회고(C)로 확보:** 과거 데이터 접근성 문제. 두 코드베이스의 실제 source diff/모델 구조(A)는 대조 완료. 초기 Upbit `DummyMamba` 원본 및 구체적 계보·전환 날짜는 여전히 추가 자료가 있어야 확정.
 3. **시간 범위와 평가 편향 추가 확인:** 실제 train 약 66분·val 약 19분, test 약 2시간 33분. 겹치는 5초 예측·50trade window, split별 label quantile, threshold 선택 편향, offline/live 포지션 처리 차이 기록. 사후 개선은 2025년 당시 작업과 분리.
 4. **Canonical v1 5단계 정리 완료:** [canonical](crypto-lob-prediction.md)에 네 경험군의 **상황·문제·판단·조치·결과**를 명시하고 사후 사실과 당시 미확정 동기 구분. `resume.md`는 최종 선정 전 미변경.
