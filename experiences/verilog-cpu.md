@@ -1,277 +1,123 @@
-# Verilog Single-cycle CPU
+# Verilog Single-cycle CPU — Canonical 경험 기록
 
-## 한 줄 요약
+> **상태 (2026-10-27):** 기존 Logisim 기반 MIPS CPU를 참고한 Verilog RTL 재구현 경험의 **사실 기준 문서 v1**. Fork 이후 본인 author **5커밋 전체**, 당시 RTL/ModelSim TB·파형 스크립트·[제출 보고서](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view)를 교차 검토했다. 특히 **최종 예외 진입 때 EPC 복귀 주소가 저장되지 않았고 시간 부족으로 수정하지 못해 종료했다는 사용자 회고(C, 2026-10-27)**를 반영했다. 보존 RTL의 EPC 저장 조건·ERET 디코딩 불일치(A)도 확인되어 정상 복귀를 '검증 완료'로 단정하지 않는다. SHA별 상세 변경은 [작업 원장](verilog-cpu-commit-ledger.md) 참조. 이 문서의 모든 내용을 즉시 이력서로 전재하지 않는다.
 
-기존 Logisim 기반 MIPS-CPU 구조를 분석해 32-bit Single-cycle CPU를 Verilog RTL로 재구현하고, Decoder, ALU, Register File, Memory, CP0, Syscall, Statistics를 top-level datapath로 통합했습니다. ModelSim에서 모듈별 testbench와 waveform을 작성해 기능을 검증하고 control signal과 datapath를 단계적으로 추적하며 통합 오류를 수정한 프로젝트입니다.
+## 1. 프로젝트 개요와 소스 기준
 
-## 기간 및 자료
+- **기간:** 개인 Git commit에서 2025-05-09~2025-05-28 확인.
+- **원본:** [yuxincs/MIPS-CPU](https://github.com/yuxincs/MIPS-CPU) — Logisim으로 작성된 시뮬레이션 MIPS CPU 회로 및 테스트 프로그램. **2025-05-02에 [nanocode00/MIPS-CPU](https://github.com/nanocode00/MIPS-CPU)로 Fork**.
+- **개인 작업:** 원본 Logisim CPU의 구조를 참조해 `modelsim/`에 Verilog RTL로 재구현하고 Decoder·ALU·Register File·Memory·SingleCycleCPU·CP0·Syscall·Statistics를 연결. ModelSim TB 10개와 wave TCL 11개 등 시험 자산 추가.
+- **기여 경계:** 원본 Logisim 아키텍처/회로 자체, 원본 benchmark·exception service 어셈블리, `logisim-win-2.7.1.exe`를 개인 신규 구현으로 주장하지 않음. 5월 28일의 대형 커밋에는 `verilog/` 임시 중복 소스 및 ModelSim 작업 파일도 함께 올라왔고 같은 날 `verilog/`는 삭제됨. 따라서 commit added lines를 직접 설계한 RTL 라인수/완성도로 보지 않는다.
+- **당시 보고서:** [MIPS-CPU RTL 설계 및 검증(PDF)](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view), [DOCX](https://drive.google.com/file/d/1Qfh27NjfegX52KMPx5p6CIF12r_L1ssc/view). ModelSim waveform으로 Control·ALU·CP0·Top 등을 관찰하고 ALUop/RegDst/Control 문제를 수정했다고 기록. **당시 보고서의 광범위한 '정상 검증' 표현과 실제 보존된 TB 커버리지는 구분**한다.
 
-- GitHub에서 직접 구현 커밋이 확인되는 기간: **2025년 5월**
-- fork 기준점 이후 `nanocode00`의 직접 변경: 5 commits
-- 당시 제출 보고서: `MIPS-CPU RTL 설계 및 검증_2019111450 김재훈.pdf`
-- 당시 보관 ModelSim 프로젝트: `modelsim.zip`
+## 2. 기능 구조와 본인 작성 범위
 
-당시 보고서에서는 프로젝트를 "MIPS 명령어 집합에 기반한 단일 사이클 CPU를 RTL 수준에서 직접 설계"한 것으로 설명했습니다. 다만 Git provenance를 다시 확인하면 저장소는 `yuxincs/MIPS-CPU`의 Logisim CPU를 기반으로 하므로, 이력서와 자소서에서는 더 엄격하게 **기존 Logisim 설계를 분석해 Verilog RTL로 재구현한 경험**으로 표현합니다.
+최종 `modelsim/SingleCycleCPU.v`는 다음 구조를 연결한다.
 
-## 소스 기준과 기여 범위
+`PC → InstructionMemory(ROM) → Control/Decoder → RegisterFile → ALU → DataMemory → Write-back`
 
-원본 저장소의 Logisim 회로, benchmark assembly, exception service assembly를 동작 기준으로 활용했고, 직접 구현한 핵심 산출물은 `modelsim/` 아래 Verilog RTL과 ModelSim 검증 환경입니다.
+PC에는 `PC+4`, BEQ/BNE 분기, J/JAL 점프, JR 레지스터 점프, 외부 예외 벡터 `0x00000800`, CP0 EPC 복귀를 **선택하려는 코드 경로**가 존재한다.
 
-fork 기준점 이후 다음 모듈과 검증 파일이 추가되었습니다.
+| 단위 | 직접 구현·수정 근거 | 주의 |
+|---|---|---|
+| Decoder/Control | `Opcode_Decoder`, `Funct_Decoder`, `RegisterRead_Decoder`, `ALU_Decoder`, `Control`의 5/9 초안, 5/28 비교식·control vector 수정 | ISA/Logisim 회로 원저작과 구분 |
+| 32bit ALU | Shift, add/sub, signed/unsigned compare, 논리연산 및 multiply/divide 하위 모듈. 초판→통합판 수정 | 초기 `output reg`, port 연결 오류 등을 수정했음; 최초 커밋 자체를 완성·통과 버전으로 간주하지 않음 |
+| Register File | 32×32비트 레지스터, 두 조합 읽기·양의 에지 쓰기, 0번 register 쓰기 차단, 최종 초기화 | 5/28에 관찰용 `s0/s1/s2/ra` 출력 제거 후 `a0/v0`만 유지 |
+| Memory/Immediate | sign/zero extension, `benchmark.hex`·`exception_service.hex` 이중 ROM, 1024×32 Data Memory | 프로그램의 **원본 어셈블리 최초 작성은 아님** |
+| Syscall/Statistics | `v0==10` Halt, 그 외 `a0` 데이터 표시 경로, J/R/I·cycle count | Halt는 **Top 내부 wire** (외부 Top port 아님) |
+| CP0/exception | EPC/Status/Block/Cause 저장소·`ExpSrc` 입력·vector/return 선택 코드 | **예외 진입 과정에서 EPC 저장 실패를 겪고, 시간 부족으로 미완성 종료(C)**. 현재 RTL·TB 불일치도 확인(A) |
 
-- Control 및 Opcode / Funct / ALU / Register Read Decoder
-- ALU, Adder/Subtractor, Shifter, Multiplier, Divider, signed/unsigned Comparator
-- 32 x 32-bit Register File
-- Immediate Extender
-- Instruction Memory / Data Memory
-- Syscall Decoder
-- CP0
-- Statistics
-- SingleCycleCPU top module
-- 주요 모듈별 testbench와 `wave_*.tcl`
+## 3. GROUP-01 — Decoder/Control과 ALU 연산 부호 통합
 
-## 전체 CPU 구조
+**근거:** [`2f059fde7be0` (5/9)](https://github.com/nanocode00/MIPS-CPU/commit/2f059fde7be0) → [`74a5eee30fa5` (5/24)](https://github.com/nanocode00/MIPS-CPU/commit/74a5eee30fa5) → [`4e8a72fdcaed` (5/28)](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed).
 
-`SingleCycleCPU`는 명령어 인출부터 실행, memory access, write-back까지 하나의 instruction cycle 안에서 처리하도록 구성했습니다.
+- **상황:** Logisim 회로의 제어 신호와 산술 연산 경로를 Verilog로 재구성하던 단계.
+- **문제(A):** 첫 Decoder는 opcode/funct를 `!op[0]` 등 개별 bit의 boolean으로 판별하고 `ALUop`을 `[3:0]`으로 선언했다. ALU 초판에는 절차 대입을 사용하는 출력이 `reg`로 선언되지 않았고 일부 하위 모듈 입력이 명시적으로 연결되지 않았다. **최종 설계와 다른 초기 불일치가 Git diff에 남아 있다**.
+- **판단/조치(A):** 코드 통합 단계에서 Decoder 판별을 명시적인 `op == 6'b...` 및 `Funct == 6'b...` 비교로 변경, `ALUop` 벡터 방향을 `[0:3]`으로 통일했다. `Control`의 신호 선택식을 간결화하고 ORI/ANDI 등 opcode의 ALU 연산 선택을 수정. ALU 출력 선언을 `output reg`로 수정하고 하위 연산기 input 연결을 명시했다.
+- **결과(A/B):** 최종 Control/ALU 인터페이스의 디코딩 형식과 연결이 코드상 일치하도록 정리됨(A). 당시 보고서는 ALUop/Control 디코딩과 레지스터 목적지 설정 문제를 waveform으로 수정한 경험을 기록(B). **정확히 어느 명령에서 어떤 출력 오류가 발생했는지, 동등 비교 도입이 직접적인 오류 복구였는지**는 당시 wave/log 부족으로 미확정.
+- **검증 주의:** `tb_Control`·`tb_ALU`는 여러 입력을 공급하고 `$display`로 실제값을 출력하므로 **검증 환경/관찰 코드를 작성했다**는 사실은 분명하나, 전 명령 자동 regression pass가 확인된 것은 아니다.
 
-주요 datapath는 다음과 같습니다.
+## 4. GROUP-02 — ALU 가감산·Register File·Top datapath 통합
 
-`PC → Instruction Memory → Control/Decoder → Register File → ALU → Data Memory → Write-back`
+**근거:** [`74a5eee`](https://github.com/nanocode00/MIPS-CPU/commit/74a5eee30fa5), [`538b433`](https://github.com/nanocode00/MIPS-CPU/commit/538b4339f383), [`4e8a72f`](https://github.com/nanocode00/MIPS-CPU/commit/4e8a72fdcaed).
 
-여기에 다음 흐름을 추가로 연결했습니다.
+- **상황:** 개별 산술 블록과 저장소가 구현된 뒤 fetch/decode/execute/memory/writeback을 단일 사이클로 연결하는 단계.
+- **문제(A):** 초기 `Adder`/`Subtractor`는 `fadd/fsub` ripple-style 배열과 carry/borrow chain을 사용했다. 통합에서는 arithmetic과 OF/CF 신호를 일관되게 산출하도록 수정됐다. 초기 RegisterFile의 관측 출력은 실제 Top에 연결하는 인터페이스로 정리할 필요가 있었고, 초기화가 없었다.
+- **조치(A):** `Adder/Subtractor`를 33비트 확장 산술 표현으로 변경하고 sign bit 비교로 overflow 판별. `RegisterFile`에는 32개 0 초기화, $zero 쓰기 차단, $a0/$v0 관측 출력 유지. Top에서 `RW = IsJAL ? 31 : (RegDst ? rd : rt)`, `Din`의 ALU/Memory/JAL/CP0 선택, `WE`, shift/즉시값용 ALU X/Y 경로, `PC+4`·branch/jump/JR를 연결.
+- **결과(A):** [`SingleCycleCPU.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/SingleCycleCPU.v)에 통합 datapath가 존재한다. `tb_RegisterFile`, `tb_ImmediateExtender`, `tb_InstructionMemory`, `tb_DataMemory`, `tb_SingleCycleCPU`는 해당 단위를 관찰하기 위한 stimulus/출력 코드를 보유하고 있다. **각 상황의 자동 판정 결과나 모든 instruction 정상 수행 증거는 별도로 없음**.
+- **선택 이유 미확정:** ripple-style adder/subtractor를 내장 `+/-` 표현으로 바꾼 원인이 특정 오류/시뮬레이터 호환성/간결화 중 무엇인지 보고서나 Git 메시지만으로는 판단 불가.
 
-- branch / jump / JAL / JR
-- syscall 출력 및 halt
-- CP0 외부 exception 처리와 ERET 복귀
-- R/I/J instruction statistics와 TotalCycles 집계
+## 5. GROUP-03 — CP0 exception/ERET 구현 시도와 실제 검증 한계
 
-## 1. Decoder와 Control
+**근거:** [`CP0.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/CP0.v), [`tb_CP0.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/tb_CP0.v), [`tb_SingleCycleCPU.v`](https://github.com/nanocode00/MIPS-CPU/blob/main/modelsim/tb_SingleCycleCPU.v), [작업 원장 CPU-05](verilog-cpu-commit-ledger.md#7-cpu-05--cp0eret-설계와-보존된-rtl테스트의-불일치-중요-검증-경계).
 
-`Opcode_Decoder`, `Funct_Decoder`, `ALU_Decoder`, `RegisterRead_Decoder`, `Control`을 구현해 opcode와 funct를 datapath 제어 신호로 변환했습니다.
+**당시 의도/작업(A):** `ExpSrc[2:0]`와 Block register를 바탕으로 예외 요청을 검출하고 EPC에 PC를 저장, PC를 `0x800` service로 이동, `mfc0/mtc0`와 `eret`을 통해 상태를 조회하고 복귀시키는 경로를 구현하려 했다.
 
-주요 출력은 다음과 같습니다.
+**당시 관찰 결과(C, 2026-10-27):** 사용자는 최종 단계에서 **예외 경로 진입 시 복귀 지점이 EPC에 저장되지 않았으며, 더 수정할 시간이 없어 그 상태로 프로젝트를 끝냈다**고 회고했다. 예외 벡터 도달의 파형·스크립트는 현재 보존된 TB에서 독립 확인되지 않으므로 **사용자 관찰(C)**과 **코드/테스트 근거(A)**는 구분한다.
 
-- `RegWrite`, `RegDst`, `MemRead`, `MemWrite`, `MemtoReg`
-- `Branch`, `BneOrBeq`, `Jump`, `IsJAL`, `IsJR`
-- `ALUSrc`, `ALUop`, `IsShamt`
-- `IsSyscall`, `IsCOP0`, `ZeroExtend`
+**보존된 코드에 실제로 있는 네 가지 검증 장애:**
 
-당시 제출 보고서에서도 **ALUop decoding, RegDst 위치 오류, Control unit 설정 누락**을 waveform 분석으로 찾아 수정한 사례를 명시하고 있습니다.
+1. **ERET 값 불일치(A):** `CP0.v`는 `Inst[5:0] == 6'b000110`(6)으로 `IsEret`을 판별하지만, 같은 저장소의 `tb_CP0.v`가 넣는 `eret=32'h42000018`의 하위 6비트는 `011000`(24). **이 테스트 명령은 보존된 코드에서 ERET로 검출되지 않는다.**
+2. **EPC 저장 조건 충돌(A):** `HasExp = clk && counter0`이고 EPC 저장 절은 `if (!clk) if (HasExp) EPC <= PCin`. **일반적인 0/1 논리에서 두 조건은 동시에 참일 수 없다**. 예외로 EPC를 자동 저장하는 로직이 작동한다고 확정할 수 없으며, 별도 `mtc0` EPC 경로와는 구별한다.
+3. **CP0 단위 TB의 활성화 부족(A):** `tb_CP0`는 `ExpSrc=001`을 자극하지만 `Block`은 0으로 초기화되고 TB에서 Block register를 변경하지 않는다. 이에 따라 `BlockSrc & ExpSrc`가 0이므로 **예외 트리거 `ExpClick`는 해당 자극만으로 올라가지 않는다**.
+4. **Top 예외 시나리오 없음(A):** `tb_SingleCycleCPU`의 `ExpSrc=000` 고정. 정상적인 예외 서비스 진입부터 EPC 복귀까지의 실제 end-to-end stimulus가 이 TB에 없다.
 
-Git diff에서도 다음 수정이 확인됩니다.
+**상황 → 문제 → 판단 → 조치 → 결과:** 예외 발생 후 복귀할 수 있는 CP0 경로가 필요했다(상황). 최종 시험에서 예외 경로 진입 뒤 **EPC 복귀 주소가 저장되지 않았다(C)**(문제). 당시 대안·우선순위 판단은 미확정. EPC/Status/Block/Cause와 벡터·ERET 제어, 테스트 및 파형 스크립트를 작성했다(A)(조치). **복귀 주소 저장 실패를 해결하지 못했고 남은 시간이 부족해 미완성 종료했다(C)**(결과). 보존된 RTL의 EPC 조건 충돌 및 ERET 인코딩 오류(A)는 당시 현상과 부합하지만, 실제 오류 원인이 오직 이 코드였다고 단정하지 않는다. 보고서의 포괄적 '정상 검증'보다 구체적 실패 경험을 우선해 기록한다.
 
-- opcode 판별을 복잡한 개별 bit 조건에서 `op == 6'b...` 비교 방식으로 정리
-- ALU control vector 방향을 `[3:0]`과 `[0:3]` 사이에서 datapath와 일치하도록 수정
-- ORI/ANDI 관련 control encoding 수정
-- comparator 결과와 carry/overflow 경로 수정
+### 2026-10-27 원본 Logisim 회로 역대조와 사후 개선안
 
-즉 개별 모듈이 맞더라도 decoder의 bit ordering이나 control encoding이 datapath와 다르면 CPU 전체 동작이 틀어지는 문제를 실제로 디버깅했습니다.
+- **A — 원본 구조:** [`yuxincs/MIPS-CPU/src/common/cp0.circ`](https://github.com/yuxincs/MIPS-CPU/blob/master/src/common/cp0.circ)의 EPC는 **32비트 `Register`에 `trigger="low"`**가 설정되어 있고, 그 앞에 데이터 선택용 Multiplexer, `HasExp` 터널, enable 관련 논리 및 clk 연결이 있다. Logisim의 LOW 레벨 감응 Register와 Verilog `reg`에 대한 `always @(*)` 조건 대입은 **동등한 RTL 구현이라고 자동으로 볼 수 없다**.
+- **A — Verilog와 관찰된 실패의 연결:** 현재 Verilog는 `HasExp = clk && counter0`, 저장 조건은 `if (!clk) if (HasExp)`여서 이진 논리상 `~clk & HasExp == 0`. 이 조건은 EPC 자동 저장 실패(C)와 부합한다. 다만 **원본 Logisim 회로가 동일한 시험에서 정상 동작했는지**는 시뮬레이션 결과가 없어 확인할 수 없다. 저장 소자와 게이트 전파의 차이가 원인일 수 있다는 것은 **사후 분석(D)**이지 당시 확정 진단이 아니다.
+- **사후 개선안(D, 당시 구현 아님):** 예외 수락 신호(`exception_taken`)를 `clk` 레벨과 분리해 만들고, **같은 `posedge clk`에 `EPC <= exception_pc;`, `PC <= 32'h800;`을 비차단 대입**하도록 PC와 EPC 업데이트 순서를 구성한다. `PC_Buffer`/반전 `clk_PC`도 새 동기화 구조와 함께 재검토한다. 저장 주소가 현재 PC인지 다음 PC인지는 재시작/복귀 ISA 규약에 따라 별도 결정해야 하며, **여기서는 완성된 코드 수정이나 실험 성공을 주장하지 않는다**.
+- **사후 개선안(D):** `eret` 전체 인코딩 `32'h42000018`을 정확히 디코딩하고, 예외 마스크/Block을 설정한 testbench에서 **예외 진입 → EPC 기대값 저장 → `0x800` 벡터 → ERET → PC 복귀**를 기대값 assertion으로 검증한다. 기존 저장소에 이 수정·성공 결과를 남겼다는 의미가 아니다.
 
-## 2. ALU
+**별개인 syscall:** 일반 syscall은 `SyscallDecoder`의 `$v0/$a0`로 처리되며 `ExpSrc` exception과 연결된 자동 트리거로 작성되지 않았다. `tb_CP0`에 `Inst=0x0000000C`('syscall')을 넣고 `ExpSrc=001`도 함께 준 것을 근거로 **syscall 자체가 CP0 예외를 발생시킨다고 쓰지 않는다**.
 
-32-bit ALU에는 다음 연산 경로를 구성했습니다.
+## 6. GROUP-04 — Syscall/Statistics/Memory 구현과 ModelSim 관찰
 
-- SLL / SRL / SRA
-- ADD / SUB
-- AND / OR / XOR / NOR
-- signed / unsigned comparison
-- multiply / divide
-- Carry / Overflow / Equal 등의 상태 신호
+- **Syscall:** $v0=10일 때 `Halt`, 활성 syscall에서는 `Hex<=a0`. Top의 `Halt`는 외부 출력이 아니라 Clock을 `Halt ? 1 : Clock`으로 게이트하는 **내부 wire**.
+- **Statistics:** R/I/J 분류 후 Top에서 J/R/I/TotalCycles 누적.
+- **Instruction Memory:** `benchmark.hex`/ `exception_service.hex` 이중 512×32 ROM, `PC[11]`으로 예외 ROM 선택. **'PC가 0x800으로 이동하는 RTL 경로'와 '해당 루틴의 정상 실행 성공'은 서로 다른 주장**.
+- **Data Memory:** 1024×32 RAM, edge 기반 store, 조합 load.
+- **ModelSim:** 10개 `tb_*.v`와 11개 `wave_*.tcl`가 `modelsim/`에 남아 있음. 주요 TB는 기대값 자동 assertion이 아니라 `$display`·파형 출력이며, 그 사실 자체가 무용한 것이 아니라 **검증 방식/범위의 정직한 표현**이다.
+- **최종 정리:** [`750d768`](https://github.com/nanocode00/MIPS-CPU/commit/750d76842c21)에서 중복 `verilog/` 자료를 삭제, `modelsim/` 최종 Verilog와 TB·TCL은 유지했다.
 
-통합 과정에서는 ALU 입력 X/Y와 `ALUop`을 waveform으로 함께 확인해 decoder 출력과 실제 연산 경로가 일치하는지 추적했습니다.
+## 7. 시간순 개발 흐름
 
-## 3. Register File과 Memory
+| 기간 | 단계 | 근거 |
+|---|---|---|
+| 2025.05.02 | 원본 Logisim CPU 저장소 Fork | GitHub repository parent metadata |
+| 2025.05.09 | Opcode/Funct/Control/ALU Decoder 초판 | `2f059fde7be0` |
+| 2025.05.24 | 32비트 ALU+가감산 회로, Register File 초판 | `74a5eee30fa5`, `538b4339f383` |
+| 2025.05.28 | Decoder/ALU/RegFile 수정, Top/CP0/IM/DM/Syscall/Statistics 및 ModelSim TB/TCL 대규모 통합 | `4e8a72fdcaed` |
+| 2025.05.28 | 중복 `verilog/` 소스 정리; `modelsim/` 보존 | `750d76842c21` |
 
-### Register File
+## 8. 검증 근거와 주장 경계
 
-- 32개의 32-bit register
-- 두 개 read port, 한 개 write port
-- `$zero`는 항상 0 유지
-- JAL write-back을 위한 `$ra` 지원
-- syscall 시 `$v0`, `$a0`를 선택해 읽는 경로 구성
+| 주장 | 허용 가능한 결론 |
+|---|---|
+| 기존 Logisim 구조를 참고해 Verilog RTL로 옮김 | **A: Fork/파일 diff로 확인**. 아키텍처 원저작 아님 |
+| ALU/Decoder 통합 과정의 오류 수정 | **A: 수정 전후 코드** + **B: 당시 보고서의 파형 디버깅 회고**. 정확한 오류 재현 자극/조건은 일부 미확정 |
+| RegisterFile/Memory/PC datapath 구현 | **A: 직접 코드·TB 추가**. 모든 명령어 성공 자동 시험 없음 |
+| Syscall/Statistics 검증 | **A: 코드/시뮬레이션 자산** + B: 보고서. Halt Top 출력 주장 금지 |
+| CP0 exception/EPC/ERET 종단 정상동작 | **미완성(C):** 예외 진입 시 복귀 주소 저장 실패를 겪고 시간 부족으로 해결 못함. 보존 RTL 조건 불일치·TB 미자극(A). 정상 복귀 검증 완료가 아님 |
+| 전체 MIPS CPU 기능·pipeline·성능 | **단일 사이클 RTL 구조**만 확인, pipeline이나 캐시/forwarding 구현·전 명령 대응·성능 최적화 주장 금지 |
 
-### Instruction Memory
+## 9. 이력서/포트폴리오 압축 후보
 
-두 개의 512-word ROM을 사용합니다.
+최종 등록은 다른 프로젝트와 비교해 선별한다. 현 자료 기준으로 강한 후보는 다음 두 묶음이다.
 
-- `benchmark.hex`: 일반 프로그램
-- `exception_service.hex`: exception service
+1. **RTL 구조 재구현:** 기존 Logisim CPU 회로를 참조해 32-bit single-cycle 구조를 Verilog RTL로 구성, Control/ALU/RegisterFile/Memory와 Top datapath 연결.
+2. **제어·연산 블록 통합 디버깅:** Opcode/Funct 비교식, `ALUop` 비트 배치, ALU output 선언·모듈 연결·overflow 연산과 RegisterFile 초기화/인터페이스를 수정하고 ModelSim testbench·waveform으로 내부 제어 신호를 추적한 경험.
 
-`PC[11]`로 ROM을 선택하므로 `0x00000800` 영역을 exception service 시작 영역으로 사용할 수 있습니다.
+**CP0는 '예외 처리 성공 경험'이 아니다.** 대신 *예외 경로를 구성했으나 복귀 주소 저장 문제를 해결하지 못하고 마감한 실패/미완성 구현 경험*으로 보존한다. 추가 자료가 발견되면 경계를 재평가한다.
 
-### Data Memory
+## 10. 근거 인덱스·남은 질문
 
-- 1024 x 32-bit RAM
-- synchronous store
-- combinational load
+- [원본 Logisim CPU](https://github.com/yuxincs/MIPS-CPU), [포크 및 본인 RTL](https://github.com/nanocode00/MIPS-CPU/tree/main/modelsim), [커밋별 작업 원장](verilog-cpu-commit-ledger.md).
+- [당시 보고서 PDF](https://drive.google.com/file/d/1sXOy8DC9khJu00A1rDyuSzUtrK_np_2S/view); 최종 TB/RTL과 충돌할 때는 **문구보다 실제 코드와 시험 자극**을 우선.
+- **추가 증빙 1 — 회고 확인(C, 2026-10-27):** 예외 경로 진입 뒤 EPC 복귀 주소 저장 실패, 시간 부족으로 미해결 종료한 경험을 직접 확인. 추가 자료가 있으면 당시 입력·파형·EPC 값을 대조하되, 정상 ERET 성공을 전제하지 않는다.
+- **추가 증빙 2:** Decoder 코드의 동등 비교 변경, ripple adder/subtractor 대신 산술 연산자를 사용한 의사결정 이유. 당시 상황이 불명확하면 D 추정으로만 남김.
+- **추가 증빙 3:** `tb_ALU` 등 출력값 캡처나 보고서 스크린샷에서 확인 가능한 구체적인 성공/실패 범위. 현재 TB 파일만으로 assertion 통과 기록은 없음.
 
-## 4. PC 제어
-
-현재 top-level PC 경로는 다음 경우를 처리합니다.
-
-- 일반 실행: `PC + 4`
-- BEQ / BNE: sign-extended immediate 기반 branch target
-- J / JAL: instruction target field 기반 jump
-- JR: register 값으로 이동
-- 외부 exception: `0x00000800`으로 이동
-- ERET: CP0의 EPC 값으로 복귀
-
-이 구조를 통해 일반 instruction flow와 exception service 영역을 하나의 CPU datapath에서 전환하도록 구현했습니다.
-
-## 5. CP0와 외부 exception
-
-CP0에는 다음 register가 있습니다.
-
-- EPC
-- Status
-- Block
-- Cause
-
-외부 exception source는 `ExpSrc[2:0]`으로 입력됩니다. Block register와 조합해 활성 exception을 판단하고, exception 발생 시 EPC에 복귀 주소를 보존하며 top-level PC가 `0x00000800`으로 이동합니다. `eret`에서는 `PCout`, 즉 EPC를 다시 PC에 반영합니다.
-
-`tb_CP0.v`에서는 다음 흐름을 개별적으로 확인합니다.
-
-1. `ExpSrc = 3'b001`을 주어 exception 발생
-2. EPC 저장 확인
-3. `mfc0` 형태의 instruction으로 EPC read 확인
-4. `eret`에서 `IsEret`과 `PCout` 확인
-5. exception이 없는 상태에서 EPC 유지 확인
-
-### CP0 test의 `syscall` 표기에 대한 주의
-
-보관된 `tb_CP0.v`에는 첫 exception stimulus를 `syscall 시뮬레이션`이라고 적고 `Inst = 0x0000000C`를 사용합니다. 동시에 `ExpSrc = 001`도 직접 주입합니다.
-
-하지만 실제 `CP0.v`에서 exception 발생 여부를 만드는 것은 **instruction의 syscall opcode가 아니라 `ExpSrc`**입니다. 반면 top-level의 일반 `syscall`은 별도 `SyscallDecoder`가 처리합니다.
-
-따라서 이 프로젝트에서 다음 두 흐름은 구분해서 설명합니다.
-
-- 일반 `syscall` → `$v0/$a0` 기반 출력 또는 halt
-- 외부 `ExpSrc` exception → EPC 저장 → `0x800` service → ERET 복귀
-
-`tb_CP0`의 syscall instruction은 exception 상황을 표현하기 위해 함께 넣은 test stimulus로 보고, **syscall 자체가 CP0 exception을 자동 발생시킨다고 설명하지 않습니다.**
-
-## 6. Syscall Decoder
-
-R-type `syscall`이 검출되면 Register File의 일반 rs/rt 대신 `$v0`와 `$a0`를 읽습니다.
-
-`SyscallDecoder`는 다음과 같이 동작합니다.
-
-- `$v0 == 10` → 내부 `Halt` 활성화
-- 그 외 syscall → `$a0` 값을 `Hex` output으로 반영
-
-`Halt`는 `SingleCycleCPU`의 외부 output port는 아니며 top module 내부에서 clock을 멈추는 신호로 사용됩니다. 당시 보고서에는 Halt를 시스템 출력으로 표현했지만 실제 최종 RTL에서는 내부 wire입니다.
-
-별도 `wave_SingleCycleCPU_syscall.tcl`에는 `Inst`, `IsSyscall`, `$v0/$a0`, `Hex`, `Halt`, ALU X/Y, `ALUop`, write target `RW`, `WE`, `RegDst` 등을 동시에 관찰하도록 구성되어 있습니다.
-
-## 7. Statistics
-
-`Statistics.v`는 opcode를 R/I/J type으로 분류하고 top-level에서 다음 값을 누적합니다.
-
-- `R`
-- `I`
-- `J`
-- `TotalCycles`
-
-당시 보고서에도 instruction type별 count와 전체 실행 cycle 누적을 별도 검증 항목으로 기록했습니다.
-
-## 8. ModelSim 검증
-
-당시 보고서와 보관된 `modelsim.zip`에서 다음 testbench를 확인할 수 있습니다.
-
-- `tb_ALU.v`
-- `tb_Control.v`
-- `tb_RegisterFile.v`
-- `tb_ImmediateExtender.v`
-- `tb_InstructionMemory.v`
-- `tb_DataMemory.v`
-- `tb_CP0.v`
-- `tb_SyscallDecoder.v`
-- `tb_Statistics.v`
-- `tb_SingleCycleCPU.v`
-
-각 testbench에 대응하는 `wave_*.tcl`도 남아 있습니다.
-
-보고서가 명시한 주요 검증 항목은 다음과 같습니다.
-
-- ADD, SUB, SLL, SRA 등 ALU 결과
-- exception 발생 시 `HasExp`, `PCout`
-- syscall 시 `Hex`, `Halt`
-- register read/write 값
-- J/R/I 통계와 `TotalCycles`
-- top-level instruction 실행 흐름
-
-### 통합 exception 검증 범위
-
-보관된 `tb_SingleCycleCPU.v`의 `ExpSrc`는 `3'b000`으로 고정되어 있어, 현재 남아 있는 top-level testbench 자체에서는 외부 exception을 실제로 주입하지 않습니다.
-
-따라서 다음과 같이 범위를 구분하는 것이 안전합니다.
-
-- CP0 exception 동작: `tb_CP0`에서 단위 검증
-- 전체 CPU 일반 instruction/syscall 흐름: `tb_SingleCycleCPU` 및 waveform으로 통합 관찰
-- exception vector와 ERET 경로: RTL 구현으로 확인 가능
-- **top-level에서 exception service 진입부터 복귀까지 end-to-end simulation을 완료했다고 현재 보관 자료만으로 단정하지 않음**
-
-자동 pass/fail regression log는 별도로 남아 있지 않으므로, 이력서에서는 testbench와 waveform 기반 기능 검증으로 표현합니다.
-
-## 핵심 디버깅 방식
-
-최종 출력만 보는 대신 CPU의 실행 흐름을 다음 순서로 나눠 추적했습니다.
-
-1. PC와 현재 instruction
-2. opcode/funct decoder의 control signal
-3. Register File read 값
-4. ALU X/Y input과 ALUop
-5. ALU result와 memory access
-6. write-back register와 data
-7. branch/jump/ERET에 따른 다음 PC
-
-이 과정에서 당시 보고서에 기록된 **ALUop decoding, RegDst 위치 오류, Control 설정 누락**과 Git에서 확인되는 control vector/encoding 문제를 단계적으로 수정했습니다.
-
-## 이력서용 핵심 bullet
-
-- 기존 Logisim 기반 MIPS CPU 구조를 분석해 **32-bit Single-cycle CPU를 Verilog RTL로 재구현**하고 Decoder, ALU, Register File, Memory, Control을 top-level datapath로 통합
-- EPC, Status, Block, Cause를 갖는 **CP0와 외부 `ExpSrc` exception / `mfc0` / `mtc0` / `eret` 경로를 구현**, exception 시 `0x800` service 영역으로 전환하도록 PC 제어 구성
-- ModelSim에서 ALU, Control, Register File, Memory, CP0 등 **주요 모듈별 testbench와 waveform script를 작성**하고 PC, control, ALU, write-back 신호를 단계별 추적해 통합 오류 수정
-- ALUop decoding, RegDst, Control 설정과 control encoding 불일치를 추적하며 **개별 RTL 모듈부터 전체 instruction flow까지 신호 단위로 검증**
-
-## 근거와 사용 시 주의
-
-### 직접 경험으로 강하게 사용할 수 있는 내용
-
-- `modelsim/`의 Verilog RTL 재구현
-- 모듈별 testbench / waveform script
-- SingleCycleCPU datapath 통합
-- CP0 register와 exception/ERET 경로 구현
-- syscall과 statistics 구현
-- waveform 기반 control/datapath debugging
-
-### 직접 기여로 표현하지 않는 내용
-
-- 원본 Logisim CPU architecture 자체의 최초 설계
-- `programs/benchmark.asm`과 `programs/exception_service.asm`의 원본 작성
-- pipeline CPU 구현
-
-### 사용하지 않는 과거 메모
-
-- `tb_compare`: 이 MIPS 프로젝트에서는 확인되지 않음
-- `EPC 초기값 0 → 4 수정`: Git과 보관된 `CP0.v` 모두 최종 EPC 초기값이 0이므로 근거 없음
-- `syscall → 자동 CP0 exception`: 최종 RTL에서는 syscall과 외부 exception 경로가 분리됨
-- `top-level exception end-to-end 검증 완료`: 현재 보관된 top testbench에서는 `ExpSrc=000`이므로 완료 근거 부족
-
-## 보여주는 역량
-
-- 컴퓨터구조와 MIPS datapath 이해
-- Verilog RTL 구현
-- CPU control/datapath 통합
-- instruction decoding
-- Register File / Memory 설계
-- CP0와 exception/return 흐름 이해
-- ModelSim testbench 및 waveform 기반 검증
-- 여러 모듈의 control signal을 연결해 통합 오류를 추적하는 디버깅
-
-## 자소서 활용 포인트
-
-- 기존 회로 구조를 분석해 Verilog RTL로 재구성한 경험
-- 개별 모듈 검증에서 top-level 통합으로 확장한 경험
-- control signal 하나의 오류를 instruction flow 전체에서 역추적한 경험
-- CPU의 PC, decoder, register, ALU, memory, exception 경로를 직접 연결하며 컴퓨터구조를 실제 구현으로 확인한 경험
+`resume.md`는 본 검토에서 수정하지 않는다.
