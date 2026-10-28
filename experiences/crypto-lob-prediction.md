@@ -2,7 +2,7 @@
 
 ## 한 줄 요약
 
-Binance BTCUSDT의 tick-by-tick 체결 데이터를 수집·전처리하고, 4-layer Mamba 모델로 5초 뒤 가격 방향을 예측했습니다. 무수수료 백테스트에서는 수익이 발생했지만 거래 빈도가 높아 실제 수수료를 반영하면 손익이 붕괴하는 것을 확인했고, 분류 정확도보다 execution cost와 turnover가 실제 활용 가능성을 좌우한다는 점을 검증한 프로젝트입니다.
+Binance BTCUSDT의 tick-by-tick 체결 데이터를 수집·전처리하고, 4-layer Mamba 모델로 5초 뒤 가격 방향을 예측했습니다. **약 19분의 validation 구간을 이용한 가상 중복거래 백테스트에서는 무수수료 +23.26%가 나왔지만, 수수료를 반영하면 손실로 바뀌었습니다.** 독립 test 20만 시퀀스의 3-class accuracy는 **45.79%**로 최빈 클래스 기준 55.64%보다 낮았습니다. 이 프로젝트는 모델의 수익성 입증이 아니라 **시계열 예측·실행비용 평가 과정과 실험 설계의 한계를 확인한 경험**입니다.
 
 ## 기간 및 역할
 
@@ -28,7 +28,7 @@ Binance BTCUSDT의 tick-by-tick 체결 데이터를 수집·전처리하고, 4-l
 - Binance Testnet 기반 약 2.5일 자동 거래 simulation
 - 공통 dashboard에서 계좌별 수익률 비교
 
-이 문서에서는 그중 제가 직접 담당한 **MAMBA microstructure model과 데이터/백테스트 파이프라인**을 중심으로 정리합니다.
+**개인 회고(C, 2026-10-28): MAMBA 전략과 관련된 데이터 수집·전처리, 모델 개발·학습·평가, 백테스트, 실시간 거래 연동은 본인이 모두 담당**했습니다. 다만 **각 전략이 프록시를 통해 전달한 결과를 모아 보여주는 최종 웹사이트는 다른 팀원이 구현**했습니다. 프록시 자체나 전체 공통 인프라를 본인이 구현했다고 주장하지 않습니다. Git 저장소가 발견되지 않아 파일별 commit author는 검증할 수 없지만, [팀 보고서(B)](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit)의 MAMBA 담당 표기 및 보존된 전략 소스(A)는 이 회고와 부합합니다. 상세 출처는 [실험·소스 근거 원장](crypto-lob-prediction-evidence-ledger.md)에 있습니다.
 
 ## 1. 초기 Upbit LOB prototype
 
@@ -42,11 +42,13 @@ Binance BTCUSDT의 tick-by-tick 체결 데이터를 수집·전처리하고, 4-l
 - bid/ask level의 price/size 등으로 snapshot 구성
 - 시간 순서를 유지한 train/validation split
 
-초기 모델 코드는 각 LOB snapshot을 CNN으로 encoding하고 시계열 모듈로 넘기는 구조였습니다. 이 단계의 `train.py`에는 실제 Mamba 대신 GRU 기반 `DummyMamba` placeholder가 들어 있으므로, 이를 최종 Mamba 모델의 성능으로 설명하지 않습니다.
+초기 Upbit prototype의 `train.py`에는 실제 Mamba 대신 GRU 기반 `DummyMamba` placeholder가 있었다는 별도 기록이 있습니다. **하지만 Drive의 [2025-11-29 Binance LOB 모델](https://drive.google.com/file/d/1JvhlZWE5xpd--zhVTlTzkLw-Qo0DN7pK/view)은 실제 `mamba_ssm.Mamba` 4개 블록을 사용한 CNN+Mamba 이진 분류 구현**이므로, 이 둘을 같은 코드라고 적지 않습니다. Binance LOB의 CNN은 bid/ask 호가창에서 상대가격·정규화 수량·imbalance를 공간적으로 인코딩합니다.
 
 즉 개발 흐름은 다음과 같습니다.
 
-`Upbit 20-level LOB prototype → CNN 기반 spatial encoding 실험 → Binance tick trade 기반 실제 Mamba 모델로 전환`
+`Upbit LOB + DummyMamba prototype (별도 기록) → Binance LOB CNN+실제 Mamba 2-class 소스 (2025-11-29) → Binance trades 4-feature+실제 Mamba 3-class/magnitude 소스 (2025-12-05경)`
+
+**전환 당시의 이유(C, 2026-10-28):** 프로젝트에서 사용하던 LOB 데이터 수집 방식으로는 **실시간 데이터만 확보할 수 있어 장기간의 과거 학습·평가 데이터를 마련하기 어려웠기 때문**에, **과거 거래 기록도 수집할 수 있는 Trades 데이터로 변경**했다고 회고했습니다. 이 설명은 *당시 사용한 데이터 소스/접근 방식의 한계*이며, 모든 거래소에서 LOB 과거 데이터를 제공하지 않는다는 일반 명제가 아닙니다. **LOB보다 Trades의 예측 성능이 좋아서 변경했다는 주장도 아닙니다.** 두 모델의 동등 조건 성능 비교는 여전히 없습니다.
 
 ## 2. Binance tick data 수집
 
@@ -61,10 +63,18 @@ Drive에도 `trades_YYYYMMDD.jsonl` 형태의 일자별 raw data가 수백 MB �
 
 전처리 metadata에는 다음 raw sample 규모가 기록되어 있습니다.
 
-- train `N_raw`: **38,082,848**
-- test `N_raw`: **9,961,021**
+- train 원본 `N_raw`: **38,082,848**
+- test 원본 `N_raw`: **9,961,021**
 
-대용량 데이터를 한 번에 RAM에 올리지 않도록 최종 전처리/학습 파이프라인에서는 `numpy.memmap` 기반 파일을 사용했습니다.
+**당시 메모리 문제가 있어 시퀀스 수를 제한했다는 개인 회고(C, 2026-10-28)**가 확인됐습니다. 코드(A)에는 `numpy.memmap`과 `MAX_TRAIN_SEQ=100,000`, `MAX_TEST_SEQ=200,000` 제한이 존재합니다. 메모리 제약 대응으로 시퀀스를 제한했다는 동기(C)는 확보했지만, **정확한 메모리 용량·발생한 오류 메시지·왜 10만/20만으로 정했는지는 확인되지 않았습니다.** 따라서 모든 raw trade를 학습·평가하지 않았고, **원본 각 기간의 첫 유효 sequence에서 지정 개수까지만** 추출했습니다.
+
+| 실제 입력 집합 | 보관된 timestamp 기준 UTC 범위 | 길이 |
+|---|---|---|
+| 학습 80,000개 | **2025-10-22 00:00:00~01:06:20** | 약 66분 |
+| Validation 20,000개 | **2025-10-22 01:06:20~01:25:23** | 약 19분 |
+| 독립 Test 200,000개 | **2025-11-21 00:00:00~02:33:15** | 약 2시간 33분 |
+
+원본 [train `time.dat`](https://drive.google.com/file/d/1RCf5yQKSiZNRGulj-gIbERf63Nb-xviJ/view), [validation `time.npy`](https://drive.google.com/file/d/1NZFZcOAXq_UgL1yDyUuYL2FV3z6UxUpC/view), [test `time.dat`](https://drive.google.com/file/d/1sOgWdsEf6Q0ze0UthqwdDz-Yh05i35WK/view)의 첫/끝 시간을 NumPy로 직접 확인한 값입니다. 따라서 **'한 달 데이터 전체를 학습했고 일주일 전체에서 독립 평가했다'는 주장은 하지 않습니다.**
 
 ## 3. Feature와 label 설계
 
@@ -77,7 +87,7 @@ Drive에도 `trades_YYYYMMDD.jsonl` 형태의 일자별 raw data가 수백 MB �
 
 입력은 최근 **50개 trade sequence**이며, target은 **5초 뒤 가격 방향**입니다.
 
-label은 고정 수익률 threshold 대신 train return distribution의 quantile을 사용해 3-class로 구성했습니다.
+label은 고정 수익률 threshold 대신 **각 split의 전체 미래 return 분포에서 별도로 계산한 quantile**을 사용해 3-class로 구성했습니다. [보존 전처리 코드](https://drive.google.com/file/d/1uSFTg1y9f7g3qqPQ6eLRsZpPpSMDhNuL/view)에서는 train/test 각각의 전체 raw 수익률로 경계를 계산하므로, 실제 잘라낸 첫 100k/200k만으로 라벨 기준을 정한 것은 아닙니다. **train과 test에서 클래스의 수익률 경계가 다를 수 있고, 미래 분포를 알고 정한 라벨**이라는 평가상 제약이 있습니다.
 
 - 하위 약 20%: `Down`
 - 중간 약 60%: `No-Trade`
@@ -88,7 +98,7 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 - train dataset: **100,000 sequences**
   - 실제 학습: 80,000
   - validation: 20,000
-- independent test dataset: **200,000 sequences**
+- independent test dataset: **200,000 sequences (11/21 약 2시간 33분의 첫 연속 구간)**
 - tensor shape: `[N, 50, 4]`
 
 ## 4. 최종 Mamba model
@@ -148,6 +158,8 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 ## 6. probability threshold 기반 trading
 
+**당시 진행 순서(C, 2026-10-28 회고):** 먼저 시뮬레이션에서 **수수료를 빼지 않았을 때 수익**을 확인했고, **수수료를 적용하자 손실로 전환**되는 것을 관찰했습니다. 그래서 손익 변화의 영향을 알아보려고 **수수료 조건과 확률 임계값을 나눈 비교 실험**을 진행했습니다. 비교 실험에 사용한 구현과 결과 CSV는 보존돼 있습니다(A). 다만 초기 무수수료 시험과 이후 비교 실험이 각각 별도의 코드 버전으로 남아 있는 것은 아니므로 실행 시각/버전까지 확정하지는 않습니다.
+
 모델의 `Up` probability를 바로 매매 신호로 사용하지 않고 threshold sweep을 수행했습니다.
 
 백테스트에서는:
@@ -159,6 +171,8 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 방식으로 signal confidence와 trading frequency의 관계를 확인했습니다.
 
+**학습 원본에서 나눈 validation 20,000개(약 19분)**에 대해, 수수료 정책별 **최적 threshold를 같은 validation 결과에서 선택**했습니다. 이는 out-of-sample 투자 성과가 아니라 threshold tuning 결과이고, 5초 미래 수익률의 각 신호를 **독립 왕복 거래**로 가정한 값입니다. 매수 상태가 겹치는 현실적인 포지션 제약은 이 offline 백테스트에 없습니다.
+
 무수수료 조건에서 threshold `0.50`은:
 
 - trades: **4,319**
@@ -168,11 +182,11 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 을 기록했습니다.
 
-즉 prediction에 trading edge가 전혀 없었던 것은 아니지만, 거래 1회당 기대 수익이 매우 작고 거래 횟수가 많다는 문제가 있었습니다.
+즉 **이 validation 자료의 선택 신호에서 양의 gross return**은 있었지만, 이 결과만으로 재현 가능한 out-of-sample trading edge가 확인됐다고 해석할 수는 없습니다. 거래 신호마다 예상 수익이 작고 횟수가 많았다는 점은 코드와 결과표에서 확인됩니다.
 
 ## 7. 수수료를 넣자 전략이 붕괴한 이유
 
-동일한 prediction 결과에 실제와 유사한 fee를 적용하자 결과가 완전히 달라졌습니다.
+**당시에는 무수수료에서 수익이던 시뮬레이션이 수수료 적용 후 손실로 바뀌는 것을 먼저 확인한 뒤(C), 그 차이를 분석하기 위해 비교 실험을 진행**했습니다. 보존된 후속 코드/CSV(A)에서 동일한 validation 예측과 미래 수익률을 대상으로 여러 fee를 적용한 결과를 확인할 수 있습니다. 각 정책은 동일 샘플을 사용하지만 **각자의 최대 equity threshold를 다시 선택**했으며, 수수료 외 실제 체결 조건은 충분히 모델링하지 못했습니다.
 
 ### no fee
 
@@ -193,7 +207,7 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 무수수료 실험의 선택된 trade들은 평균 gross return이 대략 `0.004~0.005%` 수준인데, Spot round-trip fee는 `0.2%`였습니다.
 
-즉 모델이 맞히는 비율이나 gross PnL만 보면 신호가 있어 보였지만, **한 번의 거래에서 얻는 edge보다 transaction cost가 훨씬 큰 high-turnover 전략**이었기 때문에 실제 손익은 빠르게 악화됐습니다.
+즉 이 자료에서 관찰된 **거래 1회당 평균 미래 수익률이 수수료 왕복비용보다 작고, 신호별 비용 누적이 가상 성과를 크게 악화**시켰습니다. 이것은 비용 민감도 측정 결과이지 실제 동일 조건의 실계좌 PnL이나 최종 검증된 거래 성과는 아닙니다.
 
 이 프로젝트에서 가장 중요한 결과는 높은 수익률을 달성했다는 것이 아니라, 이 차이를 수치로 확인한 것입니다.
 
@@ -213,7 +227,7 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 입니다.
 
-이는 실험 iteration 또는 threshold/전략 버전 차이로 보이지만 현재 자료만으로 어느 값이 최종 authoritative result인지 확정하기 어렵습니다.
+차이가 발생한 원인은 **현재 자료만으로 미확정**입니다. 수수료 정책별 snapshot·threshold·평가 기간·코드 버전 차이 가능성은 가설이며 확인된 사실이 아닙니다.
 
 따라서 이력서에서는 이 수치를 사용하지 않고, 발표자료와 저장 CSV가 모두 일치하는 **no-fee +23.26%, Spot -99.19%, Futures market -90.44%**를 근거로 사용합니다.
 
@@ -221,7 +235,11 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 별도 test artifact에는 **200,000 samples**의 `y_true` / `y_pred`가 보관되어 있습니다.
 
-현재 파일을 직접 비교하면 test accuracy는 약 **45.79%**입니다.
+보관된 `y_true.npy`와 `y_pred.npy`(20만 건, `allow_pickle=False`)를 다시 비교한 **test accuracy는 45.7895%**입니다. 정답의 최빈 클래스 `No-Trade`는 **111,276/200,000 = 55.638%**이므로 단순 accuracy 기준으로 이 상수 예측 baseline보다 낮습니다. 이 시험 데이터는 **2025-11-21 약 2시간 33분 연속 구간**입니다. 다만 weighted loss로 학습한 모델이므로 방향별 precision/recall·거래 예측 품질 역시 별도 살펴야 합니다.
+
+**2026-10-28 원본 test 예측 재검증(D):** [독립 test `y_true.npy`](https://drive.google.com/file/d/1zDm3kvvlKArKwFaEmMG17N_lJXZMOESy/view), [`y_pred.npy`](https://drive.google.com/file/d/18aVjW92Go84l5Gg-p-YptgwbT7NcYqRh/view), [`y_prob.npy`](https://drive.google.com/file/d/1Av7JnaIBf1-gGh3lumkjKRr-YeK6klbW/view)를 NumPy `allow_pickle=False`로 재계산했습니다. `N=200,000`, 정확도 **45.7895%**, **macro F1 38.7788%**입니다. 클래스별 결과(precision/recall/F1)는 **Down 33.01%/27.25%/29.85%**, **No-Trade 57.39%/59.92%/58.63%**, **Up 26.78%/29.02%/27.85%**입니다. 이는 단순 정확도뿐 아니라 Up/Down 신호의 분류 정밀도도 낮다는 근거입니다.
+
+보존된 test `p_up` 값에 **0.78을 고정 적용**하면 27,003/200,000개 신호를 선택하고, 선택 신호의 실제 Up 비율은 **28.34%**, 실제 Up 전체 중 포착 비율은 **18.68%**였습니다. test 전체 Up 비율 **20.49%**보다 높은 선택 신호 비율은 관찰되지만, **수익성·실거래 체결 가능성·수수료 초과 수익 또는 올바른 확률 보정(calibration)을 증명하지 않습니다**. 또한 이 test는 약 2시간 33분의 중첩 시퀀스이므로 여러 시장 상황의 독립적 일반화 성능으로 제시하지 않습니다.
 
 따라서 이 프로젝트를 `높은 예측 정확도를 달성한 모델`로 설명하지 않습니다. 오히려 validation/test classification metric과 실제 PnL을 함께 보면서:
 
@@ -237,6 +255,8 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 팀 전체 프로젝트에서는 offline backtest에서 끝내지 않고 Binance Testnet으로 약 **2.5일** 동안 자동 거래 simulation을 진행했습니다.
 
+**최종 시연 전략의 선택 경위(C, 2026-10-28 본인 회고):** 본래는 [\`live_trader.py\`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)의 **상승 확률 \`p_up\` 임계값 방식(A안)**을 사용하려 했습니다. 하지만 **시연 중 거래하는 모습을 보여줄 시간이 부족**해 최종 Testnet에서는 [\`live_trader_all.py\`](https://drive.google.com/file/d/1ugCaObbbO6-3uC7vonWG6rXXaS3Cr-2Q/view)의 **3-class argmax 기반 전량 매수·매도 방식(B안)**을 사용했다고 회고했습니다. B안의 보존 코드(A)는 \`Up\` 예측 시 미보유면 매수, \`Down\` 예측 시 보유 포지션 청산, \`No-Trade\` 시 유지하며 **5초 경과 시 강제 청산**도 수행합니다. 이것을 A안의 확률 threshold 전략과 동일하다고 서술하면 안 됩니다. **어떤 정확한 파일 개정본을 당시 실행했는지 Git revision이나 체결 장부로 검증한 것은 아닙니다.**
+
 - 시작 자산: 1 BTC + 10,000 USDT
 - 기간: 12/6 00:00 ~ 12/8 12:00
 - 각 전략별 별도 계정
@@ -245,9 +265,11 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 기술보고서의 Testnet 결과에서 MAMBA는 약 **-98.3%**를 기록했습니다.
 
-이 결과 역시 5초 단위 high-frequency signal을 실제 execution 환경에 가까이 가져갔을 때 transaction cost와 trading frequency가 치명적이라는 결론과 일치했습니다.
+이 결과는 팀 보고서에 기록된 **Testnet 계좌 관측치(B)**입니다. **최종 시연에 B안을 사용했다는 본인 회고(C)**로 실행 전략의 종류는 확인했지만, **보고서의 -98.3%를 만든 거래 장부·정확한 스크립트 리비전**은 대조하지 못했습니다. 무수수료/fee-aware validation 백테스트는 각 신호를 독립적인 5초 왕복거래로 합산하는 데 비해, B안은 계좌 보유 상태에 따라 **Up 매수·Down 매도·No-Trade 유지·5초 경과 강제 청산**을 처리하므로 **두 성과를 동일 실행 전략의 연속 검증으로 볼 수 없습니다.**
 
-팀 전체의 proxy/dashboard 구현을 제 개인 구현으로 주장하지 않으며, 제 핵심 기여는 MAMBA 전략의 **데이터 → 모델 → prediction → fee-aware backtest / trading 연결**입니다.
+**개인 회고(C)상 MAMBA 전략의 데이터 수집·전처리부터 모델·학습·예측·수수료별 백테스트·실시간 거래 연동까지 전부 직접 담당**했습니다. 마지막에 여러 전략이 프록시로 보낸 정보를 **취합해 보여주는 웹사이트는 다른 팀원 구현**이었으므로, 팀 공통 프록시·웹사이트 전체를 본인 기여로 귀속하지 않습니다. 최종 Testnet에서 **B안 스크립트를 선택했다는 사실은 직접 회고(C)로 확인**했지만, **정확한 커밋/수정본과 계좌 -98.3%의 거래별 인과관계는 미확정**입니다.
+
+**추가 보존 로그 확인(D, 2026-10-28):** [`logs/live_trades_stats_5s_th0.78.csv`](https://drive.google.com/file/d/1H-edFprZ5WujpBUXGEAbFjcPQqyEqSlf/view)는 **2025-12-08 15:04:40~18:01:16**의 **135개 통계 스냅샷(파일에 기록된 현지 시간 표기)**입니다. `trades` 누적 카운터가 **5회 감소/초기화**되므로 단일 연속 세션의 전체 거래 장부가 아닙니다. 마지막 행은 `trades=78, gross_ret=-0.74010195, fee=0.156, net=-0.89610195`로, 코드에서 **개별 거래 수익률 합에서 고정 수수료를 뺀 누적 통계**이지 **계좌 손익률 -89.61%가 아닙니다**. 보존된 A안/B안 코드 모두 `live_trades_stats_5s_th0.78.csv` 명명 방식을 사용할 수 있어 **파일명만으로 실행 전략 판별 불가**. 또한 이 로그만으로 팀 보고서의 **-98.3%**를 재현하거나 B안의 주문별 인과를 증명할 수 없습니다. 통계의 초기화 원인 및 실제 체결·잔고 원장은 미확정으로 종료합니다.
 
 ## 개발 과정에서 확인되는 변화
 
@@ -260,8 +282,8 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 ### 최종
 
-- Binance Spot historical `aggTrades`로 데이터 소스 전환
-- 월 단위 train / 1주 test 기간 분리
+- **당시 접근 가능한 LOB 데이터는 실시간 수집 위주여서 과거 데이터 확보가 어려웠다는 판단(C)**에 따라, 과거 체결 이력을 활용할 수 있는 Binance Spot historical `aggTrades`로 데이터 소스 전환
+- 월 단위 train / 1주 test **원본 수집 기간**을 구분하되, 실제 입력은 **train 약 66분·validation 약 19분·test 약 2시간 33분**의 최초 추출 시퀀스
 - 4-feature tick sequence 구성
 - quantile 3-class labeling
 - 실제 `mamba_ssm.Mamba` 4-layer 적용
@@ -272,26 +294,86 @@ label은 고정 수익률 threshold 대신 train return distribution의 quantile
 
 즉 특정 모델 하나를 학습한 경험이라기보다 **데이터 정의와 target 설계부터 실거래 비용을 포함한 평가까지 전체 experiment loop를 반복한 경험**입니다.
 
+## 핵심 경험 4개 — 상황 → 문제 → 판단 → 조치 → 결과
+
+> **정리 원칙:** `판단`의 설계 선택과 구현 결과는 원본 코드(A)·당시 팀 보고서(B)로 확인하고, **사용자가 새로 제공한 당시 의사결정·개인 기여 범위의 회고는 C(2026-10-28)**로 구분합니다. 회고에 없는 상세 동기나 발생하지 않은 해결 성과는 만들어 넣지 않습니다. **2026년 사후 코드 검토에서 확인한 결함과 개선 제안은 D**로 분리합니다. Git commit author 수준의 파일별 검증은 여전히 없습니다.
+
+### 경험 1 — 호가창 기반 실험에서 체결 기반 다중목적 모델로
+
+1. **상황:** BTCUSDT의 수초 단위 가격 움직임 예측을 위해 호가창(LOB) 기반 모델을 실험하는 프로젝트였습니다. 초기 Upbit 프로토타입은 GRU 기반 `DummyMamba`를 사용했고, 이후 별도 Binance LOB 코드에는 **실제 CNN+Mamba 이진 분류기**가 있었습니다(A).
+2. **문제:** **당시 접근한 LOB 데이터는 실시간으로만 수집할 수 있어 과거 데이터를 충분히 확보하기 어려웠습니다(C).** 가격 방향 예측 모델을 학습·비교하려면 장기간의 과거 기록이 필요했습니다. LOB 모델의 **정확도 저하가 전환 이유였다는 근거는 없습니다.**
+3. **판단:** **과거 거래 기록을 확보할 수 있는 Trades 데이터로 입력을 전환**하기로 했습니다(C). 실제 후속 소스에는 4개 체결 특징과 3-class 분류·magnitude 회귀를 선택한 구현이 남아 있습니다(A). 다만 왜 이 head 구조와 손실 함수를 선택했는지까지는 별도 자료가 없습니다.
+4. **조치:** 50개 연속 체결의 price return·`log1p` 수량·aggressor side·`log1p` Δt를 `Linear(4→128)`에 투입하고, `mamba_ssm.Mamba` 4블록 뒤에 **방향 3-class + magnitude** 헤드를 배치했습니다. `weighted CrossEntropy + 0.3×MSE` 학습 코드를 구성했습니다(A).
+5. **결과:** 최종 모델 및 저장된 평가 아티팩트를 확보했습니다. 5초 모델은 **validation 정확도 54.125%(기존 메모 값)**, 별도 저장된 20만 test 예측은 **45.7895%**, test의 No-Trade 최빈 클래스 기준은 **55.638%**였습니다(A). **LOB 모델보다 성능이 개선됐다고 판단할 동일 조건 비교 자료는 없습니다.**
+
+**근거:** [Binance LOB 모델](https://drive.google.com/file/d/1JvhlZWE5xpd--zhVTlTzkLw-Qo0DN7pK/view), [Trades 모델](https://drive.google.com/file/d/1bBes1NU8BoK6aP_7mvf9TXfhEeArEAh_/view), [학습 코드](https://drive.google.com/file/d/1SdED1giUjwL7r2ovHnfS9r4R6zGQsxxR/view), [test 아티팩트](https://drive.google.com/drive/folders/1OCk2D-5_y4jVaaPoOjvg_Jafh4jGIUR9).
+
+### 경험 2 — 수천만 건 데이터에서 학습 가능한 시퀀스 구성
+
+1. **상황:** 원본 Binance BTCUSDT 체결 자료에 **train 기간 약 3,808만 건**, test 기간 약 **996만 건**의 raw 레코드가 있었고, 최근 50개 체결과 5초 미래 수익률로 시계열 입력을 구성해야 했습니다(A).
+2. **문제:** **당시 메모리 문제가 있어 시퀀스 개수를 제한했다는 개인 회고(C)**가 있습니다. 대량의 중첩 trade sequence를 다뤄야 하고 클래스 불균형도 고려해야 했습니다. 다만 실제 OOM 오류 메시지와 메모리 사용량은 확보하지 못했습니다.
+3. **판단:** **메모리 문제로 학습 원본 10만·test 20만 시퀀스로 제한**했다는 당시 판단(C)과 코드상 제한값(A)이 일치합니다. 보존 코드에는 **2-pass 처리·`numpy.memmap` 저장**, train-only mean/std 재사용, 분위수 라벨 및 weighted loss 선택도 확인됩니다(A). **어떤 메모리 오류가 발생했는지·정확한 제한값 선정 이유**는 미확정입니다.
+4. **조치:** raw JSONL 시간·가격 1차 스캔, `searchsorted` 기반 5초 미래 return 및 분위수 라벨 생성, 50-trade window의 memmap 2차 기록, **학습 80,000 / validation 20,000 / 별도 test 200,000개** 분할 및 학습 통계 기반 정규화를 구현했습니다(A).
+5. **결과:** 저장된 memmap과 시간 파일이 확인됩니다(A). **실제 학습 약 66분·validation 약 19분·test 약 2시간 33분**에 해당하며, 한 달/일주일의 raw 수집 기간 전체를 학습·평가하지는 않았습니다. **이는 2026년 재검토에서 밝혀진 평가 범위 제한(D)**이지 당시 이를 감지해 해결했다고 할 수 없습니다. 분위수 경계를 train/test 각각의 raw 미래 수익률 분포에서 별도로 계산한 제약도 남았습니다.
+
+**근거:** [전처리 코드](https://drive.google.com/file/d/1uSFTg1y9f7g3qqPQ6eLRsZpPpSMDhNuL/view), [설정 파일](https://drive.google.com/file/d/1S1kENe2M83QNOLiaCIc02AP_-XB-VVjg/view), [실제 학습 시간 파일](https://drive.google.com/file/d/1RCf5yQKSiZNRGulj-gIbERf63Nb-xviJ/view), [실제 test 시간 파일](https://drive.google.com/file/d/1sOgWdsEf6Q0ze0UthqwdDz-Yh05i35WK/view).
+
+### 경험 3 — 예측값을 거래 수익성으로 연결해 수수료 민감도 검증
+
+1. **상황:** Mamba 모델의 `Up` 확률을 LONG 진입 신호로 사용해 거래 시뮬레이션을 진행했습니다(A+B).
+2. **문제:** **무수수료 시뮬레이션에서는 수익이 났지만 수수료를 넣으니 손실로 바뀌는 것을 실제로 확인**했습니다(C). 보존된 정책별 CSV에도 이 차이가 나타납니다(A). 5초 신호의 거래당 예상 수익이 작고 거래 빈도가 높은 환경이었습니다(A).
+3. **판단:** **손실로 바뀐 원인을 알아보기 위해 수수료 조건별 비교 실험을 하기로 결정**했습니다(C). 구현에서는 확률 임계값 0.50~0.90도 함께 탐색했습니다(A). **수수료 문제를 처음부터 예상하고 비교 실험을 사전 설계했다고 쓰지 않습니다.**
+4. **조치:** **약 19분의 validation 20,000개** 예측에서 각 fee 정책과 `p_up` 임계값별 LONG 신호 수·평균 수익률·수수료·복리 자본을 계산했습니다(A). **각 수수료 정책별로 동일 validation에서 최고 자본이 나오는 threshold**를 사후 선택했으므로 독립 test 수익성 검증은 아닙니다.
+5. **결과:** 보존 CSV의 정책별 최선 결과는 **무수수료 +23.2605%(0.50; 신호 4,319개)**, **Spot 0.10%/side -99.1843%(0.90; 신호 2,458개)**, **Futures market 0.05%/side -90.4376%(0.90)**였습니다(A). 이는 **서로 다른 선택된 threshold의 비교**이며, 각 5초 신호를 *겹침 없는 실제 왕복 체결*처럼 취급한 가상 복리 시뮬레이션입니다. **2026년 재검토에서 포지션 중복·동일 validation 임계값 선택 편향이 드러났으며(D), 당시 이를 수정했다고 주장하지 않습니다.**
+
+**근거:** [백테스트 코드](https://drive.google.com/file/d/1VTL4mIjBsFTY-n8xmKN04EbqyywUlM6i/view), [Validation 결과 폴더](https://drive.google.com/drive/folders/1BtXnKBO_p9iMIJbVHmKX08FdJyTVfqBj), [수수료 없음 CSV](https://drive.google.com/file/d/1W2_kiErd35IUnOaC8N2v4sAgJRGS3TeH/view), [Spot 수수료 CSV](https://drive.google.com/file/d/1hX3faKVx0dLhM9Z_sX2s9AwDTk-KZzs5/view).
+
+### 경험 4 — Binance Testnet으로 확장하며 발견된 실행 경계
+
+1. **상황:** 팀 프로젝트는 offline 모델 비교를 넘어 Binance Testnet에서 여러 전략 계좌를 자동 운용하고 공동 대시보드로 관찰했습니다(B).
+2. **문제:** Testnet 시연을 준비하면서 **원래 예정한 확률 임계값 기반 A안으로는 제한된 시연 시간에 거래하는 모습을 충분히 보여주기 어려웠습니다(C).** 모델 추론을 실제 주문·계좌 상태와 연결해야 하는 과제도 있었습니다(A). 당시 구체적인 주문 실패 사고가 있었다는 증거는 없습니다.
+3. **판단:** 시연에서 거래 동작을 보여줄 시간이 부족해 **원래 사용하려던 확률 임계값 A안 대신 3-class 분류 결과 기반 전량 거래 B안으로 전환**하기로 했습니다(C). 보존 B안 소스에서는 Up→매수·Down→매도·No-Trade→유지, 5초 강제 청산·시장가 주문이 확인됩니다(A). 구체적인 코드 버전·시연 당시 체결 수량은 미확정입니다.
+4. **조치:** MAMBA 측 WebSocket → feature/정규화 → checkpoint 추론 → 주문·포지션 관리 및 로그 코드를 직접 구현했습니다(A+C). **시연용 최종 실행 전략은 `live_trader_all.py`의 class argmax 기반 전량 거래 방식(B안)**을 사용했습니다(C). A안 `live_trader.py`의 `p_up` 임계값 전략은 원래 계획한 별도 방식이지 최종 시연 실행 전략이 아닙니다. **각 전략에서 프록시로 전달한 결과를 취합·표시하는 최종 웹사이트는 다른 팀원 개발**이었습니다(C).
+5. **결과:** 본인 회고로 **B안 실행 방식**을 확정했으며(C), 팀 기술보고서는 **2025-12-06~08 약 2.5일의 MAMBA Testnet 계좌 -98.3%**를 기록했습니다(B). **B안의 어떤 파일 리비전과 주문 체결 내역이 이 결과를 생성했는지는 미확정**입니다. 2026년 코드 감사에서 확인한 **API secret 콘솔 출력·매도 실패 후 내부 포지션 초기화 가능성(D)**은 미해결 위험으로 남고, 당시 실제 사고 또는 해결 성공을 주장하지 않습니다.
+
+**근거:** [live trader](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view), [all-in 변형](https://drive.google.com/file/d/1ugCaObbbO6-3uC7vonWG6rXXaS3Cr-2Q/view), [당시 팀 기술보고서](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit).
+
+### 대표 사례 선정
+
+이력서/면접의 **첫 번째 대표 후보는 경험 3(수수료 민감도)**, 두 번째는 **경험 2(대용량 파이프라인)**가 적절합니다. 이유는 *상황·문제·조치·관측 결과*가 서로 연결되는 코드와 CSV/시간 아티팩트로 남아 있기 때문입니다. **경험 1의 데이터 접근성에 따른 전환, 경험 2의 메모리 제한, 경험 3의 '무수수료 수익→수수료 적용 손실→비교 실험', 경험 4의 '시연 시간 부족→A안 대신 B안 실행' 및 개인 구현 범위를 본인 회고(C)로 보강**했습니다. 당시 환경의 상세 수치·실행 파일의 정확한 수정본·프록시 공통 인프라 담당자는 별도 근거가 필요합니다. 실제 수익성·정확도 우위·보안 결함 해결을 이력서 성과로 포장하지 않습니다.
+
 ## 이력서용 핵심 bullet
 
-- Binance BTCUSDT `aggTrades` 약 1개월 train / 1주 test 데이터를 수집·전처리하고, **50-trade sequence와 price return·size·aggressor side·Δt 4개 feature로 5초 뒤 방향 예측 dataset 구축**
-- `d_model=128`의 **Mamba block 4개와 direction/magnitude multi-task head를 구현**하고 100k train sequence로 Down/No-Trade/Up 3-class 모델 학습
-- `p_up` threshold sweep과 fee tier별 backtest를 구성해 **무수수료 +23.26%가 Spot 0.1% fee 적용 시 -99.19%로 역전되는 현상**을 확인
+- **실시간 LOB의 과거 기록 확보 제약 때문에(C) Binance Trades로 데이터 소스를 변경**하고, 수천만 건의 원본 BTCUSDT 체결 데이터 수집·전처리부터 직접 구현(C). **50-trade·4-feature 입력**과 메모리 제약에 대응한 `numpy.memmap`·시퀀스 수 제한(A+C)을 구성. 실제 학습/독립 test 사용 구간은 약 66분/2시간 33분으로 구분
+- `d_model=128`의 **Mamba block 4개와 direction/magnitude multi-task head를 구현**하고 100k 생성 sequence 중 **80k 학습·20k validation**으로 Down/No-Trade/Up 3-class 모델 학습
+- **무수수료 시뮬레이션 수익이 수수료 적용 후 손실로 바뀌는 문제를 발견(C)**해, 약 19분 validation 구간의 `p_up` 임계값·fee 정책별 **비교 실험(A)** 수행. 각 정책별 최적 threshold 결과 무수수료 **+23.26%**, Spot 0.1%/side **-99.18%**. 겹치는 5초 예측의 독립 거래 가정·threshold 선정 편향은 사후 재검토에서 확인(D)
 - prediction accuracy만으로 전략을 평가하지 않고 **turnover와 transaction cost까지 포함해 실제 활용 가능성을 검증**, Binance Testnet 자동 거래 실험까지 확장
 
 ## 표현할 때 주의할 부분
 
 다음 표현은 피합니다.
 
+- `한 달 동안 학습한 모델을 일주일 내내 독립 테스트했다`
+  - 한 달·일주일은 원본 수집 기간이고 실제 첫 시퀀스 제한으로 **학습 66분·test 2시간 33분**에 그쳤습니다.
+- `백테스트에서 실제로 4,319회 거래해 +23.26% 수익을 냈다`
+  - validation의 사후 threshold 선택과 겹치는 예상 수익률을 독립 거래로 합성한 결과입니다.
 - `CNN + Mamba가 최종 모델이었다`
-  - CNN은 초기 Upbit LOB prototype 단계이며 최종 Binance 모델은 trade feature projection + 4-layer Mamba입니다.
+  - **Binance LOB의 중간 버전은 CNN+실제 Mamba**이지만, 최종 Binance trades 모델은 trade feature projection + 4-layer Mamba입니다.
+- `Binance LOB 단계에는 실제 Mamba가 없었다`
+  - Upbit prototype의 DummyMamba와 **Binance LOB 실제 Mamba** 코드를 구별해야 합니다.
 - `validation accuracy 59.51%`
   - 현재 최종 5초 checkpoint는 54.125%입니다.
 - `높은 예측 정확도로 수익을 냈다`
   - independent test accuracy와 fee-aware PnL 모두 이를 지지하지 않습니다.
 - `실제 투자에서 수익성을 입증했다`
   - 반대로 실제 비용을 반영했을 때 전략의 한계를 확인한 프로젝트입니다.
-- 팀 전체 dashboard / proxy / 다른 AI 모델을 개인 구현으로 표현하지 않습니다.
+- MAMBA 전략에 관한 전체 코드는 개인 구현이라는 회고(C)가 있지만 **다른 전략과 통합해 보여주는 최종 사이트는 타인 구현**이므로 본인 성과에 포함하지 않습니다. 공통 프록시 서버의 구현자도 단정하지 않습니다.
+
+## 근거/검증 주의
+
+- [원본 자료·실험 결과 작업 원장](crypto-lob-prediction-evidence-ledger.md)에는 **Binance LOB vs trades 모델 코드 비교, 시퀀스 시간 범위, 백테스트 평가 가정, Testnet 연결 코드의 결함**을 증거 수준별로 정리했습니다.
+- **실시간 코드의 운영 위험:** 보존된 [`live_trader.py`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)뿐 아니라 최종 시연 방식으로 회고한 [`live_trader_all.py`](https://drive.google.com/file/d/1ugCaObbbO6-3uC7vonWG6rXXaS3Cr-2Q/view)에도 Binance API **key/secret을 그대로 콘솔에 출력하는 코드**가 남아 있어 자격 증명 노출 위험이 있습니다. 또 매도 실패 예외 이후에도 내부 `PositionState`를 초기화해 실제 계정과 동기화가 깨질 가능성이 있습니다. **이런 보안/거래 상태 불일치를 해결했다고 주장하지 않습니다.** 원본 자격정보는 본 기록에 복제하지 않습니다.
+- **사후 제안이지 당시 완성한 기능은 아님:** temporal purge/embargo, 학습기간 기반 고정 label threshold, walk-forward 평가, test 고정 threshold, offline/live 동일 single-position execution model, 체결/슬리피지/시장 충격 및 계정 동기화 검증을 적용해야 실제 전략의 유효성을 더 엄격히 평가할 수 있습니다.
 
 ## 보여주는 역량
 
