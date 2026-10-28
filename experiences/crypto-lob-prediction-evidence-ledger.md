@@ -60,14 +60,47 @@
 - [`logs/live_trades_stats_5s_th0.78.csv`](https://drive.google.com/file/d/1H-edFprZ5WujpBUXGEAbFjcPQqyEqSlf/view)는 실행 기록 파일로 존재. 완전한 체결 장부·실제 계정 결과와 일치하는지는 별도 대조 필요.
 - 최종 [팀 기술보고서](https://docs.google.com/document/d/1-RXYj-HtgRPpMhGoXC80O-EBpg99pAyI/edit)는 **2025-12-06~08 약 2.5일, 1 BTC + 10,000 USDT 시작**, MAMBA **-98.3%** 및 다른 전략 계정과 공동 React dashboard의 비교를 기술한다. **팀 보고서가 언급한 결과**와 개인 live script의 귀속·실제 체결 전량을 독립 확인했다는 주장은 구분한다.
 
-## 6. 5단계 경험 재구성 후보
+## 6. 상황 → 문제 → 판단 → 조치 → 결과 : 증거 원장과 판정
 
-| 경험군 | 상황 → 문제 → 판단 → 조치 → 결과 (현재 확인) |
-|---|---|
-| **CR-01 모델 아키텍처 진화** | 짧은 trade 미세구조 예측 → LOB 구조와 trade 기반 입력의 선택 → 기존 CNN-LOB + Mamba binary 소스와 4-feature trade Mamba ternary/magnitude 소스 존재 → 전처리·구현 비교 가능 → **전환 이유·시점은 Git 부재로 아직 불명확** |
-| **CR-02 대규모 데이터/모델** | 수천만 체결 데이터에서 5초 label·시퀀스 생성 → 메모리/클래스 불균형 → memmap, train/val/test, weighted loss·magnitude head → 독립 test **45.7895%** 확인, 다수 클래스 기준보다 낮음 → **정확도 성과로 과장 금지** |
-| **CR-03 실행 제약 평가** | validation 구간 무수수료 시뮬레이션에선 +23.26% → 거래 빈도 대비 작은 5초 신호, fee 불리함 → 동일 샘플로 수수료별 sweep → Spot 최선 -99.18%, Futures market -90.44% → **offline validation 전략 비교, 실제 독립 수익률 아님** |
-| **CR-04 팀 Testnet 시스템** | 오프라인 외 실거래 유사 상황 필요 → 모델/주문/계좌 상태 분리 → Python live trader 및 팀 Testnet·Proxy/대시보드 연결 → 팀 보고서 MAMBA -98.3% 기록 → **전체 플랫폼은 팀 공동 작업, 모델별 파일 저자 미확정** |
+> Canonical [핵심 경험 4개](crypto-lob-prediction.md#핵심-경험-4개--상황--문제--판단--조치--결과)에 각 항목을 **다섯 단계로 완성**했다. 아래는 판단·실행·최종 관측의 증빙 한계를 보존하는 용도의 압축 원장이다. 특히 **보존된 코드가 선택을 증명하는 것**과 **당시 개발자가 그 선택을 하게 된 이유를 증명하는 것**을 구분한다.
+
+### CR-01 / 경험 1 — LOB에서 Trades 모델로 변화
+
+- **상황:** 짧은 BTCUSDT 수익률 방향 예측을 위한 order book 기반 모델 개발.
+- **문제:** 호가창 2-class 모델이 가진 입력/출력 구조와 최종 4-feature 체결·3-class+회귀 모델의 문제 정의가 다름. **LOB 성능 저하 또는 수집 실패를 실제 장애로 단정할 근거 없음**.
+- **판단:** CNN+Mamba로 LOB를 표현한 소스, `Linear(4→128) + Mamba×4`로 Trades를 표현한 소스가 존재(A). **왜 전환했는지 선택 동기 미확정**.
+- **조치:** `binance_lob/model.py` 및 `binance_trades/model.py`의 서로 다른 소스 구조 확인, feature/parser·loss·head 비교(A).
+- **결과:** 최종 Trades 모델 및 test 아티팩트 확인(A). **동일 조건으로 비교한 LOB vs Trades 개선 수치는 없음**.
+- **판정:** 작업·구현=A, 프로젝트 목표=B, 동기와 인과관계=미확정. 후보 문장에 “LOB에서 문제가 발생해 모델을 개선했다” 금지.
+
+### CR-02 / 경험 2 — 메모리 제약이 큰 체결 데이터를 입력 시퀀스로 가공
+
+- **상황:** train 원본 약 38M, test 원본 약 10M tick-trade를 50개 시퀀스·5초 미래 수익률로 변환.
+- **문제:** 중첩 시퀀스를 RAM에 전량 적재하기 부담스러운 데이터 규모, label 불균형. **메모리 부족 예외 발생은 미확인**.
+- **판단:** 코드상 two-pass + `memmap`, train-only mean/std 재사용, q20/q80 label 및 weighted loss 선택 확인(A). 다른 안을 검토했는지는 미확정.
+- **조치:** raw JSONL scan, `searchsorted` 수익률·분위수 label, memmap X/y/ret/time, temporal train/val 및 test 저장(A).
+- **결과:** 100k train-origin 중 **80k train(약 66분)/20k val(약 19분)**, 별도 200k test(약 2시간 33분); test 3-class accuracy **45.7895%**, 최빈 예측 baseline **55.638%**(A). 훈련 한 달/평가 일주일 전체를 사용하지 않았다는 제한은 **2026년 재검토(D)**이며 당시 이 문제를 해결했다고 기록 금지.
+- **판정:** 파이프라인 구현=A, 당시 선택의 세부 동기=미확정, 검증 범위의 사후 오류 확인=D.
+
+### CR-03 / 경험 3 — 수수료 때문에 기대 손익이 뒤집히는 문제
+
+- **상황:** `p_up`로 LONG 진입하는 전략의 비용 민감도 실험.
+- **문제:** 작은 5초 예상 수익 대비 높은 거래 빈도 및 왕복 수수료.
+- **판단:** validation 확률 threshold 0.50~0.90와 fee tier를 나눠 sweep하도록 구현(A). 그 설계 선택 자체는 확인되지만, 독립 테스트 수익성 입증을 위한 계획이었다고 확대할 수 없음.
+- **조치:** `val/5s/train` 20k(약 19분)의 미래 return에 각 신호별 `ret - 2*side_fee`를 계산하고, **각 정책의 최고 `final_equity`에 해당하는 threshold**를 사후 선택(A).
+- **결과:** **무수수료 +23.2605%(th 0.50)**, **Spot -99.1843%(th 0.90)**, **Futures market -90.4376%(th 0.90)**라는 validation 가상 복리 결과(A). 이는 **같은 threshold로 실행한 거래 전략의 실제 성과가 아님**. 5초 중복 horizon·포지션 상태 미반영·동일 validation의 tuning/result 재사용은 **사후 한계 확인(D)**.
+- **판정:** *수수료 민감도 분석*은 대표 경험 가능; *실제 수익성 실현* 성과는 불가.
+
+### CR-04 / 경험 4 — Testnet 주문과 오프라인 평가의 분리
+
+- **상황:** 팀은 MAMBA 포함 여러 모델을 Binance Testnet/공동 대시보드와 연결(B).
+- **문제:** 모델 확률을 실제 상태·주문 처리와 연결해야 하고, offline 단순 백테스트와 중복 포지션 규칙이 달랐음(A). 당시 특정 주문 실패 사고 미확인.
+- **판단:** `paper/testnet/live`, 열린 포지션 재진입 금지, 시장가 주문/청산 코드를 선택(A). 팀 안에서 어떤 설계를 누가 지시·작성했는지 미확정.
+- **조치:** `live_trader.py`의 checkpoint·실시간 trade stream·`p_up` threshold·5초 포지션 관리, 별도 `live_trader_all.py`의 3-class argmax all-in 운용 방식 확인(A); 공동 대시보드는 팀 작업(B).
+- **결과:** 팀 보고서상 MAMBA Testnet **-98.3%**(B). 정확한 실행 스크립트 revision과 개별 체결 장부 미확인. API secret 콘솔 출력·매도 실패 뒤 포지션 초기화 위험은 2026년 **정적 코드 검토(D)**이며 실제 사고/수정 완료로 과장 금지.
+- **판정:** 코드 구현=A, Testnet 수치=B, 파일별 단독 저작권·최종 실행 revision=미확정.
+
+**5단계 적용 완료 기준:** 위 네 건은 모두 다섯 항목이 명시되며, **빈 판단을 그럴듯한 가상 결정으로 채우지 않음**. 원본 자료로 확인 가능한 선택과 사후 개선(D)을 분리해 [canonical 서술](crypto-lob-prediction.md#핵심-경험-4개--상황--문제--판단--조치--결과)에도 동일 반영했다.
 
 ## 7. CR-05 — Binance LOB와 Binance trades 소스 직접 비교
 
@@ -111,4 +144,4 @@
 1. GitHub 프로젝트 저장소는 현재 연결된 개인/협업/조직 저장소에서 **찾지 못함**. Drive 원본 폴더·보고서를 우선 출처로 채택. 팀원 계정에 별도 비공개 Git이 있었는지는 미확인.
 2. `binance_lob`와 `binance_trades` 두 코드베이스의 파일별 수정 차이/학습 목적·전환 판단을 추가 비교하고, 가장 이른 Upbit `DummyMamba` 별도 코드가 있다면 시점 구분.
 3. **시간 범위와 평가 편향 추가 확인:** 실제 train 약 66분·val 약 19분, test 약 2시간 33분. 겹치는 5초 예측·50trade window, split별 label quantile, threshold 선택 편향, offline/live 포지션 처리 차이 기록. 사후 개선은 2025년 당시 작업과 분리.
-4. 기존 [canonical 문서](crypto-lob-prediction.md)에 모델 구조·실제 시퀀스 timestamp·백테스트 평가의 제한·원본 소스 구현 결함을 반영. `resume.md`는 최종 선정 전 미변경.
+4. **Canonical v1 5단계 정리 완료:** [canonical](crypto-lob-prediction.md)에 네 경험군의 **상황·문제·판단·조치·결과**를 명시하고 사후 사실과 당시 미확정 동기 구분. `resume.md`는 최종 선정 전 미변경.
