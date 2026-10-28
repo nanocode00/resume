@@ -38,6 +38,8 @@
 
 ## 4. 작업 단위 CR-03 — 수수료 민감도와 백테스트 제약
 
+**당시 발견·판단의 순서(C, 2026-10-28 본인 회고):** **무수수료 거래 시뮬레이션에서 수익 확인 → 같은 종류의 시뮬레이션에 수수료를 반영하자 손실 확인 → 원인을 구체적으로 살펴보기 위한 수수료 비교 실험 수행**. 처음부터 비용 문제를 알고 threshold/fee 비교를 설계했다는 회고가 **아님**. 이 시간적 동기·판단은 **C**이고, 후속 `backtest.py` 코드와 정책별 수치(A)가 실험이 수행된 사실을 뒷받침한다. **최초 관측과 후속 sweep의 각각의 별도 실행 코드 SHA/시간은 Git 이력이 없어 미확정**.
+
 **직접 코드:** [`binance_trades/backtest.py`](https://drive.google.com/file/d/1VTL4mIjBsFTY-n8xmKN04EbqyywUlM6i/view)는 기본적으로 `val/5s/train/y_prob.npy`와 `ret.npy`를 읽고, **학습 원본에서 분리한 20,000개 validation 예측**의 `p_up >= threshold` 0.50~0.90를 sweeping한다. 각 threshold에 대해 매 신호의 `ret - (2×side_fee)`를 자본에 곱하고 마지막 equity가 최대인 threshold를 선택한다.
 
 **Drive에 보존된 실제 CSV 원문(A):** [`val/5s/train`](https://drive.google.com/drive/folders/1BtXnKBO_p9iMIJbVHmKX08FdJyTVfqBj)의 정책별 summary CSV를 직접 비교.
@@ -85,12 +87,12 @@
 
 ### CR-03 / 경험 3 — 수수료 때문에 기대 손익이 뒤집히는 문제
 
-- **상황:** `p_up`로 LONG 진입하는 전략의 비용 민감도 실험.
-- **문제:** 작은 5초 예상 수익 대비 높은 거래 빈도 및 왕복 수수료.
-- **판단:** validation 확률 threshold 0.50~0.90와 fee tier를 나눠 sweep하도록 구현(A). 그 설계 선택 자체는 확인되지만, 독립 테스트 수익성 입증을 위한 계획이었다고 확대할 수 없음.
-- **조치:** `val/5s/train` 20k(약 19분)의 미래 return에 각 신호별 `ret - 2*side_fee`를 계산하고, **각 정책의 최고 `final_equity`에 해당하는 threshold**를 사후 선택(A).
+- **상황:** Mamba `p_up` LONG 신호로 **초기 무수수료 시뮬레이션**을 진행(A/C).
+- **문제:** **무수수료 수익이 수수료를 적용하자 손실로 바뀌는 현상을 확인**(C). 짧은 5초 return·높은 신호 빈도가 비용에 민감한 조건(A).
+- **판단:** **손익 전환의 원인을 확인하기 위해 수수료별 비교 실험을 수행**하기로 결정(C). 후속 코드에서 확률 threshold 0.50~0.90의 sweep도 확인(A). 사전부터 비용 문제를 예상했다는 설정 금지.
+- **조치:** `val/5s/train` 20k(약 19분)의 예측/return에서 `ret - 2*side_fee`를 계산하고 **각 정책에서 최고 `final_equity`인 threshold를 사후 선택**(A).
 - **결과:** **무수수료 +23.2605%(th 0.50)**, **Spot -99.1843%(th 0.90)**, **Futures market -90.4376%(th 0.90)**라는 validation 가상 복리 결과(A). 이는 **같은 threshold로 실행한 거래 전략의 실제 성과가 아님**. 5초 중복 horizon·포지션 상태 미반영·동일 validation의 tuning/result 재사용은 **사후 한계 확인(D)**.
-- **판정:** *수수료 민감도 분석*은 대표 경험 가능; *실제 수익성 실현* 성과는 불가.
+- **판정:** *초기 결과에서 이상 발견 → 손익 원인 가설 → 수수료 비교 실험*의 실제 판단 흐름=C, 구현 및 각 정책별 결과=A. *실제 수익성 실현*은 불가. 처음 관측과 비교 실험의 정확한 실행 시간/코드 버전은 불명.
 
 ### CR-04 / 경험 4 — Testnet 주문과 오프라인 평가의 분리
 
@@ -144,5 +146,5 @@
 
 1. GitHub 프로젝트 저장소는 현재 연결된 개인/협업/조직 저장소에서 **찾지 못함**. Drive 원본 폴더·보고서를 우선 출처로 채택. 팀원 계정에 별도 비공개 Git이 있었는지는 미확인.
 2. **LOB→Trades로 바꾼 판단 이유는 직접 회고(C)로 확보:** 과거 데이터 접근성 문제. 두 코드베이스의 실제 source diff/모델 구조(A)는 대조 완료. 초기 Upbit `DummyMamba` 원본 및 구체적 계보·전환 날짜는 여전히 추가 자료가 있어야 확정.
-3. **시간 범위와 평가 편향 추가 확인:** 실제 train 약 66분·val 약 19분, test 약 2시간 33분. 겹치는 5초 예측·50trade window, split별 label quantile, threshold 선택 편향, offline/live 포지션 처리 차이 기록. 사후 개선은 2025년 당시 작업과 분리.
+3. **수수료 발견 경위(C) 보강 완료:** 무수수료 수익 → 수수료 적용 손실 확인 → 비교 실험 수행. 실제 train 약 66분·val 약 19분, test 약 2시간 33분과 겹치는 5초 예측·split별 label·threshold 선정 편향도 기록. 사후 감사는 당시 해결 실적으로 소급하지 않음.
 4. **Canonical v1 5단계 정리 완료:** [canonical](crypto-lob-prediction.md)에 네 경험군의 **상황·문제·판단·조치·결과**를 명시하고 사후 사실과 당시 미확정 동기 구분. `resume.md`는 최종 선정 전 미변경.
