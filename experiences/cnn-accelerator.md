@@ -2,7 +2,7 @@
 
 ## 채용용 경험 요약
 
-기존 공개 CNN RTL을 baseline으로 분석한 뒤 PyTorch Quantization 결과를 HW용 정수 데이터로 변환하고, RTL을 synthesis 가능한 형태로 리팩터링해 ModelSim과 OpenROAD ASAP7 flow까지 연결한 3인 팀 프로젝트입니다.
+기존 공개 CNN RTL을 baseline으로 분석한 뒤 PyTorch Quantization 결과를 HW용 정수 데이터로 변환하고, RTL을 synthesis 가능한 형태로 리팩터링해 ModelSim과 OpenROAD ASAP7 flow까지 연결한 3인 팀 프로젝트입니다. **3개 저장소의 개인 일반 커밋 19개(4+12+3)를 1차 대조한 상세 근거는 [개발작업 원장](cnn-accelerator-commit-ledger.md)에 정리**했습니다.
 
 - 기간: **2025.06**
 - 팀 규모: **3인**
@@ -25,7 +25,7 @@
 PyTorch에 `QuantStub/DeQuantStub`와 `fbgemm` quantization을 적용하고 quantized weight의 `int_repr()`와 scale을 이용해 weight/bias를 8-bit 2's complement/hex 형태로 변환했습니다. `fix done` 커밋에서는 quantized Conv2를 기존 float tensor처럼 `weight.detach()`로 접근하던 reference 계산을 `weight().int_repr()` 기반으로 바로잡았습니다. RTL에서는 Conv1/Conv2/FC의 `reg array + always @(*)` parameter unpacking을 `wire + generate/genvar + continuous assign`으로 변경했습니다. 이후 RTL repo를 Git submodule로 OpenROAD Flow Scripts의 ASAP7 design source에 연결했습니다.
 
 **결과**  
-ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인했고 OpenROAD에서 synthesized Verilog와 physical design final output까지 생성했습니다. 그러나 gate-level simulation에서는 정상 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, 최종 STA도 **slack -2040.66, VIOLATED**로 timing closure에 실패했습니다. 따라서 PPA/TOPS/W를 최종 성과값으로 주장하지 않습니다.
+ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인했고 OpenROAD에서 synthesized Verilog와 physical design final output까지 생성했습니다. **다만 Git에 고정된 OpenROAD RTL SHA는 최종 RTL 시뮬레이션 SHA보다 오래된 버전이므로 두 결과를 동일 리비전의 연속 검증으로 단정할 수 없습니다.** 그러나 gate-level simulation에서는 정상 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, 최종 STA도 **slack -2040.66, VIOLATED**로 timing closure에 실패했습니다. 따라서 PPA/TOPS/W를 최종 성과값으로 주장하지 않습니다.
 
 ## 불일치 원인을 어디까지 확인했는가
 
@@ -52,12 +52,12 @@ HW용 계산에서도 quantized integer representation과 scale/bias 처리를 �
 
 | 항목 | 결과 | 해석 |
 |---|---:|---|
-| RTL ModelSim accuracy | **96% / MNIST 1,000장** | Git 최종 로그 기준 대표값 |
+| RTL ModelSim accuracy | **96% / MNIST 1,000장** | [Git 원본 `result.log`](https://github.com/nanocode00/cnn_verilog/blob/master/modelsim/result.log) 및 최종 발표자료 6쪽에서 같은 값 확인 |
 | 발표자료의 다른 RTL run | 97% | 실행 시점이 다른 별도 run, 대표값은 96% 사용 |
 | CNN OpenROAD core utilization 설정 | 22 | CNN config 기준 |
 | Place density 설정 | 0.45 | CNN config 기준 |
-| Final STA slack | **-2040.66, VIOLATED** | timing closure 실패 |
-| Post-synthesis 중간 power report | 0.0672 W | 최종 PPA 값으로 사용하지 않음 |
+| Final STA slack | **-2040.66, VIOLATED** | [최종 발표자료](https://drive.google.com/file/d/10WVhYvzaPfui0tuNIbl6vbcIyddnvWma/view) 13쪽의 **OpenROAD `6_final - chip` 화면**; clock 400 기준, timing closure 실패 |
+| Post-synthesis 중간 power report | **6.72e-02 W (0.0672 W)** | 최종 발표자료 **12쪽 `1_Post_synthesis.rpt`의 추정값**. post-route 최종 전력으로 전용 불가 |
 | Netlist accuracy | 미측정 | 정상 waveform 확보 실패 |
 | TOPS/W | 미도출 | 계산에 필요한 관계만 검토 |
 
@@ -119,7 +119,19 @@ HW용 계산에서도 quantized integer representation과 scale/bias 처리를 �
 
 부모 저장소는 child repository의 특정 commit SHA를 gitlink로 고정하므로 OpenROAD flow에서 사용한 RTL revision을 명시적으로 관리했습니다.
 
-이후 child repo에서 파일 구조가 변경됐기 때문에 현재 최신 tree만 보면 OpenROAD config path와 어긋나 보이지만, 당시 부모 repository가 고정한 revision에는 필요한 `verilog/` 경로가 존재합니다.
+**Gitlink 역검증(2026-10-28):** 부모 두 개가 실제로 서로 다른 RTL revision을 가리킨다는 점을 확인했습니다.
+
+| 상위 저장소와 시점 | `cnn_verilog` Gitlink | 실제 소스 범위 |
+|---|---|---|
+| [CNN-Implementation-in-Verilog `master`](https://github.com/nanocode00/CNN-Implementation-in-Verilog/tree/master/cnn_verilog) | [`4326abb6509e`](https://github.com/nanocode00/cnn_verilog/commit/4326abb6509e) (6/7) | 가져온 초기 RTL의 `verilog/*.v` |
+| [OpenROAD `19d9d49`](https://github.com/nanocode00/OpenROAD-flow-scripts/commit/19d9d49667e5) (6/7) | `4326abb6509e` | 초기 RTL |
+| [OpenROAD `e430e15`](https://github.com/nanocode00/OpenROAD-flow-scripts/commit/e430e1543d1a) (6/18) | [`c909e315352c`](https://github.com/nanocode00/cnn_verilog/commit/c909e315352c) | 해당 시점의 `verilog/*.v` |
+| [OpenROAD `c445907` 및 최종 `master`](https://github.com/nanocode00/OpenROAD-flow-scripts/commit/c44590700b3c) (6/18) | [`5f34734c749d`](https://github.com/nanocode00/cnn_verilog/commit/5f34734c749d) | 해당 시점의 `verilog/*.v` |
+| [RTL 최종 `master`](https://github.com/nanocode00/cnn_verilog/commit/e6af4816d302) (6/27) | `e6af4816d302` | `conv1_layer.v`, `conv2_layer.v`, `fully_connected.v` 등 root 경로에 배치된 리팩터링 코드와 최종 정확도 로그 |
+
+OpenROAD 설정은 `$(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/verilog/*.v`를 대상으로 합니다. **부모에 고정된 6월 18일 RTL에는 이 경로가 존재하지만, 최종 6월 27일 RTL `master`에는 `verilog/` 디렉터리가 없고 root 소스가 있습니다.** 즉, 최종 수정된 RTL을 기존 설정으로 다시 합성하려면 **Gitlink 갱신과 소스 glob 수정**이 필요합니다.
+
+가장 중요한 증거 경계는 **6월 27일 RTL의 ModelSim 96%**와 **6월 18일 SHA를 지정한 OpenROAD 저장소에서 보인 physical `6_final` 결과**를 *같은 RTL revision에 대한 종단 검증*이라고 주장할 수 없다는 점입니다. 발표 당시 로컬 checkout에서 별도의 미커밋 수정/서브모듈 이동이 있었는지 기록이 없으므로 **그 GUI 실행의 실제 RTL SHA는 미확정**입니다.
 
 ## 4. ModelSim RTL 검증
 
@@ -172,13 +184,13 @@ Google Drive의 `openroad_project.zip` 안에는 AES example config도 섞여 �
 - ASAP7 design configuration: 완료
 - Yosys synthesized `1_synth.v`: 생성 완료
 - OpenROAD physical design `6_final - chip`: 실행 완료
-- timing/power report 확인: 완료
+- timing/power report 확인: 완료(합성 직후 power와 배치배선 final timing은 **서로 다른 단계**)
 - timing closure: **실패**
 - valid final PPA: **미확정**
 
-발표자료의 final timing report에는 `-2040.66 slack (VIOLATED)`가 남아 있습니다.
+[팀 최종 발표자료](https://drive.google.com/file/d/10WVhYvzaPfui0tuNIbl6vbcIyddnvWma/view) **13쪽의 OpenROAD GUI 스크린샷**에서 `OpenROAD - asap7/cnn_verilog/base - 6_final - chip`, `data required time = 681.11`, `data arrival time = 2721.77`, **`slack = -2040.66 (VIOLATED)`**를 직접 읽어 확인했습니다. **이것은 OpenROAD GUI final stage를 열어 경로를 조회했다는 증거**이며 DRC/기능성/실리콘 동작까지 통과했다는 뜻은 아닙니다.
 
-일부 post-synthesis report에는 positive slack과 약 0.0672W power가 있지만 final physical constraint/result와 일치하는 최종 PPA로 보기 어려워 이력서 대표 성과로 사용하지 않습니다.
+발표자료 **12쪽**의 `1_Post_synthesis.rpt` 발췌에는 `worst slack 74.33` 및 min-path 관련 `slack 33.66 (MET)`과 `Total Power = 6.72e-02 W`가 표시됩니다. 이는 **합성 직후**의 보고이며 13쪽의 **최종 물리 설계 STA slack -2040.66**과 동일 단계나 동일 검증조건의 수치로 취급할 수 없습니다. 따라서 이력서의 최종 주파수/전력 효율 및 유효한 PPA로 주장하지 않습니다.
 
 ## 8. Gate-level RTL / Netlist 검증 시도
 
@@ -191,7 +203,7 @@ Google Drive의 `openroad_project.zip` 안에는 AES example config도 섞여 �
 
 `tb_compare.v`는 RTL `chip`과 synthesized `chip_synth`에 같은 image, weight, bias를 공급해 `decision`, `decision_synth`, 각 accuracy와 match를 비교하는 구조입니다.
 
-검증 환경은 구축했지만 Git commit 자체가 `synth simulation (failed)`로 기록되어 있고 발표자료에도 정상 waveform을 얻지 못해 정확도를 확인할 수 없었다고 남아 있습니다.
+검증 환경은 구축했지만 Git [`091fc2de`](https://github.com/nanocode00/cnn_verilog/commit/091fc2de3faa)의 제목 자체가 `synth simulation (failed)`이고, 최종 발표자료 **11쪽**의 ModelSim 화면은 정상적인 출력 파형을 확보하지 못했음을 보여 줍니다. 화면에는 **`Design size of 12593 statements exceeds ModelSim-Intel FPGA Starter Edition recommended capacity`** 경고가 있지만, 그것만으로 실패의 **유일한 원인을 확정할 수는 없습니다**. 따라서 netlist accuracy는 미측정이며 RTL 96%와 구분합니다.
 
 ## 9. TOPS/W와 PPA 평가 범위
 
@@ -259,6 +271,15 @@ Google Drive의 `openroad_project.zip` 안에는 AES example config도 섞여 �
 - 기존 CNN RTL의 PyTorch Quantization 결과를 `int_repr()`/scale 기반 HW 정수·hex reference로 변환하고 layer/channel별 MAC 비교로 SW↔RTL 정합성 검증
 - quantized layer를 float tensor처럼 처리해 잘못된 reference가 생성되던 문제를 수정하고, Conv/FC parameter wiring을 `generate + assign` 구조로 변경해 synthesis-friendly RTL로 refactor
 - ModelSim MNIST 1,000장 **RTL accuracy 96%** 확인 후 OpenROAD ASAP7 synthesis/P&R final stage까지 수행; gate-level waveform 및 timing closure 실패까지 검증 범위와 한계를 기록
+
+## 근거 인덱스와 기여 경계
+
+- [개발작업 원장](cnn-accelerator-commit-ledger.md): 3개 저장소 기본 브랜치 개인 일반 커밋 **19개**, RTL merge 1개 별도, 동일 tree 중복·생성물/원본 소스 귀속, 통합 테스트의 실패/성공 범위.
+- [최종 팀 발표자료(2025.06, 총 17쪽)](https://drive.google.com/file/d/10WVhYvzaPfui0tuNIbl6vbcIyddnvWma/view): **6쪽 RTL Accuracy 96%; 11쪽 Netlist 파형 미확보·Starter Edition 경고; 12쪽 post-synthesis timing/power; 13쪽 OpenROAD `6_final` 및 STA -2040.66**. 각 화면을 직접 시각 검사했다.
+- [원본 RTL ModelSim 평가 로그](https://github.com/nanocode00/cnn_verilog/blob/master/modelsim/result.log), [컴파일 오류 및 후속 실행 기록](https://github.com/nanocode00/cnn_verilog/blob/master/modelsim/result_single.log): 1,000 입력·96% 및 weight/bias unpacking의 `reg` continuous-assignment 오류.
+- [당시 과제 안내자료](https://drive.google.com/file/d/1y03YTev2uFmBLc-wI68HPFORg33EpITc/view): 평가 방법·OpenROAD 실습 내용의 **수업/과제 안내**로, 팀의 최종 증빙과 구분.
+- **정확한 개인 소유권:** 원본 CNN 계층 구현(2021 Bo Young Kang 표기), OpenROAD/Yosys/OpenSTA/ABC 도구, 표준셀 및 수백만 행 netlist는 개인 최초 작성이 아니다. 개인 기여는 PyTorch 양자화·reference 추출 수정, 고정 파라미터 unpacking의 RTL 합성 지향 수정, 테스트/ORFS 통합·오류 추적이다. 포크와 submodule은 **버전 관리·환경 설정**의 근거다.
+
 
 ## 표현할 때 주의할 부분
 
