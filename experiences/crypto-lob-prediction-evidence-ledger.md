@@ -69,9 +69,46 @@
 | **CR-03 실행 제약 평가** | validation 구간 무수수료 시뮬레이션에선 +23.26% → 거래 빈도 대비 작은 5초 신호, fee 불리함 → 동일 샘플로 수수료별 sweep → Spot 최선 -99.18%, Futures market -90.44% → **offline validation 전략 비교, 실제 독립 수익률 아님** |
 | **CR-04 팀 Testnet 시스템** | 오프라인 외 실거래 유사 상황 필요 → 모델/주문/계좌 상태 분리 → Python live trader 및 팀 Testnet·Proxy/대시보드 연결 → 팀 보고서 MAMBA -98.3% 기록 → **전체 플랫폼은 팀 공동 작업, 모델별 파일 저자 미확정** |
 
-## 7. 남은 조사·검증
+## 7. CR-05 — Binance LOB와 Binance trades 소스 직접 비교
+
+**source A: [`binance_lob/features.py`](https://drive.google.com/file/d/19axTVp_P6TDrt45I4qOG2tLgr5TRfvmy/view) + [`model.py`](https://drive.google.com/file/d/1JvhlZWE5xpd--zhVTlTzkLw-Qo0DN7pK/view)** (파일 수정 2025-11-29). 호가창 입력은 `[B,T,2,N_LEVELS,N_FEATS]`이며 bid/ask 각각의 (mid 대비 상대가격, side별 수량 정규화, level별 imbalance) **3개 특징**을 배치. `Conv2d(2→32→32→128)`와 `AdaptiveAvgPool2d(1,1)`을 각 시점에 적용한 뒤 `mamba_ssm.Mamba × 4`와 **2-class Down/Up 분류 head**로 연결한다. `train.py`는 `MemmapLOBDataset`, weighted CrossEntropy, Adam과 `ReduceLROnPlateau`를 사용.
+
+**source B: [`binance_trades/features.py`](https://drive.google.com/file/d/1hAz69aJLXAsstKCqvNt9cRtE7cwt-Az_/view) + [`model.py`](https://drive.google.com/file/d/1bBes1NU8BoK6aP_7mvf9TXfhEeArEAh_/view) + [`train.py`](https://drive.google.com/file/d/1SdED1giUjwL7r2ovHnfS9r4R6zGQsxxR/view)** (원본 수정 2025-12-05경). 입력 `[B,T,4]`의 (1) 전 체결 대비 price return 2% clip (2) `log1p(qty)` (3) buy/sell aggressor ±1 (4) `log1p` inter-trade Δt 최대 10초 clip. `Linear(4→128)`→`Mamba×4`→`3-class Down/No-Trade/Up` head와 `|future_return|` magnitude head. Weighted CrossEntropy + `0.3*MSE`, AdamW와 best-val-accuracy checkpoint 선택.
+
+| 차원 | Binance LOB 소스 A | Binance trades 소스 B |
+|---|---|---|
+| 데이터 | 호가창의 bid/ask 양측 snapshot | 체결 스트림 price·qty·방향·시간 |
+| 공간 인코더 | 2D CNN + avg-pooling | 4→128 linear |
+| 예측 목표 | 2-class 방향 | 분위수 3-class 방향 + magnitude |
+| 공통 부분 | `mamba_ssm.Mamba` residual/LayerNorm, 여러 시점 memory | 동일 Mamba 계열 구현 |
+| 결과 경계 | 그 시점의 유효 정확도 수치 미검증 | `5s` checkpt/val/test/거래 산출물 있음 |
+
+**과도한 원인 추론 금지:** 두 코드베이스의 파일 수정일과 구조 변경은 확인되지만 'LOB가 예측력이 없어서 포기했다' 또는 'Binance LOB와 Upbit prototype이 동일' 등 **개발 판단은 문서/커밋 증거 없음**. 기존 Upbit `DummyMamba` 코드는 또 다른 구버전이며, 이번에 직접 대조한 Binance LOB 코드는 **실제 Mamba**다.
+
+## 8. CR-06 — 실제 학습/검증에 사용된 timestamp 구간과 평가 편향
+
+**결정적 원본 파일 직접 대조(A, 2026-10-28):**
+- [`binance_trades/preprocess.py`](https://drive.google.com/file/d/1uSFTg1y9f7g3qqPQ6eLRsZpPpSMDhNuL/view)는 전체 raw 거래의 시간을 훑어 future return을 구하되 `MAX_TRAIN_SEQ=100000`/`MAX_TEST_SEQ=200000`으로 **두 번째 pass가 첫 유효 시퀀스부터 지정 건수에서 중단**한다. 따라서 '학습 데이터 수집 1개월' ≠ '모델이 실제 학습한 1개월 전체 기간'이다.
+- [`preprocessed/5s/train/time.dat`](https://drive.google.com/file/d/1RCf5yQKSiZNRGulj-gIbERf63Nb-xviJ/view)은 `float64` 100,000개. **2025-10-22 00:00:00.716~01:25:23.763 UTC**. 앞 **80,000개 학습**은 00:00:00.716~01:06:20.711 (약 **66분 20초**); 뒤 **20,000개 validation**은 01:06:20.711~01:25:23.763 (약 **19분 3초**).
+- [`preprocessed/5s/test/time.dat`](https://drive.google.com/file/d/1sOgWdsEf6Q0ze0UthqwdDz-Yh05i35WK/view)은 `float64` 200,000개. **2025-11-21 00:00:00.888~02:33:15.322 UTC (약 2시간 33분 14초)**. 독립 test 범위는 원본 1주 데이터에서 **앞부분만 선별한 연속 구간**.
+- [`val/5s/train/time.npy`](https://drive.google.com/file/d/1NZFZcOAXq_UgL1yDyUuYL2FV3z6UxUpC/view)은 위 **20,000개 validation timestamp**와 같은 01:06:20.711~01:25:23.763 UTC 구간. 세 파일 모두 Python NumPy로 바이너리 배열을 실제 읽어 길이·첫/끝 시간·단조성을 검사했음. 재학습은 하지 않음.
+
+**중요한 결론:** 정확도 45.7895%는 '독립 test 200,000 trade sequences'의 평가 지표지만 **11/21 약 2시간 33분 표본**이지 '일주일 전체에서 독립 테스트한 성능'으로 일반화해서는 안 됨. 백테스트 +23.2605%는 **10/22 약 19분 validation 구간**의 overlapping hypothetical 거래 합성값으로, 원자료가 한 달인 사실만으로 *1개월 수익률*로 설명하면 잘못.
+
+**구조적 평가 제약(A):**
+1. `run_preprocess_for_split`은 `train`과 `test` **각각의 raw 전체 수익률 분포에서 q20/q80**을 계산해 3-class 경계를 정한다. **train 100,000 첫 시퀀스만이 아니라 해당 split 전체 raw 가격의 미래 정보가 label threshold 정의에 반영**된다. 본문에서 '훈련 시점에 test 정답을 feature로 직접 넣었다'는 표현은 금지하되, **future distribution을 사용한 사후 라벨 기준 및 train/test 간 라벨 의미 차이**를 평가 설계 한계로 기록.
+2. **Train/validation의 경계가 연속:** 마지막 train과 첫 val의 timestamp가 동일(01:06:20.711); 각 sample은 직전 50 trade window와 미래 5초 return이므로 **경계에 겹치는 feature/target 시간 범위**가 발생할 수 있다. `purge/embargo` 적용 코드가 보이지 않으며, val은 완전히 격리된 rolling-origin 검증으로 간주 불가.
+3. 최선 `p_up` 임계값은 **그 validation 표본에서 평가된 총자본 증가율을 최대화**하여 사후 선택. 같은 표본의 최대 수익률을 보고하는 **threshold selection 편향**. 비용 정책별 최적 threshold가 다르므로 같은 trading policy를 동일 threshold로 비교한 것이 아님.
+4. [`backtest.py`](https://drive.google.com/file/d/1VTL4mIjBsFTY-n8xmKN04EbqyywUlM6i/view)는 `mask=(p_up>=th)`인 **모든 시점**마다 `capital *= 1+ret-2*fee`하며 기존 포지션 오픈 여부 확인, 시간별 중복 5초 horizon 제거, 주문 수량·slippage·market impact·현실적인 손실 상한을 모델링하지 않는다. **실행 가능한 4,319회 체결/실현손익을 의미하지 않는다.**
+5. 반대로 [`live_trader.py`](https://drive.google.com/file/d/1WZwfaIWHcs4cFfdfEs3shSEBlhPlMas9/view)는 `PositionState.is_open`이면 새 진입을 막고 `entry_ts+5초` 후 청산한다. 따라서 **offline backtest의 무조건 중복 신호 처리와 live 주문 전략은 서로 다른 포지션 로직**. 백테스트 결과를 Testnet 주문 PnL 예측값으로 취급하지 않는다.
+
+**실제 위험한 구현 세부사항(A, 로그에 자격정보를 옮기지 않음):** `live_trader.py:create_binance_client()`는 `get_binance_credentials()` 결과의 **API key와 secret을 그대로 `print`**하는 코드가 남아 있다. 로그 유출 위험이 있으므로 **즉시 제거할 안전 결함**으로 분류. `close_position`은 sell 주문 예외 이후에도 `PositionState()`로 재설정하므로, 실패한 청산 주문에 대한 계정 포지션 상태와 내부 기록이 불일치할 가능성도 있음. 당시 실제 보안 사고나 청산 실패가 발생했다고 주장하지 않는다.
+
+**사후 재현 개선안(D, 과거 구현/성공 아님):** 전체 기간을 날짜/거래소 상황별 고르게 표집하거나 rolling walk-forward 분할; label quantile을 오직 당시 train context로 고정; horizon+lookback 기준 purge/embargo; threshold는 별도 validation으로만 선택하고 test 전체 구간에 한 번 고정 적용; offline/live 동일한 `single-position` execution engine과 체결·수수료·slippage·최소 주문 단위·실패시 재동기화 포함; per-run 데이터 시간범위/코드 SHA/수수료/라벨 임계값 기록; 실시간 API secret은 무조건 마스킹하고 주문 후 실제 잔고와 재조정.
+
+## 9. 남은 조사·검증 및 canonical 반영 상태
 
 1. GitHub 프로젝트 저장소는 현재 연결된 개인/협업/조직 저장소에서 **찾지 못함**. Drive 원본 폴더·보고서를 우선 출처로 채택. 팀원 계정에 별도 비공개 Git이 있었는지는 미확인.
 2. `binance_lob`와 `binance_trades` 두 코드베이스의 파일별 수정 차이/학습 목적·전환 판단을 추가 비교하고, 가장 이른 Upbit `DummyMamba` 별도 코드가 있다면 시점 구분.
-3. Validation backtest의 겹치는 5초 horizon에 따른 포지션/비용 평가 왜곡 위험, label quantile 별도 계산, threshold 탐색 편향을 **설계의 검증 한계**로 명시. 재실행이 가능하다면 test set/비중복 실행 규칙으로 사후 검증하되, 현재 당시 실적과 섞지 않음.
-4. 원자료 성능 숫자를 확인한 뒤 기존 [canonical 문서](crypto-lob-prediction.md)의 '독립 test', backtest 유효성, 역할 귀속을 정밀 보강. `resume.md`는 최종 선정 전 미변경.
+3. **시간 범위와 평가 편향 추가 확인:** 실제 train 약 66분·val 약 19분, test 약 2시간 33분. 겹치는 5초 예측·50trade window, split별 label quantile, threshold 선택 편향, offline/live 포지션 처리 차이 기록. 사후 개선은 2025년 당시 작업과 분리.
+4. 기존 [canonical 문서](crypto-lob-prediction.md)에 모델 구조·실제 시퀀스 timestamp·백테스트 평가의 제한·원본 소스 구현 결함을 반영. `resume.md`는 최종 선정 전 미변경.
