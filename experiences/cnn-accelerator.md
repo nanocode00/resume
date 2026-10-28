@@ -25,7 +25,7 @@
 PyTorch에 `QuantStub/DeQuantStub`와 `fbgemm` quantization을 적용하고 quantized weight의 `int_repr()`와 scale을 이용해 weight/bias를 8-bit 2's complement/hex 형태로 변환했습니다. `fix done` 커밋에서는 quantized Conv2를 기존 float tensor처럼 `weight.detach()`로 접근하던 reference 계산을 `weight().int_repr()` 기반으로 바로잡았습니다. RTL에서는 Conv1/Conv2/FC의 `reg array + always @(*)` parameter unpacking을 `wire + generate/genvar + continuous assign`으로 변경했습니다. 이후 RTL repo를 Git submodule로 OpenROAD Flow Scripts의 ASAP7 design source에 연결했습니다.
 
 **결과**  
-ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인했고 OpenROAD에서 synthesized Verilog와 physical design final output까지 생성했습니다. 그러나 gate-level simulation에서는 정상 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, 최종 STA도 **slack -2040.66, VIOLATED**로 timing closure에 실패했습니다. 따라서 PPA/TOPS/W를 최종 성과값으로 주장하지 않습니다.
+ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인했고 OpenROAD에서 synthesized Verilog와 physical design final output까지 생성했습니다. **다만 Git에 고정된 OpenROAD RTL SHA는 최종 RTL 시뮬레이션 SHA보다 오래된 버전이므로 두 결과를 동일 리비전의 연속 검증으로 단정할 수 없습니다.** 그러나 gate-level simulation에서는 정상 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, 최종 STA도 **slack -2040.66, VIOLATED**로 timing closure에 실패했습니다. 따라서 PPA/TOPS/W를 최종 성과값으로 주장하지 않습니다.
 
 ## 불일치 원인을 어디까지 확인했는가
 
@@ -119,7 +119,19 @@ HW용 계산에서도 quantized integer representation과 scale/bias 처리를 �
 
 부모 저장소는 child repository의 특정 commit SHA를 gitlink로 고정하므로 OpenROAD flow에서 사용한 RTL revision을 명시적으로 관리했습니다.
 
-이후 child repo에서 파일 구조가 변경됐기 때문에 현재 최신 tree만 보면 OpenROAD config path와 어긋나 보이지만, 당시 부모 repository가 고정한 revision에는 필요한 `verilog/` 경로가 존재합니다.
+**Gitlink 역검증(2026-10-28):** 부모 두 개가 실제로 서로 다른 RTL revision을 가리킨다는 점을 확인했습니다.
+
+| 상위 저장소와 시점 | `cnn_verilog` Gitlink | 실제 소스 범위 |
+|---|---|---|
+| [CNN-Implementation-in-Verilog `master`](https://github.com/nanocode00/CNN-Implementation-in-Verilog/tree/master/cnn_verilog) | [`4326abb6509e`](https://github.com/nanocode00/cnn_verilog/commit/4326abb6509e) (6/7) | 가져온 초기 RTL의 `verilog/*.v` |
+| [OpenROAD `19d9d49`](https://github.com/nanocode00/OpenROAD-flow-scripts/commit/19d9d49667e5) (6/7) | `4326abb6509e` | 초기 RTL |
+| [OpenROAD `e430e15`](https://github.com/nanocode00/OpenROAD-flow-scripts/commit/e430e1543d1a) (6/18) | [`c909e315352c`](https://github.com/nanocode00/cnn_verilog/commit/c909e315352c) | 해당 시점의 `verilog/*.v` |
+| [OpenROAD `c445907` 및 최종 `master`](https://github.com/nanocode00/OpenROAD-flow-scripts/commit/c44590700b3c) (6/18) | [`5f34734c749d`](https://github.com/nanocode00/cnn_verilog/commit/5f34734c749d) | 해당 시점의 `verilog/*.v` |
+| [RTL 최종 `master`](https://github.com/nanocode00/cnn_verilog/commit/e6af4816d302) (6/27) | `e6af4816d302` | `conv1_layer.v`, `conv2_layer.v`, `fully_connected.v` 등 root 경로에 배치된 리팩터링 코드와 최종 정확도 로그 |
+
+OpenROAD 설정은 `$(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/verilog/*.v`를 대상으로 합니다. **부모에 고정된 6월 18일 RTL에는 이 경로가 존재하지만, 최종 6월 27일 RTL `master`에는 `verilog/` 디렉터리가 없고 root 소스가 있습니다.** 즉, 최종 수정된 RTL을 기존 설정으로 다시 합성하려면 **Gitlink 갱신과 소스 glob 수정**이 필요합니다.
+
+가장 중요한 증거 경계는 **6월 27일 RTL의 ModelSim 96%**와 **6월 18일 SHA를 지정한 OpenROAD 저장소에서 보인 physical `6_final` 결과**를 *같은 RTL revision에 대한 종단 검증*이라고 주장할 수 없다는 점입니다. 발표 당시 로컬 checkout에서 별도의 미커밋 수정/서브모듈 이동이 있었는지 기록이 없으므로 **그 GUI 실행의 실제 RTL SHA는 미확정**입니다.
 
 ## 4. ModelSim RTL 검증
 
