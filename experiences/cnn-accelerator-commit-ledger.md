@@ -1,6 +1,6 @@
 # CNN Accelerator — 커밋 기반 개발작업 원장
 
-> 조사 시작 **2026-10-27**. 기존 [canonical 경험 문서](cnn-accelerator.md) 및 [커밋 기반 복원 가이드](../guides/commit-based-experience-reconstruction.md)를 따른다. **상태: 3개 저장소 기본 브랜치의 개인 일반 커밋 19개(4+12+3), 자식 RTL merge 1개를 기능별 1차 diff 조사 완료**. 6/27 ModelSim 1,000입력 정확도 **96% 직접 로그 확인**. 추가 OpenROAD 브랜치·최종 STA 원본 자료 대조는 잔여. 기존 canonical 및 `resume.md`는 변경하지 않음.
+> 조사 시작 **2026-10-27**. 기존 [canonical 경험 문서](cnn-accelerator.md) 및 [커밋 기반 복원 가이드](../guides/commit-based-experience-reconstruction.md)를 따른다. **상태: 3개 저장소 기본 브랜치의 개인 일반 커밋 19개(4+12+3), 자식 RTL merge 1개를 기능별 1차 diff 조사 완료**. 6/27 ModelSim 1,000입력 정확도 **96% 직접 로그 확인**. 추가 OpenROAD 브랜치·최종 STA 원본 자료 대조는 잔여. 기존 canonical은 최종 발표자료 근거로 **v1 갱신 완료**했고, `resume.md`는 미수정.
 
 ## 1. 프로젝트 범위 / 출처
 
@@ -98,9 +98,26 @@
 
 **2026년 '다시 한다면'의 제안(D, 과거 개인 성과 아님):** 사용자 설계 RTL·PyTorch bit-accurate 정수 reference·테스트·ORFS 설정·작은 실행 기록을 **하나의 본인 소스 repo**에 두고, 공식 ORFS는 **버전 고정 외부 clone 또는 읽기전용 submodule 1개**로 관리. tool source 수정을 하지 않는 한 OpenROAD·Yosys·OpenSTA·ABC Fork는 만들지 않는다. Docker/container image digest, ORFS Git SHA, simulator/version, 정확한 SDC·clock 값을 manifest에 남기고 generated netlist·표준셀·ModelSim work 파일은 원칙적으로 Git에서 제외. 공식 ORFS는 자체 [Adding New Designs](https://openroad-flow-scripts.readthedocs.io/en/latest/user/AddingNewDesign.html)와 `make DESIGN_CONFIG=...` 방식을 제공한다. 외부 저장소 소스 코드의 재사용·배포 전에는 **해당 라이선스/저작자 표시 확인이 필요**하다.
 
-## 8. 다음 묶음 / 검증 계획
+## 8. CW-06 — 팀 최종 발표자료의 STA·물리 설계·Netlist 검증 시각 확인
+
+**원본:** [`논회설 기말 프젝 ppt.pdf` (최종 팀 발표, 17쪽)](https://drive.google.com/file/d/10WVhYvzaPfui0tuNIbl6vbcIyddnvWma/view). 스크린샷이 포함돼 있어 PDF를 실제 페이지 이미지로 렌더링한 뒤 6·11·12·13쪽을 직접 확인. `Final Project Logic Circuit Design.pdf`는 **수업 과제·실습 안내자료**이지 팀의 최종 실행 결과가 아니다.
+
+| 자료와 페이지 | 확인한 수치/화면(A/B) | 검증 가능한 범위 |
+|---|---|---|
+| 최종 발표 **6쪽** | RTL 1,000개 입력 분류 ModelSim 콘솔, `Final Accuracy for 1000 Input Image`, `Accuracy : 96%` | [`modelsim/result.log`](https://github.com/nanocode00/cnn_verilog/blob/master/modelsim/result.log)의 1~1000 입력 per-image 성공/실패·96%와 **독립 자료 간 일치** |
+| 최종 발표 **11쪽** | `Netlist Accuracy Calculation` 파형 창에 정상적인 계층 출력 판정 없음. 콘솔의 `Design size of 12593 statements exceeds ModelSim-Intel FPGA Starter Edition recommended capacity` 경고. 슬라이드 본문도 `올바른 파형을 얻지 못해 정확도를 확인할 수 없었다`고 명시 | **Netlist accuracy 미측정**. 사용한 도구 버전의 규모 제약 경고는 가설적 원인일 뿐, 실패 원인을 이것 하나로 확정하지 않음 |
+| 최종 발표 **12쪽** | `1_Post_synthesis.rpt`에서 `worst slack 74.33`, `slack 33.66 (MET)` (선택 min path), **`Total Power (Watts) 6.72e-02`** 확인 | 합성 직후(post-synthesis)의 **timing·power 추정치**. 실제 post-route final 전력·PPA가 아님. 선택된 min-path slack과 worst slack을 같은 통계로 합산하지 않음 |
+| 최종 발표 **13쪽** | OpenROAD GUI 제목 `OpenROAD - asap7/cnn_verilog/base - 6_final - chip`; **required time 681.11**, **arrival time 2721.77**, **slack -2040.66 (VIOLATED)** | **OpenROAD 최종 단계 디자인 DB와 경로 STA 화면을 확인**. clock period `400`의 적용 흔적과 함께 **timing closure 실패**. DRC clean, 기능 동일성, 제조/칩 실물 동작 성공은 주장 불가 |
+
+**수치 구분:** `flow/designs/asap7/cnn_verilog/config.mk`는 `CLOCK_PERIOD=10.0`, 최종 SDC는 `create_clock`에 `clk_period=400`을 사용. 12쪽 **post-synthesis positive slack/0.0672W**와 13쪽 **6_final negative slack**은 보고 단계가 다르고 발표 자료만으로 조건 동일성을 보장하지 못하므로, **최종 TOPS/W나 100MHz 달성 수치로 합성하지 않는다**.
+
+**실패 분석의 한계:** Netlist 시뮬레이션의 권장 설계 규모 초과 경고가 보이더라도 전파 `X`, 표준셀 모델, 초기화, testbench의 기대값·파형, 컴파일 최적화 및 라이브러리 연결 등 여러 요인을 별도로 조사해야 원인을 특정할 수 있다. 당시 파일을 재실행한 결과가 없으므로 확정 원인이라고 쓰지 않는다.
+
+**근거 레벨:** Git의 파일/로그와 정확한 RTL 수정은 **A**, 당시 팀 발표의 최종 STA·물리 설계 스크린샷은 **B(동시대 발표자료 직접 시각 확인)**. 사용자 당시 회고(C)가 필요한 설계 판단이나 수치 해석은 근거를 만들지 않는다.
+
+## 9. Canonical v1 반영 및 남은 확인
 
 1. **기본 브랜치 RTL 커밋 12개 1차 조사 완료:** 6/7~27 baseline/중간 저장소 정리, ModelSim TB·로그, synth-generated 대용량 netlist, 합성 지향 RTL 패치, Gate-level 비교 실패까지 구분. 추가로 테스트 반복성·출력 자체의 의미가 더 필요한 경우 원본 로그 상세 점검.
 2. **OpenROAD fork의 추가 2개 브랜치 `secure-clock-repair-test`, `update-openroad`에 `author=nanocode00` 필터로 조회된 커밋은 각 0개.** 상위 프로젝트 upstream/타인 작업은 제외. 필요시 branch 전체 pagination으로 최종 역검증.
-3. **96%/1,000장 RTL 수치는 원본 `modelsim/result.log`에서 직접 확인**. 여전히 OpenROAD physical final, slack `-2040.66`, Netlist 비교 시도/실패의 발표자료·실험 조건을 역검증하고 시점/환경을 구분.
-4. 3개 저장소 submodule 참조 SHA를 트레이스해 회귀 관계 확인 후 canonical `experiences/cnn-accelerator.md` 보완. `resume.md`는 최종 사례 선정 전 수정하지 않음.
+3. **최종 발표 6·11·12·13쪽 직접 시각 조사 완료:** RTL 96%/1,000장, Netlist 파형 미확보·Starter Edition 규모 경고, post-synthesis 0.0672W/positive slack, **OpenROAD 6_final의 -2040.66 slack VIOLATED** 구분. 다른 실험 데이터 없이 최종 PPA·정확도 통과로 해석하지 않음.
+4. **Canonical `experiences/cnn-accelerator.md` v1 근거 보강 완료.** 이후 남은 일은 세 저장소 branch/page의 최종 SHA 누락 검증, RTL/Netlist 비교 실패 원인 추가 로그가 있을 경우 재평가, 면접/이력서용 개인 경험 압축. `resume.md` 미수정.
