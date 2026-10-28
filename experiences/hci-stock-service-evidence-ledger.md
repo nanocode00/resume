@@ -17,7 +17,7 @@
 | 최종 발표 (B) | PDF 다운로드·Gemini API 활용 초보/전문가 수준 설명, FinanceDataReader, 웹 프런트, Render 배포, 사용자 평가 및 한계 설명 | 팀 발표의 주장과 현재 Git 완전 재현을 구별 |
 | GitHub 원본 (A/B) | [nanocode00/hci](https://github.com/nanocode00/hci), main. 2025-11-14 최초 커밋 ~ 2025-12-01 마지막 커밋 | **main에서 확인한 57개 커밋, heo 56개 / nanocode 1개**. author 표기를 개인 구현 인정의 상한에 가까운 근거로 사용하되 실제 공동작업 전부의 증명은 아님 |
 | 본인 코드 커밋 (A) | [2660f755 — db & basic queries](https://github.com/nanocode00/hci/commit/2660f755f403fab6f6b2381541cd699d24c8f02d) | 본인 코드·텍스트 출력 아티팩트 신규 추가. 이 커밋은 별도 분기를 신설한 것이 아니라 팀 main history에 존재 |
-| 설문 원본 (B/D) | 개인 Drive **hci_interview/hci_interview.csv** | 18개 응답·23열; A사이트 11문항 + B사이트 11문항 + 투자경험 등. 2025-12-09와 **2025-12-11** 수집 |
+| 설문 원본 (B/D) | 개인 Drive **hci_interview/hci_interview.csv** | 18개 응답·23열; A/B 사이트 각각 10개 질문 컬럼, 투자 경험 질문 1열, B사이트 통계 효용 질문 1열, 타임스탬프 1열. 2025-12-09와 **2025-12-11** 수집 |
 | 통계표 (B) | 개인 Drive **hci_interview/hci_interview_t-test.pdf** | 세 평가항목 대응표본 t검정, Shapiro-Wilk, 기술통계 N=18 |
 | 사용성 결과 발표 (B) | **지능HCI_2조_최종발표.pptx**, 2025년 12월 버전 | A=기존 한경 컨센서스, B=팀 사이트. 설문 CSV와 일부 항목 응답 집계가 불일치; 원본으로 검토 |
 | HCI 화면 자산 (B) | 개인 Drive **지능HCI/uiex/**에 차트·UI 예시 PNG, uiex.py | 현재 자료만으로 개별 제작자·실제 최종 배포 적용을 확정하지 않음 |
