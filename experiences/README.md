@@ -26,7 +26,7 @@
 | [Beamworks](beamworks.md) | 요구사항, Jira, ERD, DB, DTO | 실무 경험, 협업, 설계 |
 | [Paperware](paperware.md) | micro:bit, PCB, 메이커, 사용성 | 창의성, 개선, HW 제작 |
 | [Crypto LOB Prediction](crypto-lob-prediction.md) | CNN, Mamba, 시계열, 백테스트 | AI, 데이터, 실패/검증 경험 |
-| [HCI Stock Service](hci-stock-service.md) | HCI, SQLite, 정보 구조 | 사용자 관점, DB 설계, 서비스 기획 |
+| [HCI Stock Service](hci-stock-service.md) | 5-table SQLite/SQLAlchemy, CSV 적재·조회, 18명 사용자 비교 평가(팀 성과) | 데이터 모델링, Backend, 사용자 중심 검증 |
 | [Computer Vision](computer-vision.md) | 영상처리, Canny, Hough, RANSAC | CV 기본기, 이미징 직무, 학습 경험 |
 | [Career Timeline](career-timeline.md) | 학습/활동 연대기 | 성장 과정, 경험 발굴, 면접 준비 |
 
@@ -38,3 +38,5 @@
 - 같은 경험도 지원 직무에 따라 다른 부분을 강조할 수 있도록 세부 내용을 충분히 보존합니다.
 - 말로는 [12개 개인/팀 기여·수치/모집단 교차검증 원장](mallo-rework-checkpoint.md)과 [AI 시스템/백엔드 핵심 사례 5선](mallo.md#채용용-핵심-사례-5선--ai-시스템백엔드-기준)을 구분합니다. 60대 초기 탐색 설문 13명과 미실행 최종 사용자 평가는 별개이며, Real E2E p95 3.338초는 요구 1.5초 미달이라는 한계를 포함합니다.
 - 말해봄은 [12개 작업군·대화 누락 감사·귀속/중복 교차검증 원장](malhaebom-rework-checkpoint.md)과 [AI Agent/Backend 우선 사례 5개](malhaebom.md#채용용-핵심-사례-5선--ai-agentbackend-기준)를 구분해 활용합니다. 검증 완료는 실제 운영 전체 E2E·마감 제출·독립 사람 품질 평가를 뜻하지 않습니다.
+
+- HCI 주식정보 서비스는 [개인 DB/쿼리 Git 커밋·팀 설문 A/B 검증 원장](hci-stock-service-evidence-ledger.md)을 근거로 작성했습니다. 18명 팀 사용자 평가와 개인 구현을 분리하며, 목표가 과거 적중률·Gemini 전체 재현·현재 서비스 운영은 검증 완료로 간주하지 않습니다. 원본 CSV 12/6과 발표 13/5의 일부 설문 집계 차이도 원장에 명시했습니다.
