@@ -23,7 +23,7 @@
 | [CNN Accelerator](cnn-accelerator.md) | PyTorch, Verilog, 검증, OpenROAD | 기술 역량, 디버깅, HW/SW 융합 |
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
 | [webOS Smart Planter](webos-smart-planter.md) | Raspberry Pi, Arduino, React, 시스템 통합 | 협업, 임베디드, 시스템 설계 |
-| [Beamworks](beamworks.md) | 2026.01 기억 기반: Figma 입력/조회/저장 구분, Jira Epic/Story/Task, ERD/SQL/DTO | 실무 요구사항 분석, 데이터 설계, 협업 온보딩 |
+| [Beamworks](beamworks.md) | 병원 고객관리 CRM DealFlow: 병원·담당자·데모·초음파 기기·VOC, Figma→Jira→ERD/SQL/DTO(기억 기반) | B2B 도메인 분석, 실무 요구사항·데이터 설계 |
 | [Paperware](paperware.md) | micro:bit, PCB, 메이커, 사용성 | 창의성, 개선, HW 제작 |
 | [Crypto LOB Prediction](crypto-lob-prediction.md) | CNN, Mamba, 시계열, 백테스트 | AI, 데이터, 실패/검증 경험 |
 | [HCI Stock Service](hci-stock-service.md) | 5-table SQLite/SQLAlchemy, CSV 적재·조회, 18명 사용자 비교 평가(팀 성과) | 데이터 모델링, Backend, 사용자 중심 검증 |
@@ -43,4 +43,4 @@
 
 - 컴퓨터비전은 [개인 과제 1·2 제출 자료와 과제 2 배포 Notebook 비교 원장](computer-vision-evidence-ledger.md)을 기준으로 정리했습니다. OpenCV/scikit-learn을 사용한 부분과 배포된 Notebook 빈 부분에 직접 구현한 알고리즘을 분리하고, 수업 입력의 시각적 결과를 범용 정확도 성과로 확대하지 않습니다.
 
-- Beamworks(빔웍스)는 [기억 근거·불확실성 원장](beamworks-memory-ledger.md)을 별도로 두고, 회사/내부 프로젝트/실습 업무를 기존 기록과 회고로만 복원했습니다. 원본 Figma/Jira/DB/코드/검수 자료는 없어 현재 문서는 **기억 기반 초안**이며 수치·배포·의료영상 AI 개발 성과를 임의로 추가하지 않습니다.
+- Beamworks(빔웍스)는 [기억 근거·불확실성 원장](beamworks-memory-ledger.md)을 별도로 두고, **DealFlow가 병원 고객관리(CRM) 플랫폼이며 병원·병원 내 담당자·데모·초음파 기기·VOC 정보를 관리한다는 2026-10-29 직접 회고**를 구분해 기록했습니다. 관리 대상 전체를 개인 구현 기여로 귀속하지 않으며, 기존 기록과 회고에 의존합니다. 원본 Figma/Jira/DB/코드/검수 자료는 없어 현재 문서는 **기억 기반 초안**이며 수치·배포·의료영상 AI 개발 성과를 임의로 추가하지 않습니다.
