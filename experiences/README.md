@@ -24,7 +24,7 @@
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
 | [webOS Smart Planter](webos-smart-planter.md) | Raspberry Pi, Arduino, React, 시스템 통합 | 협업, 임베디드, 시스템 설계 |
 | [Beamworks](beamworks.md) | 병원 CRM DealFlow: 제품 전체 Figma 목업 분석 → ERD → SQL → DTO 작성, Jira 작업 관리(기억 기반) | B2B 도메인 분석, DB·DTO 설계, 실무 협업 |
-| [Paperware](paperware.md) | micro:bit, PCB, 메이커, 사용성 | 창의성, 개선, HW 제작 |
+| [Paperware](paperware.md) | 2019 WCRC 기존 Paperware 출품·직접 MakeCode 구현, 2021경 NeoPixel 커스텀 PCB | 메이커 제작, 임베디드 SW, PCB 개선 |
 | [Crypto LOB Prediction](crypto-lob-prediction.md) | CNN, Mamba, 시계열, 백테스트 | AI, 데이터, 실패/검증 경험 |
 | [HCI Stock Service](hci-stock-service.md) | 5-table SQLite/SQLAlchemy, CSV 적재·조회, 18명 사용자 비교 평가(팀 성과) | 데이터 모델링, Backend, 사용자 중심 검증 |
 | [Computer Vision](computer-vision.md) | 2025 개인 과제 1·2: Threshold/Canny 27조건, Manhattan/Chamfer, Hough, RANSAC, Clustering | CV 구현 기본기, 실험·실패 분석, 영상처리 직무 |
@@ -44,3 +44,5 @@
 - 컴퓨터비전은 [개인 과제 1·2 제출 자료와 과제 2 배포 Notebook 비교 원장](computer-vision-evidence-ledger.md)을 기준으로 정리했습니다. OpenCV/scikit-learn을 사용한 부분과 배포된 Notebook 빈 부분에 직접 구현한 알고리즘을 분리하고, 수업 입력의 시각적 결과를 범용 정확도 성과로 확대하지 않습니다.
 
 - Beamworks(빔웍스)는 [기억 근거·불확실성 원장](beamworks-memory-ledger.md)을 별도로 두고, **DealFlow가 병원 고객관리(CRM) 플랫폼이며 병원·병원 내 담당자·데모·초음파 기기·VOC 정보를 관리한다는 2026-10-29 직접 회고**를 구분해 기록했습니다. **제품 전체 Figma 목업의 데이터 구조 분석과 ERD→SQL→DTO 직접 작성, Jira 작업 관리**는 2026-10-29 본인 직접 회고로 확인된 개인 설계 범위입니다. 단, 제품 전체 설계와 런타임 기능 전체 구현을 동일시하지 않으며 기존 기록과 회고에 의존합니다. 원본 Figma/Jira/DB/코드/검수 자료는 없어 현재 문서는 **기억 기반 초안**이며 수치·배포·의료영상 AI 개발 성과를 임의로 추가하지 않습니다.
+
+- 2019 WCRC micro:bit 대회 출품은 **진행 중이던 Paperware 프로젝트의 연장**이라는 2026-10-29 본인 회고를 [Paperware](paperware.md)와 [당시 MakeCode 기술 원장](linkcube-2019.md)에 반영했습니다. 금상 수상 기록은 유지하되 객관적 경쟁률을 모르는 상태에서 치열한 경쟁을 통한 기술 우수성 입증으로 해석하지 않습니다. 후속 2021년경 PCB 개선은 별도의 개발 단계로 구분합니다.
