@@ -10,8 +10,8 @@
 - PCB 설계 방법을 자습해 직접 제작
 - **고교 2학년 ‘찰칵!’ 교실 도난 방지 모형 (4인 팀장·프로그래머·엔지니어):** 쉬는 시간·이동수업 중 절도 문제를 계기로 **초음파 센서로 문 열림/거리 변화를 감지해 Raspberry Pi 카메라가 사진을 찍는 장치**를 구상·제작. Arduino·카메라·LED·SD카드 등 당시 발표 부품 확인. 배선이 길어질 우려로 **Bluetooth 연결을 검토**했고 관련 Python 실험 코드도 존재. **실제 교실 설치 없음**, 교내 수상은 기억만 있어 명칭·증빙 미확인. **2019년 대학 CCTV와 별도 경험**. [경험 상세](highschool-theft-prevention-camera.md) · [근거 원장](highschool-theft-prevention-evidence-ledger.md).
 - Python과 Java를 도서로 자습
-- 친구와 Arduino 드론을 제작하고 직접 코딩해 비행
-- micro:bit 기반 드론도 시도했지만 무게 문제로 실패
+- 친구와 **Arduino 드론 교재·키트를 구입해 직접 조립하고 예제 코드를 실행·실험**하며 센서·자세 추정·모터 구동의 기본 원리를 학습. **교재 제공 `drone.ino`의 PID/IMU 소스를 본인 창작으로 기재하지 않음**. 당시 키트의 정확한 비행 결과는 미확인. [고교 Arduino 드론 경험](highschool-arduino-drone.md) · [예제 출처 검증](highschool-arduino-drone-evidence-ledger.md)
+- 이 학습을 기반으로 **후속 Paperware 카드보드 드론과 micro:bit 무선 컨트롤러**를 제작·조종 시도했지만, **기체 무게 대비 모터 추진력이 부족해 이륙 실패**. 이는 **고교 Arduino 교재 키트와 별개의 결과**
 
 ## 대학 1학년
 
