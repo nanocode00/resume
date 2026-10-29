@@ -24,6 +24,7 @@
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
 | [webOS Smart Planter](webos-smart-planter.md) | Raspberry Pi, Arduino, React, 시스템 통합 | 협업, 임베디드, 시스템 설계 |
 | [Beamworks](beamworks.md) | 병원 CRM DealFlow: 제품 전체 Figma 목업 분석 → ERD → SQL → DTO 작성, Jira 작업 관리(기억 기반) | B2B 도메인 분석, DB·DTO 설계, 실무 협업 |
+| [BuddyPot — 2019 GIF](buddypot-2019.md) | Raspberry Pi 반려식물, Pygame 표정·음향, Arduino 시리얼 센서 시험, 실제 통합 동작 미흡 | 실패 분석, 통합/사전 테스트의 중요성, HW/SW 연동 |
 | [GIF 2021 KT 메이커톤](gif-2021-kt-makerthon.md) | ‘엘리베이션’ 팀 공동 아이디어 논의: 서빙로봇 손잡이 추가·안내/유도 제안, 팀장이 PPT 목업·발표 담당. 기존 이력상 KT 트랙 대상 | 아이디어 기획 참여, 메이커톤 수상(개발·발표 개인 실적 아님) |
 | [고교 ‘찰칵!’ 도난 방지 시스템](highschool-theft-prevention-camera.md) | 교실 도난 문제 → 초음파 문 열림 감지·Raspberry Pi 사진 촬영 모형, Bluetooth 연결 검토 | 문제 발굴, 센서·카메라 결합, 팀 리딩, 시제품 제작 |
 | [Raspberry Pi CCTV (2019)](raspberry-pi-cctv-2019.md) | Python 카메라 영상 저장 → 네트워크 연결 → 녹화 영상 웹 조회, 영상인식 목표 미완료 | 범위 조정, Linux/Web 연동, 실패·대응 경험 |
@@ -47,6 +48,8 @@
 - 컴퓨터비전은 [개인 과제 1·2 제출 자료와 과제 2 배포 Notebook 비교 원장](computer-vision-evidence-ledger.md)을 기준으로 정리했습니다. OpenCV/scikit-learn을 사용한 부분과 배포된 Notebook 빈 부분에 직접 구현한 알고리즘을 분리하고, 수업 입력의 시각적 결과를 범용 정확도 성과로 확대하지 않습니다.
 
 - Beamworks(빔웍스)는 [기억 근거·불확실성 원장](beamworks-memory-ledger.md)을 별도로 두고, **DealFlow가 병원 고객관리(CRM) 플랫폼이며 병원·병원 내 담당자·데모·초음파 기기·VOC 정보를 관리한다는 2026-10-29 직접 회고**를 구분해 기록했습니다. **제품 전체 Figma 목업의 데이터 구조 분석과 ERD→SQL→DTO 직접 작성, Jira 작업 관리**는 2026-10-29 본인 직접 회고로 확인된 개인 설계 범위입니다. 단, 제품 전체 설계와 런타임 기능 전체 구현을 동일시하지 않으며 기존 기록과 회고에 의존합니다. 원본 Figma/Jira/DB/코드/검수 자료는 없어 현재 문서는 **기억 기반 초안**이며 수치·배포·의료영상 AI 개발 성과를 임의로 추가하지 않습니다.
+
+- 2019 [버디팟(BuddyPot)](buddypot-2019.md)은 [실험 소스·서로 다른 GIF/GIF5 메인 코드 버전·통합 미검증 원장](buddypot-2019-evidence-ledger.md)을 근거로 복원했습니다. **여러 코드를 짰지만 잘 작동하지 않아 테스트의 중요성을 체감했다**는 직접 회고가 핵심이며, 일부 센서 시리얼 로직이 메인 UI에 연결되지 않은 저장 버전을 확인했습니다. 이를 **최종 실패 원인 확정이나 테스트 자동화 체계 구축 성공**으로 확대하지 않고, **2021 제6회 GIF KT 수상과도 분리**합니다.
 
 - [GIF 2021 KT 메이커톤](gif-2021-kt-makerthon.md)은 [대회 공고/기존 수상 기록/개인 역할 미확인 원장](gif-2021-kt-makerthon-evidence-ledger.md)을 구분해 복원했습니다. **2019 제5회 GIF의 Post-EAT 버디팟·Python 파일을 2021 제6회 KT 수상작 코드로 귀속하지 않으며**, 메이커톤 대상은 기존 자기 이력 기준이고 정확한 수상 훈격은 아직 검증되지 않았습니다. **2026-10-29 직접 회고로 팀 이름 ‘엘리베이션’, 초기 엘리베이터 관련 제작안 중단, 아이디어 공동 논의, PPT 목업·발표 팀장 담당을 확인**했습니다. 본인 기여는 공동 아이디어 논의로 제한하며 로봇 손잡이 제작·개발·발표를 개인 성과로 넣지 않습니다.
 
