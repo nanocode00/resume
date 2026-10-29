@@ -50,20 +50,11 @@ Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblock
 상세: [experiences/hummingblocks.md](experiences/hummingblocks.md)
 
 
-### CNN Accelerator — PyTorch Quantization에서 OpenROAD까지
+### Verilog Single-cycle CPU
 
-**2025.06 · 3인 팀 · Quantization/HW reference, synthesis-oriented RTL 수정, ModelSim/OpenROAD 검증**  
-**PyTorch / Verilog / ModelSim / OpenROAD / ASAP7**
-
-- **상황**: 기존 공개 2-layer MNIST CNN RTL을 기준으로 SW 모델의 정수 표현부터 ASIC flow까지 연결하는 논리회로설계 기말 프로젝트를 진행했습니다.
-- **문제**: PyTorch quantized tensor와 RTL의 fixed-point 표현을 맞춰야 했고, simulation용 RTL 일부는 그대로는 synthesis하기 어려웠습니다.
-- **판단**: 최종 class만 비교하지 않고 layer 출력과 channel별 MAC 결과를 SW reference로 저장해 불일치 시작 지점을 좁히고, fixed parameter wiring은 synthesis-friendly 정적 연결로 바꾸기로 했습니다.
-- **조치**: `int_repr()`와 scale을 이용해 weight/bias와 중간 출력을 HW용 정수/hex 데이터로 변환하고, Conv/FC의 procedural unpacking을 `generate` + continuous `assign` 구조로 리팩터링했습니다. RTL 저장소를 Git submodule로 OpenROAD Flow Scripts의 ASAP7 design source에 연결했습니다.
-- **결과**: ModelSim에서 **MNIST 1,000장 RTL accuracy 96%**를 확인했고 synthesized Verilog와 physical design final output까지 생성했습니다. 다만 gate-level simulation에서는 올바른 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, final timing도 **VIOLATED** 상태로 timing closure는 달성하지 못했습니다.
-
-> 최종 PPA/TOPS/W 값과 post-synthesis accuracy는 확보하지 못했으므로 성과 수치로 사용하지 않습니다.
-
-상세: [experiences/cnn-accelerator.md](experiences/cnn-accelerator.md)
+**2025.05 · 개인 RTL 구현/검증 · Verilog / ModelSim**  
+기존 Logisim MIPS 구조를 분석해 32-bit Single-cycle CPU를 Verilog로 재구현하고 Decoder, ALU, Register File, Memory, CP0, Syscall을 통합했습니다. Syscall은 `$v0/$a0` 기반 Hex/Halt 흐름으로, CP0는 **외부 `ExpSrc` exception → EPC 저장 → 0x800 → ERET 복귀**로 분리해 구현하고 모듈별 testbench/waveform으로 검증했습니다.  
+상세: [experiences/verilog-cpu.md](experiences/verilog-cpu.md)
 
 ### Mallo — Senior-Friendly Voice Ordering Kiosk
 
@@ -80,11 +71,20 @@ Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblock
 
 ## Additional Projects
 
-### Verilog Single-cycle CPU
+### CNN Accelerator — PyTorch Quantization에서 OpenROAD까지
 
-**2025.05 · 개인 RTL 구현/검증 · Verilog / ModelSim**  
-기존 Logisim MIPS 구조를 분석해 32-bit Single-cycle CPU를 Verilog로 재구현하고 Decoder, ALU, Register File, Memory, CP0, Syscall을 통합했습니다. Syscall은 `$v0/$a0` 기반 Hex/Halt 흐름으로, CP0는 **외부 `ExpSrc` exception → EPC 저장 → 0x800 → ERET 복귀**로 분리해 구현하고 모듈별 testbench/waveform으로 검증했습니다.  
-상세: [experiences/verilog-cpu.md](experiences/verilog-cpu.md)
+**2025.06 · 3인 팀 · Quantization/HW reference, synthesis-oriented RTL 수정, ModelSim/OpenROAD 검증**  
+**PyTorch / Verilog / ModelSim / OpenROAD / ASAP7**
+
+- **상황**: 기존 공개 2-layer MNIST CNN RTL을 기준으로 SW 모델의 정수 표현부터 ASIC flow까지 연결하는 논리회로설계 기말 프로젝트를 진행했습니다.
+- **문제**: PyTorch quantized tensor와 RTL의 fixed-point 표현을 맞춰야 했고, simulation용 RTL 일부는 그대로는 synthesis하기 어려웠습니다.
+- **판단**: 최종 class만 비교하지 않고 layer 출력과 channel별 MAC 결과를 SW reference로 저장해 불일치 시작 지점을 좁히고, fixed parameter wiring은 synthesis-friendly 정적 연결로 바꾸기로 했습니다.
+- **조치**: `int_repr()`와 scale을 이용해 weight/bias와 중간 출력을 HW용 정수/hex 데이터로 변환하고, Conv/FC의 procedural unpacking을 `generate` + continuous `assign` 구조로 리팩터링했습니다. RTL 저장소를 Git submodule로 OpenROAD Flow Scripts의 ASAP7 design source에 연결했습니다.
+- **결과**: ModelSim에서 **MNIST 1,000장 RTL accuracy 96%**를 확인했고 synthesized Verilog와 physical design final output까지 생성했습니다. 다만 gate-level simulation에서는 올바른 파형을 확보하지 못해 Netlist accuracy를 측정하지 못했고, final timing도 **VIOLATED** 상태로 timing closure는 달성하지 못했습니다.
+
+> 최종 PPA/TOPS/W 값과 post-synthesis accuracy는 확보하지 못했으므로 성과 수치로 사용하지 않습니다.
+
+상세: [experiences/cnn-accelerator.md](experiences/cnn-accelerator.md)
 
 ### webOS Smart Planter
 
