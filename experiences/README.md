@@ -24,6 +24,7 @@
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
 | [webOS Smart Planter](webos-smart-planter.md) | Raspberry Pi, Arduino, React, 시스템 통합 | 협업, 임베디드, 시스템 설계 |
 | [Beamworks](beamworks.md) | 병원 CRM DealFlow: 제품 전체 Figma 목업 분석 → ERD → SQL → DTO 작성, Jira 작업 관리(기억 기반) | B2B 도메인 분석, DB·DTO 설계, 실무 협업 |
+| [Post-EAT·네모감성 — 보조 활동](supporting-club-activities.md) | 2019 Post-EAT 창업 기초·GIF 버디팟 / 2~3학년 무렵 네모감성 Paperware·GIF 2021·HummingBlocks | 성장 과정, 창업/메이커 협업 맥락, 프로젝트 소속·기여 구분 |
 | [고교 Arduino 드론 교재·키트 학습](highschool-arduino-drone.md) | 교재 예제로 MPU6050·YPR·PID·모터 동작 원리 학습 → 후속 Paperware 드론 시도의 기반 | 성장 과정, 실습에서 창작으로 연결, HW/SW 기초 |
 | [BuddyPot — 2019 GIF](buddypot-2019.md) | Raspberry Pi 반려식물, Pygame 표정·음향, Arduino 시리얼 센서 시험, 실제 통합 동작 미흡 | 실패 분석, 통합/사전 테스트의 중요성, HW/SW 연동 |
 | [GIF 2021 KT 메이커톤](gif-2021-kt-makerthon.md) | ‘엘리베이션’ 팀 공동 아이디어 논의: 서빙로봇 손잡이 추가·안내/유도 제안, 팀장이 PPT 목업·발표 담당. 기존 이력상 KT 트랙 대상 | 아이디어 기획 참여, 메이커톤 수상(개발·발표 개인 실적 아님) |
@@ -49,6 +50,8 @@
 - 컴퓨터비전은 [개인 과제 1·2 제출 자료와 과제 2 배포 Notebook 비교 원장](computer-vision-evidence-ledger.md)을 기준으로 정리했습니다. OpenCV/scikit-learn을 사용한 부분과 배포된 Notebook 빈 부분에 직접 구현한 알고리즘을 분리하고, 수업 입력의 시각적 결과를 범용 정확도 성과로 확대하지 않습니다.
 
 - Beamworks(빔웍스)는 [기억 근거·불확실성 원장](beamworks-memory-ledger.md)을 별도로 두고, **DealFlow가 병원 고객관리(CRM) 플랫폼이며 병원·병원 내 담당자·데모·초음파 기기·VOC 정보를 관리한다는 2026-10-29 직접 회고**를 구분해 기록했습니다. **제품 전체 Figma 목업의 데이터 구조 분석과 ERD→SQL→DTO 직접 작성, Jira 작업 관리**는 2026-10-29 본인 직접 회고로 확인된 개인 설계 범위입니다. 단, 제품 전체 설계와 런타임 기능 전체 구현을 동일시하지 않으며 기존 기록과 회고에 의존합니다. 원본 Figma/Jira/DB/코드/검수 자료는 없어 현재 문서는 **기억 기반 초안**이며 수치·배포·의료영상 AI 개발 성과를 임의로 추가하지 않습니다.
+
+- [Post-EAT·네모감성 보조 활동](supporting-club-activities.md)은 [소속·시기·팀 자료와 개인 기여의 근거 원장](supporting-club-activities-evidence-ledger.md)으로 분리했습니다. **Post-EAT(2019, 버디팟)과 네모감성(2~3학년 무렵, Paperware·2021 GIF·HummingBlocks)**의 관계는 2026-10-29 본인 직접 확인. 동아리 팀의 사업계획서/시장조사·수상을 개인 기술 성과로 중복 귀속하지 않습니다. 2018~2019 아카이브의 조직 연속성·정확한 가입 시기는 확인하지 않았습니다.
 
 - [고교 Arduino 드론 교재·키트 학습](highschool-arduino-drone.md)은 [도서 제공 스케치·16단계 실험 자료와 개인 기여 경계 원장](highschool-arduino-drone-evidence-ledger.md)에 따라 작성했습니다. **교재의 PID·IMU·모터 제어 예제를 개인 창작 코드로 주장하지 않으며**, 실습에서 배운 원리가 **이후 Paperware 카드보드 드론과 직접 작성한 micro:bit 컨트롤러 시도의 기반**이 됐다는 2026-10-29 회고를 구별해 기록합니다. Paperware의 **추진력 부족·이륙 실패는 후속 기체 결과**입니다.
 
