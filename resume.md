@@ -14,7 +14,7 @@
 - **HummingBlocks 제품화**: 공동 창업자·Mobile App Developer로서 실물 코딩 블록의 `Camera → Python/OpenCV → 실행 상태 → 음악 재생` Android 파이프라인을 구현하고 Google Play 출시와 2.x 유지보수까지 수행했습니다. 별도 Java/TFLite 경로를 구현해 실기기 비교에서 처리 지연을 약 **9.1s → 5.4s**로 줄였으나 정확도 저하를 확인해 기존 runtime을 유지했고, 이후 TalkBack·자동촬영·MusicFile·FFmpeg 영상 제작·데이터 migration까지 확장했습니다.
 - **CNN Accelerator HW/SW 검증**: 3인 팀에서 기존 공개 CNN RTL을 PyTorch Quantization 결과와 정합하고 synthesis-friendly RTL로 수정. ModelSim에서 **MNIST 1,000장 기준 RTL accuracy 96%**를 확인하고 OpenROAD ASAP7 synthesis와 physical design final stage까지 진행했습니다. Netlist 정상 파형 확보와 timing closure는 완료하지 못했습니다.
 - **Mallo Voice AI 통합**: 3인 팀 Team Lead / Product & Integration으로 PRD/TRD, Order Engine, Senior-first UI, TTS 파인튜닝과 STT/NLU 추가 학습·검증, runtime/deployment를 연결했습니다. 동일 20문장 GPU 비교에서 **Melo Base 198.5ms, Melo Friendly 204.1ms, Qwen Base 6.91s, Qwen Friendly 28.20s**를 측정해 MeloTTS Friendly를 선택했고, 최종 production TTS는 **mean 0.38s / p95 0.53s / RTF 0.0894**를 기록했습니다.
-- **수상**: 2019 과학기술정보통신부장관상·산업통상자원부장관상, 2021 부총리 겸 교육부장관상, 2022 전국 장애·비장애 대학생 창업경진대회 대상, 2024 임베디드 SW 경진대회 webOS 부문 입선.
+- **수상**: 2019 WCRC micro:bit 창작 금상 2회(**기존 Paperware 활동 관련 출품**), 2021 GIF KT 메이커톤 대상(**기존 본인 이력 기준, 시상 훈격 원본 확인 전**), 2022 전국 장애·비장애 대학생 창업경진대회 대상, 2024 임베디드 SW 경진대회 webOS 부문 입선.
 
 > HummingBlocks의 9.1s/5.4s는 당시 실기기 비교 기록입니다. Git에는 TFLite 전환 구현과 롤백이 남아 있으나 반복 benchmark 원본 표는 현재 확인되지 않아 정밀 평균 수치로 사용하지 않습니다. 정확도 저하 기록은 평가 조건이 확인되지 않아 핵심 정량 성과에서는 제외합니다.
 
@@ -100,9 +100,9 @@ Binance BTCUSDT tick 데이터를 50-trade sequence로 구성해 4-layer Mamba�
 
 ### Paperware
 
-**HummingBlocks 이전 네모감성 메이커 프로젝트 · micro:bit / PCB Design**  
-카드보드와 구리박 테이프 기반 교육 키트에서 납땜이 필요한 NeoPixel 모듈을 문제로 보고, 넓은 접점으로 바로 연결할 수 있는 커스텀 PCB를 설계해 시제품과 카드보드 무드등에 적용했습니다.  
-상세: [experiences/paperware.md](experiences/paperware.md)
+**초기 메이커 활동(2018) 및 2021년경 네모감성 관련 후속 PCB 작업 · micro:bit / EasyEDA / PCB Design**  
+카드보드·구리박 테이프 기반 교육 키트에 맞는 **넓은 접점의 NeoPixel PCB를 직접 설계·발주하고 실제 무드등에 적용**했습니다. 첫 보드는 부품을 직접 납땜했고 후속 보드는 PCBA를 이용했으며, 개선안과 추가 모터 모듈 2종은 설계 범위와 미제작 범위를 분리했습니다. **2019 WCRC의 micro:bit 출품도 진행 중인 Paperware 활동과 연결된 것으로 회고**하며 별도의 신규 제품 개발로 중복 산정하지 않습니다. 2018 초기팀과 2021 작업의 중단 없는 조직 연속성은 확인되지 않았습니다.  
+상세: [experiences/paperware.md](experiences/paperware.md) · [2019 MakeCode/수상 맥락](experiences/linkcube-2019.md)
 
 ### HCI Stock Information Service
 
@@ -117,13 +117,39 @@ Binance BTCUSDT tick 데이터를 50-trade sequence로 구성해 4-layer Mamba�
 
 상세: [experiences/computer-vision.md](experiences/computer-vision.md)
 
+## Supporting Activities & Early Project Context
+
+### Post-EAT — 대학 1학년 창업동아리
+
+**2019 · 친구와 함께 참여 · 창업 기초 학습**
+
+기존 구성원이 기획하던 **취향 기반 음식점 정보·커뮤니티 서비스**의 창업동아리에 참여하며 사업 아이디어·시장조사·사업계획 등 초기 창업 활동을 접했습니다. 당시 팀의 설문·사업모델·개발 계획은 **동아리 전체 자료**로, 본인의 개인 개발·시장조사 성과로 주장하지 않습니다. **2019 GIF 제5회 ‘버디팟’은 Post-EAT 구성원들과 함께 진행**했습니다.  
+상세: [Post-EAT·네모감성 활동](experiences/supporting-club-activities.md)
+
+### 네모감성 — 메이커·제품 개발 활동팀
+
+**군 복무 후 복학 전후~대학 2·3학년 무렵 중심**
+
+같은 네모감성 팀에서 **Paperware 교육용 하드웨어·PCB 작업 → 2021 GIF 메이커톤 공동 아이디어 → HummingBlocks 시각장애인 코딩교육 앱 개발**로 활동했습니다. 프로젝트별 실제 역할은 **Paperware의 PCB 설계·발주**, **GIF의 팀 공동 아이디어 논의**, **HummingBlocks의 Android/CV 제품 개발**로 구분합니다. 초기 2018~2019년 보관 자료만으로 조직의 전 기간 연속성이나 정확한 참여 시작일을 단정하지 않습니다.  
+상세: [활동 보조 경험](experiences/supporting-club-activities.md) · [소속/성과 귀속 원장](experiences/supporting-club-activities-evidence-ledger.md)
+
+### 메이커톤 및 초기 제작·학습 경험
+
+- **2021 GIF KT 메이커톤 — 팀 ‘엘리베이션’**: 기존 KT 서빙로봇에 손잡이를 더해 사람 안내·유도에 활용하자는 아이디어를 **팀원들과 공동 논의**했습니다. 초기 엘리베이터 관련 제작안은 중단했으며 **간단한 PPT 목업·발표는 팀장 담당**입니다. 본인 로봇 개조·SW 구현 성과로 보지 않습니다. [경험](experiences/gif-2021-kt-makerthon.md)
+- **2019 GIF ‘버디팟’ — Post-EAT**: Raspberry Pi 기반 반려식물의 센서·시리얼·표정·음향 기능 코드를 다수 시험했지만 **실제 통합 동작이 기대에 미치지 못해 사전·연동 테스트의 중요성을 체감**했습니다. 안정적인 작동·수상·출시 실적은 주장하지 않습니다. [경험](experiences/buddypot-2019.md)
+- **2019 대학 1학년 Raspberry Pi CCTV**: 4인 팀에서 Python 영상 저장·카메라 네트워크 연결을 진행하고, 영상인식 목표가 미구현된 뒤 **저장 영상 조회 웹서버 구축을 맡았습니다**. 팀 전체 PIR·챗봇 작업은 개인 구현과 구별합니다. [경험](experiences/raspberry-pi-cctv-2019.md)
+- **고교 ‘찰칵!’ 도난 방지 모형**: **4인 팀장·프로그래머·엔지니어**로 교실 출입에 따른 **초음파 문 열림 감지 → Raspberry Pi 사진 촬영 모형**을 제작했습니다. 배선 문제로 Bluetooth를 검토했으나 **실제 교실 설치는 하지 않았고 교내 수상명은 미확인**입니다. [경험](experiences/highschool-theft-prevention-camera.md)
+- **고교 Arduino 드론 교재·키트 실습**: 구입한 교재·키트로 **IMU·자세·모터 제어 원리를 학습**하고, 이후 Paperware의 micro:bit 컨트롤러·카드보드 드론 제작 시도의 기반으로 삼았습니다. **도서 제공 PID 예제는 직접 창작 코드가 아니며**, Paperware 기체는 추진력 부족으로 **이륙에 실패**했습니다. [경험](experiences/highschool-arduino-drone.md)
+
 ## Awards
 
 - **2024.11.29** 제22회 임베디드 소프트웨어 경진대회 webOS 부문 입선
 - **2022.02.10** 제1회 전국 장애·비장애 대학생 창업경진대회 대상
-- **2021.11.13** 제6회 글로벌 이노베이터 페스타 메이커톤 KT 트랙 대상 — 부총리 겸 교육부장관
+- **2021.11.13** 제6회 글로벌 이노베이터 페스타 메이커톤 KT 트랙 대상 — **기존 본인 이력 기준**. 기존 기록의 ‘부총리 겸 교육부장관’ 훈격은 모집 공고의 예정 훈격과 차이가 있어 **실제 상장 확인 전 미확정**
 - **2019.12.13** 국제로봇콘테스트 WCRC micro:bit 창작 대학일반 부문 금상 — 산업통상자원부장관
 - **2019.11.14** 대한민국 마이스터대전 WCRC 2차본선 micro:bit 창작 대학일반 부문 1위(금상) — 과학기술정보통신부장관
+
+> **수상 맥락:** 2019년 WCRC 2건은 진행 중이던 Paperware 계열 micro:bit 활동의 출품 기록과 연결되며, 2021 GIF KT 대상의 정확한 훈격은 공식 상장/수상자 자료 확보 전까지 확정하지 않습니다. 대회 수상과 개인 소프트웨어·하드웨어 구현 기여는 별도로 기술합니다.
 
 ## Training
 

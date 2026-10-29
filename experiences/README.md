@@ -15,6 +15,8 @@
 
 ## 경험 목록
 
+### 대표·기술 프로젝트
+
 | 경험 | 핵심 키워드 | 활용하기 좋은 문항 |
 |---|---|---|
 | [Mallo](mallo.md) | Voice-first Kiosk, OrderCommand/Cart SSOT, Whisper/Qwen/Melo, 4-프로세스 추론, Senior-first UX·Real E2E | AI 시스템/백엔드·ML 모델 검증·리딩·HCI |
@@ -24,16 +26,21 @@
 | [Verilog CPU](verilog-cpu.md) | CPU, CP0, 예외 처리, 파형 디버깅 | 문제 해결, 기본기, 디버깅 |
 | [webOS Smart Planter](webos-smart-planter.md) | Raspberry Pi, Arduino, React, 시스템 통합 | 협업, 임베디드, 시스템 설계 |
 | [Beamworks](beamworks.md) | 병원 CRM DealFlow: 제품 전체 Figma 목업 분석 → ERD → SQL → DTO 작성, Jira 작업 관리(기억 기반) | B2B 도메인 분석, DB·DTO 설계, 실무 협업 |
-| [Post-EAT·네모감성 — 보조 활동](supporting-club-activities.md) | 2019 Post-EAT 창업 기초·GIF 버디팟 / 2~3학년 무렵 네모감성 Paperware·GIF 2021·HummingBlocks | 성장 과정, 창업/메이커 협업 맥락, 프로젝트 소속·기여 구분 |
-| [고교 Arduino 드론 교재·키트 학습](highschool-arduino-drone.md) | 교재 예제로 MPU6050·YPR·PID·모터 동작 원리 학습 → 후속 Paperware 드론 시도의 기반 | 성장 과정, 실습에서 창작으로 연결, HW/SW 기초 |
-| [BuddyPot — 2019 GIF](buddypot-2019.md) | Raspberry Pi 반려식물, Pygame 표정·음향, Arduino 시리얼 센서 시험, 실제 통합 동작 미흡 | 실패 분석, 통합/사전 테스트의 중요성, HW/SW 연동 |
-| [GIF 2021 KT 메이커톤](gif-2021-kt-makerthon.md) | ‘엘리베이션’ 팀 공동 아이디어 논의: 서빙로봇 손잡이 추가·안내/유도 제안, 팀장이 PPT 목업·발표 담당. 기존 이력상 KT 트랙 대상 | 아이디어 기획 참여, 메이커톤 수상(개발·발표 개인 실적 아님) |
-| [고교 ‘찰칵!’ 도난 방지 시스템](highschool-theft-prevention-camera.md) | 교실 도난 문제 → 초음파 문 열림 감지·Raspberry Pi 사진 촬영 모형, Bluetooth 연결 검토 | 문제 발굴, 센서·카메라 결합, 팀 리딩, 시제품 제작 |
-| [Raspberry Pi CCTV (2019)](raspberry-pi-cctv-2019.md) | Python 카메라 영상 저장 → 네트워크 연결 → 녹화 영상 웹 조회, 영상인식 목표 미완료 | 범위 조정, Linux/Web 연동, 실패·대응 경험 |
 | [Paperware](paperware.md) | 2019 WCRC 기존 Paperware 출품·직접 MakeCode 구현, 2021경 NeoPixel 커스텀 PCB | 메이커 제작, 임베디드 SW, PCB 개선 |
 | [Crypto LOB Prediction](crypto-lob-prediction.md) | CNN, Mamba, 시계열, 백테스트 | AI, 데이터, 실패/검증 경험 |
 | [HCI Stock Service](hci-stock-service.md) | 5-table SQLite/SQLAlchemy, CSV 적재·조회, 18명 사용자 비교 평가(팀 성과) | 데이터 모델링, Backend, 사용자 중심 검증 |
 | [Computer Vision](computer-vision.md) | 2025 개인 과제 1·2: Threshold/Canny 27조건, Manhattan/Chamfer, Hough, RANSAC, Clustering | CV 구현 기본기, 실험·실패 분석, 영상처리 직무 |
+
+### 초기 제작·학습 및 보조 활동
+
+| 경험 | 핵심 키워드 | 활용하기 좋은 문항 |
+|---|---|---|
+| [GIF 2021 KT 메이커톤](gif-2021-kt-makerthon.md) | ‘엘리베이션’ 팀 공동 아이디어 논의: 서빙로봇 손잡이 추가·안내/유도 제안, 팀장이 PPT 목업·발표 담당. 기존 이력상 KT 트랙 대상 | 아이디어 기획 참여, 메이커톤 수상(개발·발표 개인 실적 아님) |
+| [BuddyPot — 2019 GIF](buddypot-2019.md) | Raspberry Pi 반려식물, Pygame 표정·음향, Arduino 시리얼 센서 시험, 실제 통합 동작 미흡 | 실패 분석, 통합/사전 테스트의 중요성, HW/SW 연동 |
+| [Raspberry Pi CCTV (2019)](raspberry-pi-cctv-2019.md) | Python 카메라 영상 저장 → 네트워크 연결 → 녹화 영상 웹 조회, 영상인식 목표 미완료 | 범위 조정, Linux/Web 연동, 실패·대응 경험 |
+| [고교 ‘찰칵!’ 도난 방지 시스템](highschool-theft-prevention-camera.md) | 교실 도난 문제 → 초음파 문 열림 감지·Raspberry Pi 사진 촬영 모형, Bluetooth 연결 검토 | 문제 발굴, 센서·카메라 결합, 팀 리딩, 시제품 제작 |
+| [고교 Arduino 드론 교재·키트 학습](highschool-arduino-drone.md) | 교재 예제로 MPU6050·YPR·PID·모터 동작 원리 학습 → 후속 Paperware 드론 시도의 기반 | 성장 과정, 실습에서 창작으로 연결, HW/SW 기초 |
+| [Post-EAT·네모감성 — 보조 활동](supporting-club-activities.md) | 2019 Post-EAT 창업 기초·GIF 버디팟 / 2~3학년 무렵 네모감성 Paperware·GIF 2021·HummingBlocks | 성장 과정, 창업/메이커 협업 맥락, 프로젝트 소속·기여 구분 |
 | [Career Timeline](career-timeline.md) | 학습/활동 연대기 | 성장 과정, 경험 발굴, 면접 준비 |
 
 ## 작성 원칙
