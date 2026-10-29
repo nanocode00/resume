@@ -69,6 +69,22 @@ Google Play: https://play.google.com/store/apps/details?id=com.nemo.hummingblock
 
 상세: [experiences/mallo.md](experiences/mallo.md)
 
+### 말해봄 Mk.2 — 근거 기반 AI 면접 코칭 에이전트
+
+**2026.09.18 ~ 2026.10.08 · 3인 팀 · LLM 평가 / STT 도메인 적응 / Agent 신뢰성 검증 / 개발 품질 게이트**  
+**FastAPI / FastMCP / OpenRouter / Whisper / QLoRA / Supabase / Langfuse / GitHub Actions**
+
+음성 답변을 전사하고 채용공고·사용자 발화 근거를 연결해 구조화된 면접 코칭을 제공하는 AI Agent 프로젝트에서, **모델 성능 평가와 서비스 검증 체계**를 중심으로 기여했습니다.
+
+- **LLM 모델 평가·선정:** OpenRouter **40종 사전검증**, **22종 × 30건 = 660건 합성 평가**, 별도 최종 후보 4종 비교를 통해 출력 계약·지연·비용·로컬 서비스 호환성을 확인하고 **Gemini Flash-Lite를 로컬 코칭 기본 후보로 선정**했습니다. 합성 평가 결과를 실제 사용자 품질이나 운영 안정성으로 해석하지 않았습니다.
+- **Agent/MCP 신뢰성 검증:** FastMCP 연동·인증·DB 저장 경로를 통합 테스트하고, PR 리뷰에서 **기존 DB 행을 새 요청의 저장 성공으로 잘못 판정하는 결함**을 발견해 수정 요청했습니다. **검증 기준과 결함 발견은 개인 기여**이며, 저장 verifier의 실제 코드 수정은 팀원이 맡았습니다.
+- **Whisper STT 도메인 적응:** Whisper Medium QLoRA 학습·데이터 정제와 면접 도메인/기존 도메인 성능을 함께 평가했습니다. 후보 C2는 최종 **1,233건 평가 WER 9.77%**를 기록했지만 기존 119건 retention WER는 **15.33% → 16.81%로 악화**되어, 이를 전반적인 성능 개선이나 운영 모델 교체 성공으로 주장하지 않습니다.
+- **개발 품질 게이트:** PR 본문 수정과 최신 HEAD의 정책 검사 재실행 과정에서 발생하는 **race condition을 수정**하고, Backend/Frontend 테스트·빌드용 **GitHub Actions CI**를 구성했습니다. 초기 Actions 4개 체크 통과는 확인했으나, 배포 전체 E2E나 CI 비용 절감 효과가 검증됐다고 주장하지 않습니다.
+
+> 코어 Agent 구현·DB verifier 패치 등 팀원 작업과 개인의 모델 평가·실험·리뷰·테스트·CI 기여를 구분합니다. 최종 서비스 운영 전체 E2E·독립 사용자 품질 평가 완료를 의미하지 않습니다.
+
+상세: [experiences/malhaebom.md](experiences/malhaebom.md) · [12개 작업군 검증 원장](experiences/malhaebom-rework-checkpoint.md)
+
 ## Additional Projects
 
 ### CNN Accelerator — PyTorch Quantization에서 OpenROAD까지
