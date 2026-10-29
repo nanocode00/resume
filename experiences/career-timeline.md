@@ -8,7 +8,7 @@
 - Arduino 센서와 액추에이터 사용법 학습
 - 동아리에서 브레드보드 Arduino 제작
 - PCB 설계 방법을 자습해 직접 제작
-- Raspberry Pi에서 Linux 환경을 사용하고 CCTV 프로젝트 수행
+- **고교 2학년 ‘찰칵!’ 교실 도난 방지 모형 (4인 팀장·프로그래머·엔지니어):** 쉬는 시간·이동수업 중 절도 문제를 계기로 **초음파 센서로 문 열림/거리 변화를 감지해 Raspberry Pi 카메라가 사진을 찍는 장치**를 구상·제작. Arduino·카메라·LED·SD카드 등 당시 발표 부품 확인. 배선이 길어질 우려로 **Bluetooth 연결을 검토**했고 관련 Python 실험 코드도 존재. **실제 교실 설치 없음**, 교내 수상은 기억만 있어 명칭·증빙 미확인. **2019년 대학 CCTV와 별도 경험**. [경험 상세](highschool-theft-prevention-camera.md) · [근거 원장](highschool-theft-prevention-evidence-ledger.md).
 - Python과 Java를 도서로 자습
 - 친구와 Arduino 드론을 제작하고 직접 코딩해 비행
 - micro:bit 기반 드론도 시도했지만 무게 문제로 실패
@@ -17,6 +17,7 @@
 
 - 프로그래밍, 이산수학, 자료구조 등 전공 기초 학습
 - 창의융합설계에서 Arduino와 Raspberry Pi 프로젝트 수행
+- **2019 Raspberry Pi CCTV 4인 팀 프로젝트:** 제안·중간·최종 발표 기준 **본인 Python 영상 저장, 카메라·네트워크 연결, 영상인식 미구현 이후 녹화 영상 조회 웹서버 구축 완료**. [당시 근거 원장](raspberry-pi-cctv-2019-evidence-ledger.md)에서 발표별 역할을 구분. **고교 ‘찰칵!’ 도난 방지 모형과는 별개의 대학 프로젝트라고 본인 확인(2026-10-29)**
 - 창업동아리 Post-EAT 활동
 - 알고리즘 스터디와 앱 디자인 스터디 참여
 - **진행 중이던 Paperware 계열 micro:bit 교육 키트**를 2019년 WCRC micro:bit 창작 대회에 출품해 입상. 독립 신규 프로젝트를 대회마다 만든 것은 아니며, **참가 경쟁이 많지 않았다고 당시 기억해 수상 자체를 과도하게 강조하지 않음**. 스마트 무드등의 MakeCode 제어 코드는 직접 작성(상세: [2019 기술 원장](linkcube-2019.md))
