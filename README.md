@@ -1,54 +1,47 @@
-# Resume Archive
+# 김재훈 | Software Engineer Portfolio
 
-김재훈의 이력서, 프로젝트 경험, 자기소개서 작성 기준과 지원 기록을 관리하는 저장소입니다.
+**사용자에게 닿는 소프트웨어를 만들고, 시스템의 동작과 한계를 검증하는 개발자입니다.**
 
-## 구조
+경북대학교 컴퓨터학부에서 소프트웨어와 임베디드 시스템을 공부하며 Android 제품 출시, 음성 AI 서비스 통합, Verilog RTL 구현 및 검증, AI Agent 평가 프로젝트에 참여했습니다. 기능 구현뿐 아니라 **실제 사용 흐름, 오류 원인, 검증 결과**를 중요하게 생각합니다.
 
-```text
-.
-├── README.md
-├── resume.md                         # 통합 이력서 원본
-├── experiences/                      # 경험별 상세 기록
-│   ├── README.md
-│   ├── career-timeline.md
-│   ├── mallo.md
-│   ├── hummingblocks.md
-│   ├── cnn-accelerator.md
-│   ├── verilog-cpu.md
-│   ├── webos-smart-planter.md
-│   ├── beamworks.md
-│   ├── paperware.md
-│   ├── crypto-lob-prediction.md
-│   ├── hci-stock-service.md
-│   └── computer-vision.md
-├── guides/
-│   ├── commit-based-experience-reconstruction.md # Git/자료 기반 경험 복원 방법론
-│   ├── resume-experience-writing.md             # 이력서·경험기술서 작성 원칙
-│   └── cover-letter-writing.md                  # 자소서 작성 원칙
-└── cover-letters/
-    └── README.md                      # 기존 자소서 아카이브 인덱스
-```
+**관심 분야:** Software Engineering · AI Systems · Embedded / HW–SW Integration · Computer Vision  
+**바로가기:** [상세 이력서](resume.md) · [프로젝트별 경험·근거](experiences/README.md) · [GitHub 프로필](https://github.com/nanocode00)
 
-## 관리 원칙
+## 대표 프로젝트
 
-- `resume.md`는 지원 직무에 맞춰 내용을 덜어내기 전의 **마스터 이력서**로 관리합니다.
-- 프로젝트의 세부 사실, 문제 상황, 선택 이유, 수치와 성과는 `experiences/`에 보존합니다.
-- `experiences/career-timeline.md`에는 이력서에서 빠진 학습과 제작 경험도 연대기 형태로 남깁니다.
-- 오래된 프로젝트를 다시 정리할 때는 `guides/commit-based-experience-reconstruction.md`의 `commit graph → 작업 원장 → 누락 역검증 → canonical 문서 → 포트폴리오 선별` 절차를 따릅니다.
-- 이력서·경험기술서로 압축할 때는 `guides/resume-experience-writing.md`, 자소서를 쓸 때는 `guides/cover-letter-writing.md`를 따릅니다.
-- 실제 제출했던 자소서는 회사별로 `cover-letters/`에 보관합니다.
-- 공개 저장소이므로 전화번호, 개인 이메일, 주소 등 불필요한 개인정보는 커밋하지 않습니다.
+먼저 프로젝트의 **목적 → 본인 역할 → 실제 결과**를 확인할 수 있도록 요약했습니다. 코드 저장소의 팀 구현과 개인 기여는 구분하여 작성했습니다.
 
-## 현재 대표 경험
+| 프로젝트 | 무엇을 만들었나 | 개인 역할 및 확인된 결과 | 코드 · 상세 |
+|---|---|---|---|
+| **HummingBlocks**<br>Android · CV · Accessibility | 실물 코딩 블록을 카메라로 인식해 음악을 만드는 시각장애인 대상 코딩교육 앱 | **공동 창업자 / Android 개발.** 카메라→Python/OpenCV→실행→재생 통합, TalkBack·자동촬영 UX, 음악 저장·FFmpeg 처리. **2023년 Google Play 출시**, 이후 유지보수 | [코드](https://github.com/nanocode00/nemo_codeblock) · [경험](experiences/hummingblocks.md) · [Google Play](https://play.google.com/store/apps/details?id=com.nemo.hummingblocks) |
+| **Verilog Single-cycle CPU**<br>Verilog · ModelSim | 기존 Logisim MIPS CPU를 참고해 32비트 단일 사이클 CPU를 RTL로 재구현 | **개인 RTL 구현·테스트벤치 작성.** ALU·RegFile·Memory·제어부 통합. CP0 예외/복귀 경로를 시도했으나 **EPC 저장 문제가 해결되지 않은 상태로 종료** | [코드: modelsim/](https://github.com/nanocode00/MIPS-CPU/tree/main/modelsim) · [경험](experiences/verilog-cpu.md) |
+| **Mallo (말로)**<br>Whisper · Qwen · MeloTTS | 고령 사용자 친화적인 음성 주문 키오스크 | **3인 팀장 / 제품·통합·모델 실험.** 주문 상태 엔진과 모델 서비스 통합, TTS 파인튜닝·비교. TTS production benchmark **p95 0.53초**; 최종 Real E2E **p95 3.338초**로 1.5초 요구사항에는 미달 | [팀 코드](https://github.com/aihuman-7th/proj1-d) · [경험](experiences/mallo.md) · [소개](https://nanocode00.github.io/mallo-intro/) |
+| **말해봄 Mk.2**<br>FastMCP · LLM · Whisper · CI | 음성 답변에서 근거를 확인하고 개선을 지원하는 AI 면접 코칭 서비스 | **3인 팀 / 모델 평가·STT 실험·에이전트 검증·CI.** LLM 22종×30건 합성 평가, Whisper QLoRA 도메인 적응, 저장·검증 경로 테스트 및 품질 게이트 개선. 팀 전체 Agent 구현과 개인 기여를 구분 | [코드 Fork](https://github.com/nanocode00/proj2-3) · [경험](experiences/malhaebom.md) · [서비스 소개](https://malhaebom.xyz/) |
 
-- Mallo: 고령 사용자 대상 Voice-first Kiosk, 팀장, 음성 AI 파이프라인 및 TTS 파인튜닝
-- HummingBlocks: 시각장애인을 위한 코딩교육 Android 앱, Google Play 출시 및 블록 키트 판매
-- CNN Accelerator: PyTorch 양자화 → Verilog 검증 → OpenROAD/ASAP7 합성 및 정확도 검증
-- Verilog CPU: 단일 사이클 CPU와 CP0 예외 처리 구현
-- webOS Smart Planter: Raspberry Pi, Arduino, React, AWS를 연결한 스마트 화분
-- Beamworks Internship: 요구사항 분석, Jira 업무 구조화, ERD/DB/SQL/DTO 설계
-- Paperware: micro:bit 교육용 메이커 키트와 커스텀 PCB 모듈 설계
-- Crypto LOB Prediction: 거래소 호가 데이터 기반 CNN+Mamba 시계열 분류 실험
-- HCI Stock Service: 증권사 리포트 기반 초보 투자자용 정보 탐색 서비스 개선
+> **기여·검증 범위:** Fork 저장소에 있는 원작 코드나 팀 전체 구현을 개인 단독 결과로 주장하지 않습니다. 숫자는 해당 문서의 실험 조건과 한계를 함께 확인해 주세요. 상세한 근거는 각 **경험** 링크에 정리했습니다.
 
-> 이 저장소는 완성된 제출용 문서만 두는 곳이 아니라, 지원 직무별 이력서와 자소서를 빠르게 만들 수 있도록 경험 원본을 축적하는 작업 저장소입니다.
+## 추가 프로젝트
+
+| 분야 | 프로젝트 | 핵심 기여·결과 | 코드 · 상세 |
+|---|---|---|---|
+| HW/SW Co-design | **CNN Accelerator** | PyTorch 양자화 정합, Verilog 합성 친화적 RTL 수정, ModelSim **MNIST 1,000장 RTL 정확도 96%**. OpenROAD 진행했으나 최종 timing closure는 미달 | [RTL](https://github.com/nanocode00/cnn_verilog) · [경험](experiences/cnn-accelerator.md) |
+| Embedded / IoT | **webOS Smart Planter** | Arduino I2C 센서·펌프·LED 제어 펌웨어와 webOS 연동. 2024 임베디드 SW 경진대회 webOS 부문 입선 | [팀 코드](https://github.com/dudgns128/webos-gardening) · [경험](experiences/webos-smart-planter.md) |
+| Data / Backend | **HCI Stock Service** | 초보 투자자를 위한 증권사 리포트 탐색 서비스에서 SQLite/SQLAlchemy DB 및 검색 쿼리 구현 | [팀 코드](https://github.com/nanocode00/hci) · [경험](experiences/hci-stock-service.md) |
+| ML / Time Series | **Crypto Mamba** | 거래 데이터 전처리·Mamba 예측·백테스트. 수수료 적용 시 손실로 전환되는 한계를 검증 | [경험](experiences/crypto-lob-prediction.md) |
+| Maker / PCB | **Paperware** | micro:bit 교육 키트, NeoPixel PCB 설계·제작 및 실제 무드등 적용 | [경험](experiences/paperware.md) |
+| Computer Vision | **영상처리 과제** | Canny·Hough·RANSAC 등 영상처리 기법 구현 및 조건별 비교 | [경험](experiences/computer-vision.md) |
+
+## 실무 경험 및 수상
+
+- **Beamworks 현장실습 (2026.01):** 병원 CRM DealFlow의 Figma 목업을 분석해 ERD·SQL·DTO 설계, Jira 작업 구조화. [상세](experiences/beamworks.md)
+- **2024:** 제22회 임베디드 SW 경진대회 webOS 부문 입선 — Smart Planter
+- **2022:** 전국 장애·비장애 대학생 창업경진대회 대상 — HummingBlocks
+- **2019:** WCRC micro:bit 창작 관련 금상 2회 — Paperware 계열 활동
+
+## 자세히 보기
+
+- **[resume.md](resume.md)** — 역할, 성과, 한계를 포함한 마스터 이력서
+- **[experiences/README.md](experiences/README.md)** — 프로젝트별 경험 문서와 근거·검증 자료
+- **[career-timeline.md](experiences/career-timeline.md)** — 학습·프로젝트·활동 연대기
+
+이 저장소는 **포트폴리오 탐색 입구와 이력서 원본을 함께 제공**합니다. 실험 로그와 상세한 사실 확인 자료는 `experiences/`에 보존하되, 첫 방문자는 이 페이지의 프로젝트 링크만으로 관심 분야를 따라갈 수 있도록 구성했습니다.
