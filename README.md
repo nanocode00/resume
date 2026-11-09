@@ -9,14 +9,14 @@
 
 ## 대표 프로젝트
 
-먼저 프로젝트의 **목적 → 본인 역할 → 실제 결과**를 확인할 수 있도록 요약했습니다. 코드 저장소의 팀 구현과 개인 기여는 구분하여 작성했습니다.
+먼저 프로젝트의 **목적 → 본인 역할 → 실제 결과**를 확인할 수 있도록 요약했습니다. 코드·포트폴리오 저장소의 팀 구현과 개인 기여는 구분하여 작성했습니다. Mallo와 말해봄은 현재 공개 설명 문서를 먼저 제공하며, 공개 가능한 소스는 검수 후 추가합니다.
 
 | 프로젝트 | 무엇을 만들었나 | 개인 역할 및 확인된 결과 | 코드 · 상세 |
 |---|---|---|---|
 | **HummingBlocks**<br>Android · CV · Accessibility | 실물 코딩 블록을 카메라로 인식해 음악을 만드는 시각장애인 대상 코딩교육 앱 | **공동 창업자 / Android 개발.** 카메라→Python/OpenCV→실행→재생 통합, TalkBack·자동촬영 UX, 음악 저장·FFmpeg 처리. **2023년 Google Play 출시**, 이후 유지보수 | [코드](https://github.com/nanocode00/nemo_codeblock) · [경험](experiences/hummingblocks.md) · [Google Play](https://play.google.com/store/apps/details?id=com.nemo.hummingblocks) |
 | **Verilog Single-cycle CPU**<br>Verilog · ModelSim | 기존 Logisim MIPS CPU를 참고해 32비트 단일 사이클 CPU를 RTL로 재구현 | **개인 RTL 구현·테스트벤치 작성.** ALU·RegFile·Memory·제어부 통합. CP0 예외/복귀 경로를 시도했으나 **EPC 저장 문제가 해결되지 않은 상태로 종료** | [코드: modelsim/](https://github.com/nanocode00/MIPS-CPU/tree/main/modelsim) · [경험](experiences/verilog-cpu.md) |
-| **Mallo (말로)**<br>Whisper · Qwen · MeloTTS | 고령 사용자 친화적인 음성 주문 키오스크 | **3인 팀장 / 제품·통합·모델 실험.** 주문 상태 엔진과 모델 서비스 통합, TTS 파인튜닝·비교. TTS production benchmark **p95 0.53초**; 최종 Real E2E **p95 3.338초**로 1.5초 요구사항에는 미달 | [팀 코드](https://github.com/aihuman-7th/proj1-d) · [경험](experiences/mallo.md) · [소개](https://nanocode00.github.io/mallo-intro/) |
-| **말해봄 Mk.2**<br>FastMCP · LLM · Whisper · CI | 음성 답변에서 근거를 확인하고 개선을 지원하는 AI 면접 코칭 서비스 | **3인 팀 / 모델 평가·STT 실험·에이전트 검증·CI.** LLM 22종×30건 합성 평가, Whisper QLoRA 도메인 적응, 저장·검증 경로 테스트 및 품질 게이트 개선. 팀 전체 Agent 구현과 개인 기여를 구분 | [코드 Fork](https://github.com/nanocode00/proj2-3) · [경험](experiences/malhaebom.md) · [서비스 소개](https://malhaebom.xyz/) |
+| **Mallo (말로)**<br>Whisper · Qwen · MeloTTS | 고령 사용자 친화적인 음성 주문 키오스크 | **3인 팀장 / 제품·통합·모델 실험.** 주문 상태 엔진과 모델 서비스 통합, TTS 파인튜닝·비교. TTS production benchmark **p95 0.53초**; 최종 Real E2E **p95 3.338초**로 1.5초 요구사항에는 미달 | [공개 포트폴리오](https://github.com/nanocode00/mallo-portfolio) · [경험](experiences/mallo.md) · [소개](https://nanocode00.github.io/mallo-intro/) |
+| **말해봄 Mk.2**<br>FastMCP · LLM · Whisper · CI | 음성 답변에서 근거를 확인하고 개선을 지원하는 AI 면접 코칭 서비스 | **3인 팀 / 모델 평가·STT 실험·에이전트 검증·CI.** LLM 22종×30건 합성 평가, Whisper QLoRA 도메인 적응, 저장·검증 경로 테스트 및 품질 게이트 개선. 팀 전체 Agent 구현과 개인 기여를 구분 | [공개 포트폴리오](https://github.com/nanocode00/malhaebom-portfolio) · [경험](experiences/malhaebom.md) · [서비스 소개](https://malhaebom.xyz/) |
 
 > **기여·검증 범위:** Fork 저장소에 있는 원작 코드나 팀 전체 구현을 개인 단독 결과로 주장하지 않습니다. 숫자는 해당 문서의 실험 조건과 한계를 함께 확인해 주세요. 상세한 근거는 각 **경험** 링크에 정리했습니다.
 
